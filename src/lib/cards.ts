@@ -1,51 +1,76 @@
+import {
+  BarChart3,
+  Calendar,
+  FileText,
+  FolderOpen,
+  Layers,
+  ListChecks,
+  MessageCircle,
+  TrendingUp,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
 export type Card = {
   slug: string;
   title: string;
   description: string;
-  emoji: string;
+  icon: LucideIcon;
 };
 
 export const CARDS: Card[] = [
   {
+    slug: "daily-kill-list",
+    title: "Daily Kill List",
+    description: "Today's must-do tasks, ranked by priority.",
+    icon: ListChecks,
+  },
+  {
     slug: "metrics-tracking",
     title: "Metrics Tracking",
     description: "Track key performance metrics across the team.",
-    emoji: "📊",
-  },
-  {
-    slug: "accounting",
-    title: "Accounting",
-    description: "Books, invoices, and financial records.",
-    emoji: "💰",
+    icon: BarChart3,
   },
   {
     slug: "sops",
     title: "SOPs",
     description: "Standard operating procedures and playbooks.",
-    emoji: "📘",
+    icon: FolderOpen,
   },
   {
-    slug: "daily-kill-list",
-    title: "Daily Kill List",
-    description: "Today's must-do tasks, ranked by priority.",
-    emoji: "✅",
+    slug: "accounting",
+    title: "Accounting",
+    description: "Books, invoices, and financial records.",
+    icon: FileText,
   },
   {
     slug: "task-backlog",
     title: "Prioritization Task Backlog",
     description: "The full backlog, ready to be triaged.",
-    emoji: "🗂️",
-  },
-  {
-    slug: "sales-team-board",
-    title: "Sales Team Board",
-    description: "Pipeline, deals, and sales team updates.",
-    emoji: "📈",
+    icon: Layers,
   },
   {
     slug: "weekly-content-hub",
     title: "Weekly Content Hub",
     description: "This week's content plan and assets.",
-    emoji: "🗓️",
+    icon: Calendar,
+  },
+  {
+    slug: "sales-team-board",
+    title: "Sales Team Board",
+    description: "Pipeline, deals, and sales team updates.",
+    icon: TrendingUp,
+  },
+  {
+    slug: "private-chat",
+    title: "Private Chat",
+    description: "1:1 and group messaging with the team.",
+    icon: MessageCircle,
+  },
+  {
+    slug: "community",
+    title: "Community",
+    description: "Connect with other students across the hub.",
+    icon: Users,
   },
 ];

@@ -19,6 +19,8 @@ export default async function CardPage({
     notFound();
   }
 
+  const Icon = card.icon;
+
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
@@ -34,7 +36,9 @@ export default async function CardPage({
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-16 text-center">
-        <div className="text-4xl">{card.emoji}</div>
+        <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400">
+          <Icon size={26} strokeWidth={2} />
+        </span>
         <h1 className="mt-4 text-2xl font-semibold">{card.title}</h1>
         <p className="mt-2 text-neutral-500">{card.description}</p>
         <p className="mt-8 inline-block rounded-full border border-neutral-300 dark:border-neutral-700 px-4 py-1.5 text-sm text-neutral-500">
