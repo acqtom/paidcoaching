@@ -20,7 +20,10 @@ export function AuthCard({
       <div className="flex flex-1 items-center justify-center px-4 pb-12">
         <div className="w-full max-w-sm">
           <div className="rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 p-6 shadow-lg shadow-neutral-300/40 dark:shadow-black/50">
-            <h1 className="text-lg font-semibold">{title}</h1>
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+              Student Portal
+            </p>
+            <h1 className="mt-1 text-lg font-semibold">{title}</h1>
             {subtitle && (
               <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
             )}
