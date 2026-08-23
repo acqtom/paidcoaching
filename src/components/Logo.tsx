@@ -12,8 +12,11 @@ export function Logo() {
         className="rounded"
         priority
       />
-      <span className="text-lg font-semibold tracking-tight">
-        Student Portal
+      <span className="flex flex-col leading-tight">
+        <span className="text-lg font-semibold tracking-tight">
+          Student Portal
+        </span>
+        <span className="text-xs text-neutral-500">paidcoaching.com</span>
       </span>
     </Link>
   );
