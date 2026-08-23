@@ -6,7 +6,7 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="Create an account"
-      subtitle="Set up your Student Hub login."
+      subtitle="Set up your Student Portal login."
       footer={
         <>
           Already have an account?{" "}

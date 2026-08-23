@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { Logo } from "@/components/Logo";
 
 export function AuthCard({
   title,
@@ -13,25 +13,25 @@ export function AuthCard({
   footer?: ReactNode;
 }) {
   return (
-    <div className="min-h-full flex flex-1 items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <Link href="/" className="text-xl font-semibold tracking-tight">
-            Student Hub
-          </Link>
-        </div>
-        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm">
-          <h1 className="text-lg font-semibold">{title}</h1>
-          {subtitle && (
-            <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+    <div className="min-h-full flex flex-1 flex-col bg-neutral-50 dark:bg-neutral-950">
+      <div className="px-6 py-4">
+        <Logo />
+      </div>
+      <div className="flex flex-1 items-center justify-center px-4 pb-12">
+        <div className="w-full max-w-sm">
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm">
+            <h1 className="text-lg font-semibold">{title}</h1>
+            {subtitle && (
+              <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+            )}
+            <div className="mt-6">{children}</div>
+          </div>
+          {footer && (
+            <p className="mt-4 text-center text-sm text-neutral-500">
+              {footer}
+            </p>
           )}
-          <div className="mt-6">{children}</div>
         </div>
-        {footer && (
-          <p className="mt-4 text-center text-sm text-neutral-500">
-            {footer}
-          </p>
-        )}
       </div>
     </div>
   );

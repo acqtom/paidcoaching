@@ -24,6 +24,18 @@ export function SignupForm() {
         required
       />
       <FormField
+        label="Username"
+        type="text"
+        name="username"
+        autoComplete="username"
+        minLength={3}
+        maxLength={20}
+        pattern="[a-zA-Z0-9_]{3,20}"
+        title="At least 3 characters: letters, numbers, and underscores only."
+        placeholder="How other students will see you"
+        required
+      />
+      <FormField
         label="Password"
         type="password"
         name="password"

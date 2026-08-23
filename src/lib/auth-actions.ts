@@ -30,14 +30,23 @@ export async function login(
   redirect(redirectTo || "/dashboard");
 }
 
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
+
 export async function signup(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const email = String(formData.get("email") ?? "");
+  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
+  if (!USERNAME_PATTERN.test(username)) {
+    return {
+      error:
+        "Username must be at least 3 characters, letters/numbers/underscores only.",
+    };
+  }
   if (password !== confirmPassword) {
     return { error: "Passwords do not match." };
   }
@@ -46,10 +55,21 @@ export async function signup(
   }
 
   const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("username", username)
+    .maybeSingle();
+  if (existing) {
+    return { error: "That username is already taken." };
+  }
+
   const { error, data } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      data: { username },
       emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
     },
   });

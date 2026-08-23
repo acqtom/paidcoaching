@@ -1,4 +1,4 @@
-# Student Hub
+# Student Portal
 
 A team hub: sign up / log in (with email password reset) then land on a
 dashboard of cards linking out to different tools. Built with Next.js (App
@@ -23,6 +23,11 @@ Router) and Supabase Auth.
    built-in email service by default (rate-limited, fine for testing). For
    production, configure a custom SMTP provider under **Project Settings →
    Auth → SMTP Settings** so emails don't land in spam / hit rate limits.
+6. In the Supabase dashboard's **SQL Editor**, run the migrations in
+   `supabase/migrations/` in order (`0001_profiles.sql`, then
+   `0002_seed_tom_username.sql`). This creates the `profiles` table that
+   stores each user's username and auto-fills it from what they enter at
+   signup.
 
 ## Running locally
 
@@ -38,13 +43,18 @@ in and you'll land on `/dashboard`.
 
 - `src/app/login`, `/signup`, `/forgot-password`, `/reset-password` — auth
   pages, backed by server actions in `src/lib/auth-actions.ts`.
-- `src/middleware.ts` + `src/lib/supabase/middleware.ts` — protects
+- `src/proxy.ts` + `src/lib/supabase/middleware.ts` — protects
   everything except the auth pages; redirects logged-in users away from
   login/signup.
 - `src/app/dashboard` — the card grid (defined in `src/lib/cards.ts`) plus a
   placeholder page per card at `/dashboard/[slug]`. Swap each placeholder
   out for a real page, or point the card's `href` at an external tool, as
   those get built.
+- `supabase/migrations/` — SQL to run in the Supabase SQL Editor. Sets up a
+  `profiles` table (one row per user, holding their public `username`,
+  3–20 chars, letters/numbers/underscores) auto-populated from the username
+  entered at signup, plus row-level security so usernames are readable by
+  everyone but only editable by their owner.
 
 ## Deploying
 

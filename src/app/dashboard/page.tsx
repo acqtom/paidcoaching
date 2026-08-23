@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/auth-actions";
 import { CARDS } from "@/lib/cards";
+import { Logo } from "@/components/Logo";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -9,13 +10,23 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: profile } = user
+    ? await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <span className="text-lg font-semibold tracking-tight">Student Hub</span>
+          <Logo />
           <div className="flex items-center gap-4">
-            <span className="text-sm text-neutral-500">{user?.email}</span>
+            <span className="text-sm text-neutral-500">
+              {profile?.username ? `@${profile.username}` : user?.email}
+            </span>
             <form action={signOut}>
               <button
                 type="submit"
