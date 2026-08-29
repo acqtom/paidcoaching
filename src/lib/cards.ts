@@ -3,9 +3,11 @@ import {
   Calendar,
   FileText,
   FolderOpen,
+  Funnel,
   Layers,
   ListChecks,
   MessageCircle,
+  Rocket,
   TrendingUp,
   Users,
   type LucideIcon,
@@ -16,9 +18,17 @@ export type Card = {
   title: string;
   description: string;
   icon: LucideIcon;
+  accent?: "gold";
 };
 
 export const CARDS: Card[] = [
+  {
+    slug: "start-here",
+    title: "Start Here",
+    description: "New to the portal? Begin with this first.",
+    icon: Rocket,
+    accent: "gold",
+  },
   {
     slug: "daily-kill-list",
     title: "Daily Kill List",
@@ -30,6 +40,12 @@ export const CARDS: Card[] = [
     title: "Metrics Tracking",
     description: "Track key performance metrics across the team.",
     icon: BarChart3,
+  },
+  {
+    slug: "funnel-revenue-projections",
+    title: "Funnel Revenue Projections",
+    description: "Projected revenue across each stage of the funnel.",
+    icon: Funnel,
   },
   {
     slug: "sops",
