@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Play, Video } from "lucide-react";
+import { FileText, Play, Plus, Video } from "lucide-react";
 import type { Sop } from "@/lib/sops";
 
 export function SopDetail({ sop }: { sop: Sop }) {
-  const firstLesson = sop.categories[0]?.lessons[0];
+  const firstLesson = sop.subCategories[0]?.lessons[0];
   const [selected, setSelected] = useState(firstLesson);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
       <aside className="rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-        {sop.categories.map((category) => (
+        {sop.subCategories.map((category) => (
           <div key={category.name} className="mb-4 last:mb-0">
             <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
               {category.name}
@@ -36,9 +36,24 @@ export function SopDetail({ sop }: { sop: Sop }) {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <Plus size={14} className="shrink-0" />
+                Add SOP
+              </button>
             </div>
           </div>
         ))}
+
+        <button
+          type="button"
+          className="mt-2 flex w-full items-center gap-2 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 px-2 py-2 text-left text-sm font-medium text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        >
+          <Plus size={14} className="shrink-0" />
+          Add sub category
+        </button>
       </aside>
 
       <div>

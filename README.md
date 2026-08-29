@@ -55,9 +55,10 @@ in and you'll land on `/dashboard`.
 - `src/app/dashboard` — the card grid; each card (defined in
   `src/lib/cards.ts`, with its `href`) either opens an external tool in a
   new tab or navigates to an internal page (Start Here, SOPs).
-- `src/app/dashboard/sops` — SOP hub: a grid of SOPs (`src/lib/sops.ts`)
-  linking to `/dashboard/sops/[slug]`, which shows a category sidebar, a
-  Loom video placeholder, and content per lesson.
+- `src/app/dashboard/sops` — SOP hub, three levels deep (data in
+  `src/lib/sops.ts`): a department grid (Operations, Marketing, Sales,
+  Fulfilment) → each department's list of SOPs → each SOP's sub-category
+  sidebar with a Loom video placeholder and content per lesson.
 - `supabase/migrations/` — SQL to run in the Supabase SQL Editor. Sets up a
   `profiles` table (one row per user, holding their public `username`,
   3–20 chars, letters/numbers/underscores) auto-populated from the username

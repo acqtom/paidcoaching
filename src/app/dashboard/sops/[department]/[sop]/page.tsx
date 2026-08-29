@@ -1,22 +1,28 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/Logo";
-import { SOPS } from "@/lib/sops";
+import { DEPARTMENTS } from "@/lib/sops";
 import { SopDetail } from "./SopDetail";
 
 export function generateStaticParams() {
-  return SOPS.map((sop) => ({ slug: sop.slug }));
+  return DEPARTMENTS.flatMap((department) =>
+    department.sops.map((sop) => ({
+      department: department.slug,
+      sop: sop.slug,
+    })),
+  );
 }
 
 export default async function SopPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ department: string; sop: string }>;
 }) {
-  const { slug } = await params;
-  const sop = SOPS.find((s) => s.slug === slug);
+  const { department: departmentSlug, sop: sopSlug } = await params;
+  const department = DEPARTMENTS.find((d) => d.slug === departmentSlug);
+  const sop = department?.sops.find((s) => s.slug === sopSlug);
 
-  if (!sop) {
+  if (!department || !sop) {
     notFound();
   }
 
@@ -26,10 +32,10 @@ export default async function SopPage({
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
           <Logo />
           <Link
-            href="/dashboard/sops"
+            href={`/dashboard/sops/${department.slug}`}
             className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
           >
-            ← SOPs
+            ← {department.title}
           </Link>
         </div>
       </header>

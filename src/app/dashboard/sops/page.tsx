@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { SOPS } from "@/lib/sops";
+import { DEPARTMENTS } from "@/lib/sops";
 
 export default function SopsPage() {
   return (
@@ -21,35 +20,30 @@ export default function SopsPage() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         <h1 className="text-xl font-semibold">SOPs</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Standard operating procedures and playbooks.
+          Pick a department to see its playbooks.
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {SOPS.map((sop) => (
-            <Link
-              key={sop.slug}
-              href={`/dashboard/sops/${sop.slug}`}
-              className="group overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-lg shadow-neutral-300/40 dark:shadow-black/50 transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div className={`aspect-video w-full bg-gradient-to-br ${sop.gradient}`} />
-              <div className="p-4">
-                <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">
-                  {sop.title}
-                </h2>
-                <p className="mt-1 text-sm text-neutral-500">{sop.description}</p>
-                <p className="mt-3 text-xs text-neutral-400">{sop.meta}</p>
-              </div>
-            </Link>
-          ))}
-
-          <div className="flex aspect-square items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 text-neutral-400">
-            <div className="flex flex-col items-center gap-2">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-300 dark:border-neutral-700">
-                <Plus size={18} />
-              </span>
-              <span className="text-sm font-medium">Add SOP</span>
-            </div>
-          </div>
+          {DEPARTMENTS.map((department) => {
+            const Icon = department.icon;
+            return (
+              <Link
+                key={department.slug}
+                href={`/dashboard/sops/${department.slug}`}
+                className="group relative flex min-h-[160px] flex-col justify-between overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 p-6 shadow-lg shadow-neutral-300/40 dark:shadow-black/50 transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:from-white hover:to-neutral-100 dark:hover:from-neutral-700 dark:hover:to-neutral-800 hover:shadow-xl hover:shadow-neutral-300/60 dark:hover:shadow-black/70"
+              >
+                <div className="flex items-start justify-between">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                    {department.title}
+                  </h2>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400">
+                    <Icon size={18} strokeWidth={2} />
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-500">{department.description}</p>
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>
