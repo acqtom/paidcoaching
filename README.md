@@ -28,6 +28,12 @@ Router) and Supabase Auth.
    `0002_seed_tom_username.sql`). This creates the `profiles` table that
    stores each user's username and auto-fills it from what they enter at
    signup.
+7. Create a free account at [resend.com](https://resend.com) and grab an
+   API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
+   `.env.local`. Without a verified sending domain, Resend only lets the
+   default `onboarding@resend.dev` sender deliver to the email address you
+   signed up to Resend with; verify a domain there (and set
+   `RESEND_FROM_EMAIL`) to send to anyone else.
 
 ## Running locally
 
@@ -54,6 +60,9 @@ in and you'll land on `/dashboard`.
   3–20 chars, letters/numbers/underscores) auto-populated from the username
   entered at signup, plus row-level security so usernames are readable by
   everyone but only editable by their owner.
+- `src/components/BugReportButton.tsx` + `src/lib/bug-report-actions.ts` —
+  the "Submit a bug" button/modal on the dashboard, which emails
+  tom@educatr.co via Resend.
 
 ## Deploying
 
