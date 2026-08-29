@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { VideoPlaceholder } from "./VideoPlaceholder";
+import { CalendlyPlaceholder } from "./CalendlyPlaceholder";
 import { NewStudentForm } from "./NewStudentForm";
 import { NavigationTable } from "./NavigationTable";
 
@@ -34,6 +35,7 @@ export function StartHereTabs() {
         {tab === "CMO" ? (
           <>
             <VideoPlaceholder label="CMO welcome video" />
+            <CalendlyPlaceholder />
             <div>
               <h2 className="text-lg font-semibold">New student form</h2>
               <p className="mt-1 text-sm text-neutral-500">
@@ -47,6 +49,7 @@ export function StartHereTabs() {
         ) : (
           <>
             <VideoPlaceholder label="CEO welcome video" />
+            <CalendlyPlaceholder />
             <div>
               <h2 className="text-lg font-semibold">Where everything lives</h2>
               <p className="mt-1 text-sm text-neutral-500">

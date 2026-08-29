@@ -43,7 +43,7 @@ export function DashboardCard({ card }: { card: Card }) {
                 : "text-xs font-semibold tracking-wide text-neutral-400 dark:text-neutral-500"
             }
           >
-            {gold ? "START HERE" : card.comingSoon ? "COMING SOON" : "OPEN"}
+            {gold ? "START HERE" : "OPEN"}
           </span>
           <ArrowUpRight
             size={16}

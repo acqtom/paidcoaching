@@ -1,7 +1,6 @@
 import {
   BarChart3,
   Calendar,
-  CalendarClock,
   FileText,
   FolderOpen,
   Funnel,
@@ -20,7 +19,6 @@ export type Card = {
   icon: LucideIcon;
   href: string;
   accent?: "gold";
-  comingSoon?: boolean;
 };
 
 export const CARDS: Card[] = [
@@ -94,13 +92,5 @@ export const CARDS: Card[] = [
     description: "Private chat and community, all in one place.",
     icon: MessagesSquare,
     href: "https://comms.paidcoaching.com",
-  },
-  {
-    slug: "book-a-call",
-    title: "Book a Call",
-    description: "Grab time on the calendar via Calendly.",
-    icon: CalendarClock,
-    href: "/dashboard/book-a-call",
-    comingSoon: true,
   },
 ];
