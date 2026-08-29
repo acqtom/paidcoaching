@@ -27,7 +27,7 @@ export const CARDS: Card[] = [
     title: "Start Here",
     description: "New to the portal? Begin with this first.",
     icon: Rocket,
-    href: "https://onboarding.paidcoaching.com",
+    href: "/dashboard/start-here",
     accent: "gold",
   },
   {
