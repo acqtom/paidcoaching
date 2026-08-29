@@ -129,7 +129,8 @@ export async function resetPassword(
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  await supabase.auth.signOut();
+  redirect("/login?reset=success");
 }
 
 export async function signOut() {

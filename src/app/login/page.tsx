@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { AuthCard } from "@/components/AuthCard";
+import { AuthCard, FormNotice } from "@/components/AuthCard";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirectTo?: string }>;
+  searchParams: Promise<{ redirectTo?: string; reset?: string }>;
 }) {
-  const { redirectTo } = await searchParams;
+  const { redirectTo, reset } = await searchParams;
 
   return (
     <AuthCard
@@ -25,6 +25,11 @@ export default async function LoginPage({
         </>
       }
     >
+      {reset === "success" && (
+        <div className="mb-4">
+          <FormNotice message="Password updated. Log in with your new password." />
+        </div>
+      )}
       <LoginForm redirectTo={redirectTo} />
     </AuthCard>
   );
