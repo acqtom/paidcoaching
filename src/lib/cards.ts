@@ -56,7 +56,7 @@ export const CARDS: Card[] = [
     title: "SOPs",
     description: "Standard operating procedures and playbooks.",
     icon: FolderOpen,
-    href: "https://sop.paidcoaching.com",
+    href: "/dashboard/sops",
   },
   {
     slug: "accounting",
