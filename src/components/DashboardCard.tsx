@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { Card } from "@/lib/cards";
 
@@ -7,8 +6,10 @@ export function DashboardCard({ card }: { card: Card }) {
   const gold = card.accent === "gold";
 
   return (
-    <Link
-      href={`/dashboard/${card.slug}`}
+    <a
+      href={card.href}
+      target="_blank"
+      rel="noopener noreferrer"
       className={
         gold
           ? "group relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-2xl border border-amber-300/60 dark:border-amber-500/30 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-500/15 dark:to-amber-900/30 p-6 shadow-lg shadow-amber-300/50 dark:shadow-black/50 transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:from-amber-50 hover:to-amber-100 dark:hover:from-amber-500/25 dark:hover:to-amber-900/40 hover:shadow-xl hover:shadow-amber-300/70 dark:hover:shadow-black/70"
@@ -40,7 +41,7 @@ export function DashboardCard({ card }: { card: Card }) {
                 : "text-xs font-semibold tracking-wide text-neutral-400 dark:text-neutral-500"
             }
           >
-            {gold ? "START HERE" : "COMING SOON"}
+            {gold ? "START HERE" : "OPEN"}
           </span>
           <ArrowUpRight
             size={16}
@@ -52,6 +53,6 @@ export function DashboardCard({ card }: { card: Card }) {
           />
         </div>
       </div>
-    </Link>
+    </a>
   );
 }

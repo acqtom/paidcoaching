@@ -46,10 +46,9 @@ in and you'll land on `/dashboard`.
 - `src/proxy.ts` + `src/lib/supabase/middleware.ts` — protects
   everything except the auth pages; redirects logged-in users away from
   login/signup.
-- `src/app/dashboard` — the card grid (defined in `src/lib/cards.ts`) plus a
-  placeholder page per card at `/dashboard/[slug]`. Swap each placeholder
-  out for a real page, or point the card's `href` at an external tool, as
-  those get built.
+- `src/app/dashboard` — the card grid; each card (defined in
+  `src/lib/cards.ts`, with its `href`) opens its external tool in a new
+  tab.
 - `supabase/migrations/` — SQL to run in the Supabase SQL Editor. Sets up a
   `profiles` table (one row per user, holding their public `username`,
   3–20 chars, letters/numbers/underscores) auto-populated from the username
