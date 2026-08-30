@@ -81,6 +81,16 @@ in and you'll land on `/dashboard`.
   The repo's OAuth integration backend (Typeform/Calendly/Meta/Whop) was
   *not* ported — it exists in that repo but was never actually wired into
   its frontend, so nothing there was actually live to duplicate.
+- `src/app/dashboard/accounting` — the Accounting Hub, ported natively (real
+  React components, not an iframe) from the `acqtom/accounting` repo:
+  monthly PnL statement, income trend chart, capital allocation chart, and
+  a "Create Invoice" flow with PDF export (`jspdf` + `html2canvas-pro`). Also
+  fully self-contained client-side (state in `localStorage`); loaded via
+  `next/dynamic({ ssr: false })` since that state doesn't exist during
+  server rendering. The original's passcode gate was dropped for the same
+  reason as tracking's. Business logic (payroll/equity rates, bonus tiers,
+  capital allocation caps) ported unchanged — verified end-to-end against
+  the source formulas, including a full invoice save → PDF export.
 
 ## Deploying
 

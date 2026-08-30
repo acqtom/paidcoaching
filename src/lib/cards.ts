@@ -63,7 +63,7 @@ export const CARDS: Card[] = [
     title: "Accounting",
     description: "Books, invoices, and financial records.",
     icon: FileText,
-    href: "https://accounting.paidcoaching.com",
+    href: "/dashboard/accounting",
   },
   {
     slug: "task-backlog",
