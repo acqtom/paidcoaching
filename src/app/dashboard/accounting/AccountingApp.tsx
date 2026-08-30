@@ -19,7 +19,7 @@ export default function AccountingApp() {
 
   const month = getMonth(selectedMonth);
   const monthsWithData = Object.keys(data.months);
-  const netPersonalIncomeNzd = calcTotals(month).netPersonalIncomeNzd;
+  const netProfit = calcTotals(month).netProfit;
 
   const handleSaveInvoice = (invoice: Invoice) => {
     setData((prev) => ({
@@ -74,7 +74,7 @@ export default function AccountingApp() {
               selectedMonth={selectedMonth}
               onSelectMonth={setSelectedMonth}
             />
-            <CapitalAllocationChart netIncomeNzd={netPersonalIncomeNzd} />
+            <CapitalAllocationChart netProfit={netProfit} />
 
             {data.invoices.length > 0 && (
               <div className={`${CARD_CLASS} p-8`}>

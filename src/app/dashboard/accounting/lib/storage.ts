@@ -8,7 +8,8 @@ function uid(): string {
 }
 
 // Finds the most recent saved month chronologically before `key`, so a new
-// month's recurring expenses (software subscriptions etc.) can carry forward.
+// month's recurring costs (Editor, other recurring expenses) can carry
+// forward.
 function findPreviousMonthWithData(months: Record<string, MonthData>, key: string): MonthData | null {
   let best: MonthData | null = null;
   for (const k of Object.keys(months)) {
@@ -20,62 +21,50 @@ function findPreviousMonthWithData(months: Record<string, MonthData>, key: strin
 export function createDefaultMonth(key: string, previousMonth?: MonthData | null): MonthData {
   return {
     key,
-    // fixed (not random) ids: this factory runs independently in both
-    // getMonth and updateMonth's fallback for a month that isn't saved yet,
-    // so random ids would desync between the two and silently drop edits
-    clients: [
-      { id: 'default-alex', name: 'Alex', revenue: 0, revenueShare: 0 },
-      { id: 'default-adriel-hsu', name: 'Adriel Hsu', revenue: 0, revenueShare: 0 },
-    ],
-    otherRevenue: [],
-    expenses: {
-      setterPayrollPercent: 5,
-      closerPayrollPercent: 10,
-      cmoEquityAlexPercent: 10,
-      cmoEquityAdrielPercent: 3,
-      // carry recurring software expenses forward from the previous month
-      // (same ids preserved, not regenerated, for the reason noted above)
-      software: previousMonth ? previousMonth.expenses.software.map((s) => ({ ...s })) : [],
-    },
-    fxRateUsdToNzd: 1.7,
+    revenue: 0,
+    // Editor pay and other recurring expenses carry forward (same ids
+    // preserved, not regenerated) since they tend to repeat month to month;
+    // revenue does not, since that's different every month.
+    editorAmount: previousMonth ? previousMonth.editorAmount : 0,
+    expenses: previousMonth ? previousMonth.expenses.map((e) => ({ ...e })) : [],
   };
 }
 
 // Reconciles a month loaded from localStorage against the current MonthData
-// shape. Older saved months can be missing fields added since they were
-// written (or carry fields since removed) — reading a missing numeric field
-// produces NaN, which silently poisons every downstream calculation and
-// breaks the chart. Filling gaps with current defaults here, once, keeps
-// every other call site free to assume a complete, valid MonthData.
-function normalizeMonth(key: string, raw: Partial<MonthData> | undefined): MonthData {
+// shape. Handles both older saved months missing fields added since they
+// were written, and the pre-simplification shape (per-client revenue,
+// CMO pay/equity, bonuses, a nested expenses.software list) from before
+// the PnL statement was cut down to a single revenue number and a flat
+// expense list.
+function normalizeMonth(key: string, raw: Record<string, unknown> | undefined): MonthData {
   const base = createDefaultMonth(key);
   if (!raw) return base;
-  const rawExpenses = raw.expenses as Partial<MonthData['expenses']> | undefined;
-  return {
-    key,
-    clients:
-      Array.isArray(raw.clients) && raw.clients.length > 0
-        ? raw.clients.map((c) => ({
-            id: c.id ?? uid(),
-            name: c.name ?? '',
-            revenue: c.revenue ?? 0,
-            revenueShare: c.revenueShare ?? 0,
-          }))
-        : base.clients,
-    otherRevenue: Array.isArray(raw.otherRevenue)
-      ? raw.otherRevenue.map((r) => ({ id: r.id ?? uid(), name: r.name ?? '', amount: r.amount ?? 0 }))
-      : [],
-    expenses: {
-      setterPayrollPercent: rawExpenses?.setterPayrollPercent ?? base.expenses.setterPayrollPercent,
-      closerPayrollPercent: rawExpenses?.closerPayrollPercent ?? base.expenses.closerPayrollPercent,
-      cmoEquityAlexPercent: rawExpenses?.cmoEquityAlexPercent ?? base.expenses.cmoEquityAlexPercent,
-      cmoEquityAdrielPercent: rawExpenses?.cmoEquityAdrielPercent ?? base.expenses.cmoEquityAdrielPercent,
-      software: Array.isArray(rawExpenses?.software)
-        ? rawExpenses.software.map((s) => ({ id: s.id ?? uid(), name: s.name ?? '', amount: s.amount ?? 0 }))
-        : [],
-    },
-    fxRateUsdToNzd: raw.fxRateUsdToNzd ?? base.fxRateUsdToNzd,
-  };
+
+  let revenue = typeof raw.revenue === 'number' ? raw.revenue : 0;
+  if (!revenue && Array.isArray(raw.clients)) {
+    // Pre-simplification shape: revenue was split across named clients.
+    revenue = (raw.clients as Array<{ revenue?: number }>).reduce((sum, c) => sum + (c.revenue || 0), 0);
+  }
+
+  const editorAmount = typeof raw.editorAmount === 'number' ? raw.editorAmount : 0;
+
+  let expenses: MonthData['expenses'] = [];
+  if (Array.isArray(raw.expenses)) {
+    expenses = (raw.expenses as Array<{ id?: string; name?: string; amount?: number }>).map((e) => ({
+      id: e.id ?? uid(),
+      name: e.name ?? '',
+      amount: e.amount ?? 0,
+    }));
+  } else if (raw.expenses && typeof raw.expenses === 'object' && Array.isArray((raw.expenses as { software?: unknown }).software)) {
+    // Pre-simplification shape: expenses was an object with a software list.
+    expenses = ((raw.expenses as { software: Array<{ id?: string; name?: string; amount?: number }> }).software).map((e) => ({
+      id: e.id ?? uid(),
+      name: e.name ?? '',
+      amount: e.amount ?? 0,
+    }));
+  }
+
+  return { key, revenue, editorAmount, expenses };
 }
 
 function loadData(): AppData {
@@ -84,7 +73,7 @@ function loadData(): AppData {
     if (raw) {
       const parsed = { months: {}, invoices: [], nextInvoiceNumber: 1, savedClients: [], ...JSON.parse(raw) };
       const months: Record<string, MonthData> = {};
-      for (const [key, month] of Object.entries(parsed.months as Record<string, Partial<MonthData>>)) {
+      for (const [key, month] of Object.entries(parsed.months as Record<string, Record<string, unknown>>)) {
         months[key] = normalizeMonth(key, month);
       }
       return { ...parsed, months };

@@ -4,25 +4,11 @@ export interface LineItem {
   amount: number;
 }
 
-export interface ClientRevenue {
-  id: string;
-  name: string;
-  revenue: number;
-  revenueShare: number;
-}
-
 export interface MonthData {
   key: string; // "2026-07"
-  clients: ClientRevenue[];
-  otherRevenue: LineItem[];
-  expenses: {
-    setterPayrollPercent: number;
-    closerPayrollPercent: number;
-    cmoEquityAlexPercent: number;
-    cmoEquityAdrielPercent: number;
-    software: LineItem[];
-  };
-  fxRateUsdToNzd: number;
+  revenue: number;
+  editorAmount: number;
+  expenses: LineItem[];
 }
 
 export interface InvoiceLineItem {

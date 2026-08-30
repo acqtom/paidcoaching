@@ -5,7 +5,7 @@ import { CARD_CLASS } from '../lib/ui';
 import { IconBadge, LiveDot, PieChartIcon } from './icons';
 
 interface Props {
-  netIncomeNzd: number;
+  netProfit: number;
 }
 
 const SIZE = 260;
@@ -23,15 +23,15 @@ const SLOT_COLORS = {
   magenta: '#e87ba4',
 };
 
-export default function CapitalAllocationChart({ netIncomeNzd }: Props) {
+export default function CapitalAllocationChart({ netProfit }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const alloc = calcCapitalAllocation(netIncomeNzd);
+  const alloc = calcCapitalAllocation(netProfit);
 
   const slices = useMemo(
     () => [
-      { key: 'software', label: 'Software', sublabel: '$500 NZD max', value: alloc.software, color: SLOT_COLORS.blue },
-      { key: 'rent', label: 'Rent', sublabel: '$3,000 NZD', value: alloc.rent, color: SLOT_COLORS.orange },
-      { key: 'food', label: 'Food', sublabel: '$1,500 NZD', value: alloc.food, color: SLOT_COLORS.aqua },
+      { key: 'software', label: 'Software', sublabel: '$500 max', value: alloc.software, color: SLOT_COLORS.blue },
+      { key: 'rent', label: 'Rent', sublabel: '$3,000', value: alloc.rent, color: SLOT_COLORS.orange },
+      { key: 'food', label: 'Food', sublabel: '$1,500', value: alloc.food, color: SLOT_COLORS.aqua },
       { key: 'businessBank', label: 'Business bank', sublabel: '70% of remainder', value: alloc.businessBank, color: SLOT_COLORS.yellow },
       { key: 'checking', label: 'Checking', sublabel: '', value: alloc.checking, color: SLOT_COLORS.magenta },
     ],
@@ -58,7 +58,7 @@ export default function CapitalAllocationChart({ netIncomeNzd }: Props) {
           <PieChartIcon className="w-5 h-5" />
         </IconBadge>
       </div>
-      <p className="text-sm text-gray-500 mb-2">Where this month&apos;s net income (NZD) should go</p>
+      <p className="text-sm text-gray-500 mb-2">Where this month&apos;s net profit should go</p>
       <LiveDot className="mb-6" />
 
       {total <= 0 ? (

@@ -88,9 +88,18 @@ in and you'll land on `/dashboard`.
   fully self-contained client-side (state in `localStorage`); loaded via
   `next/dynamic({ ssr: false })` since that state doesn't exist during
   server rendering. The original's passcode gate was dropped for the same
-  reason as tracking's. Business logic (payroll/equity rates, bonus tiers,
-  capital allocation caps) ported unchanged — verified end-to-end against
-  the source formulas, including a full invoice save → PDF export.
+  reason as tracking's.
+
+  The PnL statement was later simplified from the original's per-client
+  revenue/equity/bonus model down to: one Revenue number; expenses as
+  Editor (manual) + Setter (fixed 5% of revenue) + Closer (fixed 10% of
+  revenue) + any number of free-form name/amount expenses; Net Profit =
+  Revenue − Total Expenses. NZD was dropped entirely (USD only). Capital
+  allocation caps ($500/$3,000/$1,500) ported unchanged, just re-labeled off
+  the removed NZD terms. `lib/storage.ts` migrates months saved under the
+  old per-client shape into the new one on load. Re-verified end-to-end
+  after the simplification (revenue → expenses → net profit → capital
+  allocation all checked by hand against the new formulas).
 
 ## Deploying
 

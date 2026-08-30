@@ -40,7 +40,7 @@ export default function IncomeTrendChart({ getMonth, monthsWithData, selectedMon
   }, [monthsWithData]);
 
   const points = useMemo(
-    () => months.map((key) => ({ key, value: calcTotals(getMonth(key)).netPersonalIncomeNzd })),
+    () => months.map((key) => ({ key, value: calcTotals(getMonth(key)).netProfit })),
     [months, getMonth],
   );
 
@@ -77,7 +77,7 @@ export default function IncomeTrendChart({ getMonth, monthsWithData, selectedMon
       <div className="flex items-start justify-between mb-1">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Income Trend</h2>
-          <p className="text-sm text-gray-500">Net Personal Income (NZD), month over month</p>
+          <p className="text-sm text-gray-500">Net Profit (USD), month over month</p>
         </div>
         <IconBadge>
           <ChartLineIcon className="w-5 h-5" />
@@ -92,7 +92,7 @@ export default function IncomeTrendChart({ getMonth, monthsWithData, selectedMon
           </div>
         )}
       </div>
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" role="img" aria-label="Net personal income by month (NZD)">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" role="img" aria-label="Net profit by month (USD)">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yScale(t)} y2={yScale(t)} stroke="#e1e0d9" strokeWidth={1} />

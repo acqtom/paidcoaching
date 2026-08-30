@@ -1,87 +1,27 @@
-import type { ClientRevenue, Invoice, MonthData } from './types';
+import type { Invoice, MonthData } from './types';
 
-const BONUS_TIER_REVENUE = 40000;
-const BONUS_PER_TIER = 1000;
-const CMO_BASE_PAY_USD = 3000;
-const ALEX_CLIENT_SHARE_RATE = 0.5;
-const ADRIEL_CLIENT_SHARE_RATE = 0.65;
-
-function findAlexClient(clients: ClientRevenue[]): ClientRevenue | undefined {
-  return clients.find((c) => c.id === 'default-alex') ?? clients.find((c) => c.name.trim().toLowerCase() === 'alex');
-}
-
-function findAdrielClient(clients: ClientRevenue[]): ClientRevenue | undefined {
-  return (
-    clients.find((c) => c.id === 'default-adriel-hsu') ??
-    clients.find((c) => c.name.trim().toLowerCase().includes('adriel'))
-  );
-}
+const SETTER_RATE = 0.05;
+const CLOSER_RATE = 0.1;
 
 export function calcTotals(month: MonthData) {
-  const totalPortfolioRevenue = month.clients.reduce((sum, c) => sum + (c.revenue || 0), 0);
-  const totalOtherRevenue = month.otherRevenue.reduce((sum, r) => sum + (r.amount || 0), 0);
-
-  const alexClient = findAlexClient(month.clients);
-  const adrielClient = findAdrielClient(month.clients);
-
-  // Alex and Adriel's client revenue share is a fixed rate of their own
-  // revenue, not manually entered; other clients keep the manual field.
-  const clientShares: Record<string, number> = {};
-  const clientShareRates: Record<string, number> = {};
-  const totalClientRevenueShare = month.clients.reduce((sum, c) => {
-    let share: number;
-    if (c === alexClient) {
-      share = c.revenue * ALEX_CLIENT_SHARE_RATE;
-      clientShareRates[c.id] = ALEX_CLIENT_SHARE_RATE;
-    } else if (c === adrielClient) {
-      share = c.revenue * ADRIEL_CLIENT_SHARE_RATE;
-      clientShareRates[c.id] = ADRIEL_CLIENT_SHARE_RATE;
-    } else {
-      share = c.revenueShare || 0;
-    }
-    clientShares[c.id] = share;
-    return sum + share;
-  }, 0);
-
-  const grossPortfolioRevenue = totalPortfolioRevenue + totalOtherRevenue - totalClientRevenueShare;
-
-  const setterPayroll = totalPortfolioRevenue * (month.expenses.setterPayrollPercent / 100);
-  const closerPayroll = totalPortfolioRevenue * (month.expenses.closerPayrollPercent / 100);
-  const cmoBasePay = CMO_BASE_PAY_USD;
-  const cmoEquityAlex = (alexClient?.revenue ?? 0) * (month.expenses.cmoEquityAlexPercent / 100);
-  const cmoEquityAdriel = (adrielClient?.revenue ?? 0) * (month.expenses.cmoEquityAdrielPercent / 100);
-  const softwareTotal = month.expenses.software.reduce((sum, s) => sum + (s.amount || 0), 0);
-  const bonuses = Math.floor(Math.max(0, totalPortfolioRevenue) / BONUS_TIER_REVENUE) * BONUS_PER_TIER;
-
-  const totalExpenses =
-    setterPayroll + closerPayroll + cmoBasePay + cmoEquityAlex + cmoEquityAdriel + bonuses + softwareTotal;
-
-  const netPersonalIncomeUsd = grossPortfolioRevenue - totalExpenses;
-  const netPersonalIncomeNzd = netPersonalIncomeUsd * month.fxRateUsdToNzd;
+  const setterExpense = month.revenue * SETTER_RATE;
+  const closerExpense = month.revenue * CLOSER_RATE;
+  const otherExpensesTotal = month.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalExpenses = month.editorAmount + setterExpense + closerExpense + otherExpensesTotal;
+  const netProfit = month.revenue - totalExpenses;
 
   return {
-    totalPortfolioRevenue,
-    totalOtherRevenue,
-    clientShares,
-    clientShareRates,
-    totalClientRevenueShare,
-    grossPortfolioRevenue,
-    setterPayroll,
-    closerPayroll,
-    cmoBasePay,
-    cmoEquityAlex,
-    cmoEquityAdriel,
-    softwareTotal,
-    bonuses,
+    setterExpense,
+    closerExpense,
+    otherExpensesTotal,
     totalExpenses,
-    netPersonalIncomeUsd,
-    netPersonalIncomeNzd,
+    netProfit,
   };
 }
 
-const SOFTWARE_CAP_NZD = 500;
-const RENT_NZD = 3000;
-const FOOD_NZD = 1500;
+const SOFTWARE_CAP = 500;
+const RENT = 3000;
+const FOOD = 1500;
 const BUSINESS_BANK_SPLIT = 0.7;
 
 export interface CapitalAllocation {
@@ -93,15 +33,15 @@ export interface CapitalAllocation {
   checking: number;
 }
 
-export function calcCapitalAllocation(netIncomeNzd: number): CapitalAllocation {
-  const total = Math.max(0, netIncomeNzd);
+export function calcCapitalAllocation(netProfit: number): CapitalAllocation {
+  const total = Math.max(0, netProfit);
   let remaining = total;
 
-  const software = Math.min(SOFTWARE_CAP_NZD, remaining);
+  const software = Math.min(SOFTWARE_CAP, remaining);
   remaining -= software;
-  const rent = Math.min(RENT_NZD, remaining);
+  const rent = Math.min(RENT, remaining);
   remaining -= rent;
-  const food = Math.min(FOOD_NZD, remaining);
+  const food = Math.min(FOOD, remaining);
   remaining -= food;
 
   const businessBank = remaining * BUSINESS_BANK_SPLIT;

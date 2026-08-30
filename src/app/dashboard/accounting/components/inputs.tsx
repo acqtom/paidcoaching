@@ -36,23 +36,6 @@ export function ComputedCurrency({ value, bold, underline }: { value: string; bo
   );
 }
 
-export function PercentInline({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <span className="inline-flex items-center gap-0.5 text-gray-500">
-      (
-      <input
-        type="number"
-        step="0.1"
-        value={value}
-        onChange={(e) => onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-        onFocus={(e) => e.target.select()}
-        className="w-10 bg-transparent text-gray-500 outline-none focus:bg-indigo-50 rounded text-center"
-      />
-      %)
-    </span>
-  );
-}
-
 export function TextInput({ value, onChange, className = '' }: { value: string; onChange: (v: string) => void; className?: string }) {
   return (
     <input
