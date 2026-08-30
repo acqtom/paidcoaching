@@ -40,15 +40,6 @@ export function PieChartIcon(props: IconProps) {
   );
 }
 
-export function ReceiptIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
-      <path d="M9 8h6M9 12h6" />
-    </Svg>
-  );
-}
-
 export function LiveDot({ className = '' }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-indigo-600 uppercase ${className}`}>

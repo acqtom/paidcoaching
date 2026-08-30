@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AppData, MonthData } from './types';
+import type { AppData, CapitalAllocationCategory, MonthData } from './types';
 
 const STORAGE_KEY = 'accounting-hub-data-v1';
 
@@ -7,9 +7,17 @@ function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+const DEFAULT_CAPITAL_CATEGORIES: CapitalAllocationCategory[] = [
+  { id: 'default-software', name: 'Software', percent: 5 },
+  { id: 'default-rent', name: 'Rent', percent: 20 },
+  { id: 'default-food', name: 'Food', percent: 10 },
+  { id: 'default-business-bank', name: 'Business bank', percent: 45 },
+  { id: 'default-checking', name: 'Checking', percent: 20 },
+];
+
 // Finds the most recent saved month chronologically before `key`, so a new
-// month's recurring costs (Editor, other recurring expenses) can carry
-// forward.
+// month's recurring costs (Editor, Ad Spend, other recurring expenses) can
+// carry forward.
 function findPreviousMonthWithData(months: Record<string, MonthData>, key: string): MonthData | null {
   let best: MonthData | null = null;
   for (const k of Object.keys(months)) {
@@ -22,10 +30,10 @@ export function createDefaultMonth(key: string, previousMonth?: MonthData | null
   return {
     key,
     revenue: 0,
-    // Editor pay and other recurring expenses carry forward (same ids
-    // preserved, not regenerated) since they tend to repeat month to month;
+    // Recurring costs carry forward (same ids preserved, not regenerated);
     // revenue does not, since that's different every month.
     editorAmount: previousMonth ? previousMonth.editorAmount : 0,
+    adSpendAmount: previousMonth ? previousMonth.adSpendAmount : 0,
     expenses: previousMonth ? previousMonth.expenses.map((e) => ({ ...e })) : [],
   };
 }
@@ -47,6 +55,7 @@ function normalizeMonth(key: string, raw: Record<string, unknown> | undefined): 
   }
 
   const editorAmount = typeof raw.editorAmount === 'number' ? raw.editorAmount : 0;
+  const adSpendAmount = typeof raw.adSpendAmount === 'number' ? raw.adSpendAmount : 0;
 
   let expenses: MonthData['expenses'] = [];
   if (Array.isArray(raw.expenses)) {
@@ -64,24 +73,33 @@ function normalizeMonth(key: string, raw: Record<string, unknown> | undefined): 
     }));
   }
 
-  return { key, revenue, editorAmount, expenses };
+  return { key, revenue, editorAmount, adSpendAmount, expenses };
+}
+
+function normalizeCapitalCategories(raw: unknown): CapitalAllocationCategory[] {
+  if (!Array.isArray(raw) || raw.length === 0) return DEFAULT_CAPITAL_CATEGORIES.map((c) => ({ ...c }));
+  return (raw as Array<{ id?: string; name?: string; percent?: number }>).map((c) => ({
+    id: c.id ?? uid(),
+    name: c.name ?? '',
+    percent: c.percent ?? 0,
+  }));
 }
 
 function loadData(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = { months: {}, invoices: [], nextInvoiceNumber: 1, savedClients: [], ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
       const months: Record<string, MonthData> = {};
-      for (const [key, month] of Object.entries(parsed.months as Record<string, Record<string, unknown>>)) {
+      for (const [key, month] of Object.entries((parsed.months ?? {}) as Record<string, Record<string, unknown>>)) {
         months[key] = normalizeMonth(key, month);
       }
-      return { ...parsed, months };
+      return { months, capitalCategories: normalizeCapitalCategories(parsed.capitalCategories) };
     }
   } catch {
     // ignore corrupt storage
   }
-  return { months: {}, invoices: [], nextInvoiceNumber: 1, savedClients: [] };
+  return { months: {}, capitalCategories: DEFAULT_CAPITAL_CATEGORIES.map((c) => ({ ...c })) };
 }
 
 export function useAppData() {

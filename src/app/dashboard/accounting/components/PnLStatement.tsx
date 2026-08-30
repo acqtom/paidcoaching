@@ -86,6 +86,16 @@ export default function PnLStatement({ month, onChange }: Props) {
             <td className="py-2 w-40" />
           </tr>
           <tr className="border-b border-gray-100">
+            <td className="py-2 text-sm text-gray-800">Ad Spend</td>
+            <td className="py-2 w-40">
+              <CurrencyInput
+                value={month.adSpendAmount}
+                onChange={(v) => onChange((m) => ({ ...m, adSpendAmount: v }))}
+              />
+            </td>
+            <td className="py-2 w-40" />
+          </tr>
+          <tr className="border-b border-gray-100">
             <td className="py-2 text-sm text-gray-800">Setter (5% of revenue)</td>
             <td className="py-2 w-40">
               <ComputedCurrency value={formatCurrency(t.setterExpense)} />

@@ -82,24 +82,32 @@ in and you'll land on `/dashboard`.
   *not* ported — it exists in that repo but was never actually wired into
   its frontend, so nothing there was actually live to duplicate.
 - `src/app/dashboard/accounting` — the Accounting Hub, ported natively (real
-  React components, not an iframe) from the `acqtom/accounting` repo:
-  monthly PnL statement, income trend chart, capital allocation chart, and
-  a "Create Invoice" flow with PDF export (`jspdf` + `html2canvas-pro`). Also
-  fully self-contained client-side (state in `localStorage`); loaded via
+  React components, not an iframe) from the `acqtom/accounting` repo. Fully
+  self-contained client-side (state in `localStorage`); loaded via
   `next/dynamic({ ssr: false })` since that state doesn't exist during
   server rendering. The original's passcode gate was dropped for the same
   reason as tracking's.
 
-  The PnL statement was later simplified from the original's per-client
+  The PnL statement was simplified from the original's per-client
   revenue/equity/bonus model down to: one Revenue number; expenses as
-  Editor (manual) + Setter (fixed 5% of revenue) + Closer (fixed 10% of
-  revenue) + any number of free-form name/amount expenses; Net Profit =
-  Revenue − Total Expenses. NZD was dropped entirely (USD only). Capital
-  allocation caps ($500/$3,000/$1,500) ported unchanged, just re-labeled off
-  the removed NZD terms. `lib/storage.ts` migrates months saved under the
-  old per-client shape into the new one on load. Re-verified end-to-end
-  after the simplification (revenue → expenses → net profit → capital
-  allocation all checked by hand against the new formulas).
+  Editor (manual), Ad Spend (manual), Setter (fixed 5% of revenue), and
+  Closer (fixed 10% of revenue), plus any number of free-form name/amount
+  expenses; Net Profit = Revenue − Total Expenses. NZD was dropped
+  entirely (USD only). `lib/storage.ts` migrates months saved under the
+  old per-client shape into the new one on load.
+
+  Capital Allocation is no longer fixed dollar caps — it's a
+  fully-editable list of categories (`AppData.capitalCategories`, global
+  across months, not per-month), each with a name and a % of that month's
+  net profit; add, rename, re-percentage, or remove categories freely, with
+  a live "N% allocated" indicator. The invoicing feature (button, modal,
+  PDF export via `jspdf`/`html2canvas-pro`, Recent Invoices) was removed
+  entirely along with those two now-unused dependencies.
+
+  Re-verified end-to-end after each change (Puppeteer, values checked by
+  hand): revenue → expenses (including Ad Spend) → net profit → editing,
+  adding, and removing capital allocation categories, with dollar amounts
+  and the allocated-% indicator all matching the formulas exactly.
 
 ## Deploying
 

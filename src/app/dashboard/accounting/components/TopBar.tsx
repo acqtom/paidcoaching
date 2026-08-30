@@ -5,11 +5,10 @@ interface Props {
   selectedMonth: string;
   onSelectMonth: (key: string) => void;
   monthsWithData: string[];
-  onCreateInvoice: () => void;
   onAddMonth: () => void;
 }
 
-export default function TopBar({ selectedMonth, onSelectMonth, monthsWithData, onCreateInvoice, onAddMonth }: Props) {
+export default function TopBar({ selectedMonth, onSelectMonth, monthsWithData, onAddMonth }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   const months = useMemo(() => {
@@ -34,12 +33,6 @@ export default function TopBar({ selectedMonth, onSelectMonth, monthsWithData, o
             className="inline-flex items-center gap-1.5 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             <span className="text-base leading-none">+</span> New Month
-          </button>
-          <button
-            onClick={onCreateInvoice}
-            className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition-colors"
-          >
-            <span className="text-base leading-none">+</span> Create Invoice
           </button>
         </div>
       </div>

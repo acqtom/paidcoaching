@@ -8,48 +8,17 @@ export interface MonthData {
   key: string; // "2026-07"
   revenue: number;
   editorAmount: number;
+  adSpendAmount: number;
   expenses: LineItem[];
 }
 
-export interface InvoiceLineItem {
-  id: string;
-  description: string;
-  qty: number;
-  rate: number;
-}
-
-export interface Invoice {
-  id: string;
-  number: string;
-  date: string;
-  dueDate: string;
-  fromName: string;
-  fromAddress: string;
-  fromEmail: string;
-  toName: string;
-  toAddress: string;
-  toEmail: string;
-  items: InvoiceLineItem[];
-  grossRevenueShareLabel: string;
-  grossRevenueShareAmount: number;
-  createdAt: string;
-}
-
-export interface SavedClient {
+export interface CapitalAllocationCategory {
   id: string;
   name: string;
-  fromName: string;
-  fromAddress: string;
-  fromEmail: string;
-  toName: string;
-  toAddress: string;
-  toEmail: string;
-  items: InvoiceLineItem[];
+  percent: number;
 }
 
 export interface AppData {
   months: Record<string, MonthData>;
-  invoices: Invoice[];
-  nextInvoiceNumber: number;
-  savedClients: SavedClient[];
+  capitalCategories: CapitalAllocationCategory[];
 }

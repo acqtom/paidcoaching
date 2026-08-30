@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react';
-import { calcCapitalAllocation } from '../lib/calculations';
-import { formatCurrency } from '../lib/calculations';
+import { useState } from 'react';
+import { calcCapitalAllocations, formatCurrency } from '../lib/calculations';
+import { uid } from '../lib/storage';
 import { CARD_CLASS } from '../lib/ui';
+import { TextInput } from './inputs';
 import { IconBadge, LiveDot, PieChartIcon } from './icons';
+import type { CapitalAllocationCategory } from '../lib/types';
 
 interface Props {
   netProfit: number;
+  categories: CapitalAllocationCategory[];
+  onChange: (updater: (categories: CapitalAllocationCategory[]) => CapitalAllocationCategory[]) => void;
 }
 
 const SIZE = 260;
@@ -13,42 +17,40 @@ const CENTER = SIZE / 2;
 const RADIUS = 90;
 const STROKE = 36;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const GAP = 0;
 
-const SLOT_COLORS = {
-  blue: '#2a78d6',
-  orange: '#eb6834',
-  aqua: '#1baf7a',
-  yellow: '#eda100',
-  magenta: '#e87ba4',
-};
+const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#8b5cf6', '#0891b2', '#dc2626'];
 
-export default function CapitalAllocationChart({ netProfit }: Props) {
+export default function CapitalAllocationChart({ netProfit, categories, onChange }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const alloc = calcCapitalAllocation(netProfit);
 
-  const slices = useMemo(
-    () => [
-      { key: 'software', label: 'Software', sublabel: '$500 max', value: alloc.software, color: SLOT_COLORS.blue },
-      { key: 'rent', label: 'Rent', sublabel: '$3,000', value: alloc.rent, color: SLOT_COLORS.orange },
-      { key: 'food', label: 'Food', sublabel: '$1,500', value: alloc.food, color: SLOT_COLORS.aqua },
-      { key: 'businessBank', label: 'Business bank', sublabel: '70% of remainder', value: alloc.businessBank, color: SLOT_COLORS.yellow },
-      { key: 'checking', label: 'Checking', sublabel: '', value: alloc.checking, color: SLOT_COLORS.magenta },
-    ],
-    [alloc],
-  );
+  const slices = calcCapitalAllocations(netProfit, categories).map((s, i) => ({
+    ...s,
+    color: PALETTE[i % PALETTE.length],
+  }));
 
-  const total = alloc.total;
-  let cumulative = 0;
-  const arcs = slices.map((s) => {
-    const fraction = total > 0 ? s.value / total : 0;
-    const arcLen = Math.max(0, fraction * CIRCUMFERENCE - GAP);
-    const offset = -cumulative * CIRCUMFERENCE;
-    cumulative += fraction;
-    return { ...s, arcLen, offset, fraction };
+  const addCategory = () =>
+    onChange((cats) => [...cats, { id: uid(), name: 'New category', percent: 0 }]);
+
+  const removeCategory = (id: string) => onChange((cats) => cats.filter((c) => c.id !== id));
+
+  const updateCategory = (id: string, patch: Partial<CapitalAllocationCategory>) =>
+    onChange((cats) => cats.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+
+  // Each arc's starting offset is the sum of every prior slice's fraction of
+  // the circle -- computed per-slice from `slices` rather than via a mutable
+  // running total, since categories is always small enough that this stays
+  // cheap either way.
+  const arcs = slices.map((s, i) => {
+    const priorFractions = slices.slice(0, i).reduce((sum, p) => sum + p.percent / 100, 0);
+    const fraction = s.percent / 100;
+    const arcLen = Math.max(0, fraction * CIRCUMFERENCE);
+    const offset = -priorFractions * CIRCUMFERENCE;
+    return { ...s, arcLen, offset };
   });
 
-  const hoveredSlice = slices.find((s) => s.key === hovered);
+  const percentTotal = categories.reduce((sum, c) => sum + (c.percent || 0), 0);
+  const hoveredSlice = slices.find((s) => s.id === hovered);
+  const total = Math.max(0, netProfit);
 
   return (
     <div className={`${CARD_CLASS} p-10`}>
@@ -59,21 +61,26 @@ export default function CapitalAllocationChart({ netProfit }: Props) {
         </IconBadge>
       </div>
       <p className="text-sm text-gray-500 mb-2">Where this month&apos;s net profit should go</p>
-      <LiveDot className="mb-6" />
+      <div className="flex items-center justify-between mb-6">
+        <LiveDot />
+        <span className={`text-xs font-medium ${percentTotal === 100 ? 'text-gray-400' : 'text-amber-600'}`}>
+          {percentTotal}% allocated
+        </span>
+      </div>
 
       {total <= 0 ? (
-        <div className="flex items-center justify-center h-64 text-sm text-gray-400">
+        <div className="flex items-center justify-center h-40 text-sm text-gray-400">
           Add revenue to this month to see an allocation.
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row items-center gap-6">
+        <div className="flex flex-col lg:flex-row items-center gap-6 mb-6">
           <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
             <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Capital allocation breakdown">
               <circle cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="#e1e0d9" strokeWidth={STROKE} />
               <g transform={`rotate(-90 ${CENTER} ${CENTER})`}>
                 {arcs.map((a) => (
                   <circle
-                    key={a.key}
+                    key={a.id}
                     cx={CENTER}
                     cy={CENTER}
                     r={RADIUS}
@@ -82,54 +89,66 @@ export default function CapitalAllocationChart({ netProfit }: Props) {
                     strokeWidth={STROKE}
                     strokeDasharray={`${a.arcLen} ${CIRCUMFERENCE - a.arcLen}`}
                     strokeDashoffset={a.offset}
-                    opacity={hovered && hovered !== a.key ? 0.35 : 1}
+                    opacity={hovered && hovered !== a.id ? 0.35 : 1}
                     style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
-                    onMouseEnter={() => setHovered(a.key)}
+                    onMouseEnter={() => setHovered(a.id)}
                     onMouseLeave={() => setHovered(null)}
                   />
                 ))}
               </g>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-6 text-center">
-              <div className="text-xs text-gray-500">{hoveredSlice ? hoveredSlice.label : 'Total'}</div>
+              <div className="text-xs text-gray-500">{hoveredSlice ? hoveredSlice.name : 'Net Profit'}</div>
               <div className="text-lg font-bold text-gray-900">
-                {formatCurrency(hoveredSlice ? hoveredSlice.value : total)}
+                {formatCurrency(hoveredSlice ? hoveredSlice.amount : total)}
               </div>
             </div>
           </div>
-
-          <div className="flex-1 min-w-0 w-full space-y-3.5">
-            {slices.map((s) => (
-              <div
-                key={s.key}
-                className="flex items-center justify-between gap-4 rounded-lg px-3 py-2.5 -mx-3 transition-colors"
-                style={{ backgroundColor: hovered === s.key ? '#f9f9f7' : 'transparent' }}
-                onMouseEnter={() => setHovered(s.key)}
-                onMouseLeave={() => setHovered(null)}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                  <div className="min-w-0">
-                    <div className="text-lg text-gray-800 truncate">{s.label}</div>
-                    <div className="text-sm text-gray-400 truncate">{s.sublabel}</div>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-lg font-semibold text-gray-900 whitespace-nowrap">{formatCurrency(s.value)}</div>
-                  <div className="text-sm text-gray-400">
-                    {/* Business bank is always exactly 70% of what's left after
-                        Software/Rent/Food by definition, so its badge is fixed
-                        rather than diluted by how much of the total those ate
-                        into. Checking just gets whatever's left, so its badge
-                        floats naturally against the month's total income. */}
-                    {s.key === 'businessBank' ? '70%' : total > 0 ? `${((s.value / total) * 100).toFixed(0)}%` : '0%'}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
+
+      <div className="space-y-1">
+        {slices.map((s) => (
+          <div
+            key={s.id}
+            className="group flex items-center gap-3 rounded-lg px-3 py-2 -mx-3 transition-colors"
+            style={{ backgroundColor: hovered === s.id ? '#f9f9f7' : 'transparent' }}
+            onMouseEnter={() => setHovered(s.id)}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+            <TextInput
+              value={s.name}
+              onChange={(v) => updateCategory(s.id, { name: v })}
+              className="flex-1 min-w-0 text-sm text-gray-800"
+            />
+            <div className="flex items-center gap-1 shrink-0 w-16">
+              <input
+                type="number"
+                step="1"
+                value={s.percent}
+                onChange={(e) => updateCategory(s.id, { percent: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                onFocus={(e) => e.target.select()}
+                className="w-10 bg-transparent text-sm text-gray-600 text-right outline-none focus:bg-indigo-50 rounded px-1 py-0.5"
+              />
+              <span className="text-sm text-gray-400">%</span>
+            </div>
+            <div className="text-sm font-semibold text-gray-900 text-right shrink-0 w-24">
+              {formatCurrency(s.amount)}
+            </div>
+            <button
+              onClick={() => removeCategory(s.id)}
+              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity text-xs shrink-0"
+              aria-label="Remove category"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+      <button onClick={addCategory} className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+        + Add category
+      </button>
     </div>
   );
 }
