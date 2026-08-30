@@ -184,9 +184,11 @@ in and you'll land on `/dashboard`.
   spreadsheet colors, which didn't match — narrow single-column and
   spreadsheet-colored on the first pass, corrected after explicit
   feedback), Content Calendar (`ContentCalendarTab.tsx`) — a 7-day ×
-  N-column weekly-rhythm grid, each cell a free-text textarea, seeded
-  with 4 starting columns (New Content / Creator Film / Post
-  Production/Editing / Goes Live) matching the actual recurring weekly
+  N-column weekly-rhythm grid, each cell a free-text textarea (no
+  placeholder dash on empty cells — removed at the user's request), seeded
+  with 5 starting columns matching the Kanban board's own stage names
+  (Idea/Scripting/Filming/Editing/Published — shared label text only, not
+  a live link back to Kanban) carrying the actual recurring weekly
   schedule already in use (`defaultContentCalendar()` in `types.ts`)
   rather than starting blank. Columns are user-defined, not fixed:
   `CalendarColumnDef { id, label }` in a `columns` array (state also
@@ -291,8 +293,14 @@ in and you'll land on `/dashboard`.
   order, added a 5th column and confirmed the grid reflowed to 5 equal
   data columns without breaking the fixed day/add-button columns,
   renamed it inline, typed into one of its cells, and deleted a column
-  and confirmed the grid correctly dropped back to 4 — all matched
-  expectations with zero console errors.
+  and confirmed the grid correctly dropped back to 4. After the default
+  columns were changed to match Kanban's stage names and the placeholder
+  dash was removed: confirmed the 5 default columns read exactly
+  Idea/Scripting/Filming/Editing/Published in order, confirmed no
+  textarea has a placeholder attribute anymore, confirmed all 17 seeded
+  cells landed under the correct remapped column (e.g. "Sent" now under
+  Idea instead of the old "New Content"), and confirmed renaming still
+  works post-remap — all matched expectations with zero console errors.
 
 ## Deploying
 

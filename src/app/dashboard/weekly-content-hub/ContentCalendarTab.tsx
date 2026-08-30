@@ -105,8 +105,7 @@ export default function ContentCalendarTab({ calendar, onChange }: Props) {
                     value={calendar.cells[day]?.[col.id] ?? ""}
                     onChange={(e) => updateCell(day, col.id, e.target.value)}
                     rows={2}
-                    placeholder="—"
-                    className="w-full text-sm text-gray-700 outline-none resize-none bg-transparent p-1.5 rounded-lg hover:bg-gray-50 focus:bg-gray-50 placeholder:text-gray-300"
+                    className="w-full text-sm text-gray-700 outline-none resize-none bg-transparent p-1.5 rounded-lg hover:bg-gray-50 focus:bg-gray-50"
                   />
                 </div>
               ))}
