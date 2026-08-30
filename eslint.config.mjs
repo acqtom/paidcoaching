@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored static browser assets (ported apps served as-is from
+    // public/, e.g. task-backlog-app) -- not our own TS/React source.
+    "public/**/*.js",
   ]),
 ]);
 

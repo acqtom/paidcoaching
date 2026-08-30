@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/tracking-app",
   "/daily-kill-list-app",
+  "/task-backlog-app",
 ];
 
 export async function updateSession(request: NextRequest) {

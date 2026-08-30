@@ -70,7 +70,7 @@ export const CARDS: Card[] = [
     title: "Prioritization Task Backlog",
     description: "The full backlog, ready to be triaged.",
     icon: Layers,
-    href: "https://backlog.paidcoaching.com",
+    href: "/dashboard/task-backlog",
   },
   {
     slug: "weekly-content-hub",

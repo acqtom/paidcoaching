@@ -27,7 +27,8 @@ Router) and Supabase Auth.
    `supabase/migrations/` in order. `0001_profiles.sql` + `0002_...` set up
    the `profiles` table (username, auto-filled at signup).
    `0003_daily_kill_list_state.sql` sets up the shared state table behind
-   the Daily Kill List's cross-device sync.
+   the Daily Kill List's cross-device sync. `0004_task_backlog_state.sql`
+   does the same for the Prioritization Task Backlog.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -137,6 +138,35 @@ in and you'll land on `/dashboard`.
   hand-calculated expectations, zero console errors. The Supabase-backed
   sync itself needs the migration run (see Setup) before it'll do anything
   beyond each browser's own `localStorage`.
+- `public/task-backlog-app/index.html` + `src/app/dashboard/task-backlog` —
+  the Prioritization Task Backlog, ported from `acqtom/backlog`. Unlike
+  tracking/daily-kill-list this one was already plain static HTML/CSS/JS
+  (no JSX-embedded-vanilla-JS reconstruction needed), so the source files
+  carried over almost verbatim; embedded via iframe as usual for CSS/JS
+  isolation.
+
+  This app has no local-storage fallback at all — every add/complete/star
+  mutation does a GET-latest → mutate → POST round-trip against its
+  backend, originally Upstash Redis via `/api/tasks`. Swapped for a
+  `task_backlog_state` table (`supabase/migrations/0004_...sql`), same
+  shared-JSON-blob/RLS pattern as Daily Kill List, behind
+  `/api/task-backlog/state` (`src/app/api/task-backlog/state/route.ts`),
+  which matches the original's unwrapped GET/POST-the-board contract
+  exactly. The password gate and Lock button were removed (same reasoning
+  as the other ports). All task logic — priority/level/repeat-day
+  handling, per-assignee (Tom/Derek) backlog views, client stats, yearly
+  goals — is unchanged from the original.
+
+  Verified via Puppeteer with a mocked backend (a real authenticated
+  session isn't available in a headless test run, so `fetch` was
+  intercepted with an in-memory store matching the real route's exact
+  contract): added tasks with different assignees and confirmed they
+  routed to the right per-assignee backlog card, toggled the top-priority
+  star and confirmed it re-sorted above non-priority tasks, checked off a
+  task and confirmed it moved to Completed with the progress bar/counts
+  updating correctly, and added a yearly goal — all matched expectations
+  with zero console errors. The Supabase-backed sync needs the migration
+  run (see Setup) for real cross-device persistence.
 
 ## Deploying
 

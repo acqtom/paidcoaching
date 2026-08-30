@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Task Backlog</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- MAIN APP -->
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-mark">E</div>
+        <span class="brand-name">educatr.co</span>
+      </div>
+      <div class="header-meta">
+        <span class="eyebrow">Internal &middot; Multi-Client</span>
+        <h1 class="page-title">Prioritization Task Backlog</h1>
+        <div class="header-actions">
+          <span class="sync-status" id="syncStatus"></span>
+          <span>&middot;</span>
+          <span class="today-date" id="todayDate"></span>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+     <div class="left-col">
+      <section class="progress-card">
+        <div class="icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="20" x2="4" y2="14"></line>
+            <line x1="12" y1="20" x2="12" y2="9"></line>
+            <line x1="20" y1="20" x2="20" y2="4"></line>
+          </svg>
+        </div>
+        <div class="progress-top">
+          <div class="progress-percent" id="progressPercent">0%</div>
+          <div class="progress-info">
+            <div class="progress-headline" id="progressHeadline">Nothing done yet.</div>
+            <div class="progress-count" id="progressCount">0 of 0 done</div>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </section>
+
+      <div class="client-stats" id="clientStats"></div>
+
+      <div class="filter-tabs" id="filterTabs"></div>
+
+      <section class="card add-task-card">
+        <form id="addTaskForm" class="add-task-form">
+          <input type="text" id="taskInput" placeholder="Add a task..." required />
+          <select id="labelSelect"></select>
+          <select id="levelSelect">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="assigneeSelect">
+            <option value="T">T</option>
+            <option value="D">D</option>
+            <option value="-">-</option>
+          </select>
+          <button type="button" id="priorityToggle" class="star-toggle-btn" title="Mark as top priority">&#9734;</button>
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+        <div id="repeatDaysRow" class="repeat-days-row">
+          <span class="repeat-icon" title="Repeat on...">&#128257;</span>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="0" />Sun</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="1" />Mon</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="2" />Tue</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="3" />Wed</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="4" />Thu</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="5" />Fri</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="6" />Sat</label>
+        </div>
+      </section>
+
+      <section class="card tasks-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Backlog</h2>
+            <span class="card-count" id="openCount">0 open</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 12 12 17 22 12"></polyline>
+              <polyline points="2 17 12 22 22 17"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div id="taskList" class="task-list"></div>
+        <p id="emptyState" class="empty-state">No tasks yet. Add one above to get started.</p>
+      </section>
+
+      <div class="assignee-row">
+        <section class="card assignee-card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Tom Backlog</h2>
+              <span class="card-count" id="tomOpenCount">0 open</span>
+            </div>
+          </div>
+          <div id="tomTaskList" class="task-list"></div>
+          <p id="tomEmptyState" class="empty-state">No tasks for Tom.</p>
+        </section>
+
+        <section class="card assignee-card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Derek Backlog</h2>
+              <span class="card-count" id="derekOpenCount">0 open</span>
+            </div>
+          </div>
+          <div id="derekTaskList" class="task-list"></div>
+          <p id="derekEmptyState" class="empty-state">No tasks for Derek.</p>
+        </section>
+      </div>
+
+      <section class="card completed-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Tasks completed</h2>
+            <span class="card-count" id="completedCount">0 done</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <polyline points="8 12 11 15 16 9"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div id="completedList" class="task-list completed-list"></div>
+        <p id="emptyCompleted" class="empty-state">Nothing completed yet.</p>
+      </section>
+     </div>
+
+     <aside class="right-col">
+      <section class="card yearly-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Yearly Goals</h2>
+            <span class="card-count" id="yearlyProgressCount">0 of 0 done</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <circle cx="12" cy="12" r="5"></circle>
+              <circle cx="12" cy="12" r="1"></circle>
+            </svg>
+          </div>
+        </div>
+        <div class="progress-track yearly-track">
+          <div class="progress-fill" id="yearlyProgressFill"></div>
+        </div>
+        <form id="yearlyForm" class="yearly-form">
+          <input type="text" id="yearlyInput" placeholder="Add a yearly goal..." required />
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+        <div id="yearlyList" class="task-list yearly-list"></div>
+        <p id="yearlyEmpty" class="empty-state">No yearly goals yet.</p>
+      </section>
+     </aside>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
