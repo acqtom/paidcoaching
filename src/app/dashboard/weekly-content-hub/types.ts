@@ -33,7 +33,8 @@ export type ContentTemplateType =
   | "titleThumb"
   | "instagramScript"
   | "instagramStories"
-  | "adScript";
+  | "adScript"
+  | "adOverview";
 
 export type ContentDoc = {
   id: string;
@@ -168,9 +169,8 @@ export function defaultDriveHubSections(): DriveHubSection[] {
   ];
 }
 
-// Which structured card layout (if any) each seeded document title gets
-// instead of the plain body editor -- "Ads: Overview" is deliberately
-// left out (no template requested for it yet, stays plain text).
+// Which structured card layout each seeded document title gets instead of
+// the plain body editor.
 const TEMPLATE_BY_TITLE: Record<string, ContentTemplateType> = {
   "Youtube #1: Overview": "videoOverview",
   "Youtube #1: Script": "videoScript",
@@ -180,6 +180,7 @@ const TEMPLATE_BY_TITLE: Record<string, ContentTemplateType> = {
   "Youtube #2: Title / Thumb": "titleThumb",
   "Instagram: Scripts": "instagramScript",
   "Instagram: Stories": "instagramStories",
+  "Ads: Overview": "adOverview",
   "Ads: Scripts": "adScript",
 };
 

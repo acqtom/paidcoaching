@@ -33,7 +33,7 @@ function FieldRow({
   return (
     <div className={`flex border-b border-gray-100 last:border-b-0 text-sm ${highlight ? "bg-emerald-50/50" : ""}`}>
       <div
-        className={`shrink-0 px-3 py-2.5 font-medium text-gray-600 ${narrow ? "w-16 bg-blue-50" : "w-1/3"}`}
+        className={`shrink-0 px-3 py-2.5 font-medium text-gray-600 bg-gray-50/60 ${narrow ? "w-16 !bg-blue-50" : "w-1/3"}`}
       >
         {label}
       </div>
@@ -42,13 +42,15 @@ function FieldRow({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={2}
-          className="flex-1 min-w-0 px-3 py-2.5 outline-none resize-none bg-transparent text-gray-800"
+          placeholder="Type here…"
+          className="flex-1 min-w-0 px-3 py-2.5 outline-none resize-none bg-white text-gray-800 placeholder:text-gray-300 focus:bg-gray-50/80"
         />
       ) : (
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 min-w-0 px-3 py-2.5 outline-none bg-transparent text-gray-800"
+          placeholder="Type here…"
+          className="flex-1 min-w-0 px-3 py-2.5 outline-none bg-white text-gray-800 placeholder:text-gray-300 focus:bg-gray-50/80"
         />
       )}
     </div>
@@ -85,7 +87,8 @@ function NoteCard({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={2}
-        className="w-full px-4 py-2.5 text-sm outline-none resize-none bg-white text-gray-800"
+        placeholder="Type here…"
+        className="w-full px-4 py-2.5 text-sm outline-none resize-none bg-white text-gray-800 placeholder:text-gray-300 focus:bg-gray-50/50"
       />
     </div>
   );
@@ -100,22 +103,12 @@ function SectionHeading({ title, blurb }: { title: string; blurb?: string }) {
   );
 }
 
-// ---------- Video Overview (Youtube #1/#2: Overview) ----------
+// ---------- Notes for Production / Filming (shared by Video Overview and Ad Overview) ----------
 
-function VideoOverviewTemplate({ data, onChange }: { data: Data; onChange: (d: Data) => void }) {
+function ProductionNotes({ data, onChange }: { data: Data; onChange: (d: Data) => void }) {
   const set = useSetter(data, onChange);
   return (
     <div>
-      <FieldTable>
-        <FieldRow label="Video Concept:" value={data.concept ?? ""} onChange={(v) => set("concept", v)} />
-        <FieldRow label="Target Audience:" value={data.audience ?? ""} onChange={(v) => set("audience", v)} />
-        <FieldRow label="Core Value:" value={data.coreValue ?? ""} onChange={(v) => set("coreValue", v)} />
-        <FieldRow label="Why this?" value={data.whyThis ?? ""} onChange={(v) => set("whyThis", v)} />
-        <FieldRow label="Record Date:" value={data.recordDate ?? ""} onChange={(v) => set("recordDate", v)} />
-        <FieldRow label="Editing Dates:" value={data.editingDates ?? ""} onChange={(v) => set("editingDates", v)} />
-        <FieldRow label="Post Date:" value={data.postDate ?? ""} onChange={(v) => set("postDate", v)} />
-      </FieldTable>
-
       <SectionHeading
         title="Notes for Production / Filming"
         blurb="Read each box before filming. Tick the ones that apply to THIS specific video. Not every box applies to every idea, skip what's irrelevant, but address what does."
@@ -177,6 +170,63 @@ function VideoOverviewTemplate({ data, onChange }: { data: Data; onChange: (d: D
         onChange={(v) => set("otherNotes", v)}
         accent="amber"
       />
+    </div>
+  );
+}
+
+// ---------- Video Overview (Youtube #1/#2: Overview) ----------
+
+function VideoOverviewTemplate({ data, onChange }: { data: Data; onChange: (d: Data) => void }) {
+  const set = useSetter(data, onChange);
+  return (
+    <div>
+      <FieldTable>
+        <FieldRow label="Video Concept:" value={data.concept ?? ""} onChange={(v) => set("concept", v)} />
+        <FieldRow label="Target Audience:" value={data.audience ?? ""} onChange={(v) => set("audience", v)} />
+        <FieldRow label="Core Value:" value={data.coreValue ?? ""} onChange={(v) => set("coreValue", v)} />
+        <FieldRow label="Why this?" value={data.whyThis ?? ""} onChange={(v) => set("whyThis", v)} />
+        <FieldRow label="Record Date:" value={data.recordDate ?? ""} onChange={(v) => set("recordDate", v)} />
+        <FieldRow label="Editing Dates:" value={data.editingDates ?? ""} onChange={(v) => set("editingDates", v)} />
+        <FieldRow label="Post Date:" value={data.postDate ?? ""} onChange={(v) => set("postDate", v)} />
+      </FieldTable>
+
+      <ProductionNotes data={data} onChange={onChange} />
+    </div>
+  );
+}
+
+// ---------- Ad Overview (Ads: Overview) ----------
+
+function AdOverviewTemplate({ data, onChange }: { data: Data; onChange: (d: Data) => void }) {
+  const set = useSetter(data, onChange);
+  return (
+    <div>
+      <FieldTable>
+        <FieldRow
+          label="Campaign Concept:"
+          value={data.campaignConcept ?? ""}
+          onChange={(v) => set("campaignConcept", v)}
+        />
+        <FieldRow
+          label="Target Audience:"
+          value={data.targetAudience ?? ""}
+          onChange={(v) => set("targetAudience", v)}
+        />
+        <FieldRow
+          label="Core reason why this will perform:"
+          value={data.coreReason ?? ""}
+          onChange={(v) => set("coreReason", v)}
+        />
+        <FieldRow label="Record Date:" value={data.recordDate ?? ""} onChange={(v) => set("recordDate", v)} />
+        <FieldRow
+          label="Editing Dates:"
+          value={data.editingDates ?? ""}
+          onChange={(v) => set("editingDates", v)}
+        />
+        <FieldRow label="Post Date:" value={data.postDate ?? ""} onChange={(v) => set("postDate", v)} />
+      </FieldTable>
+
+      <ProductionNotes data={data} onChange={onChange} />
     </div>
   );
 }
@@ -299,7 +349,8 @@ function TitleThumbTemplate({ data, onChange }: { data: Data; onChange: (d: Data
             value={data[`combo${n}Why`] ?? ""}
             onChange={(e) => set(`combo${n}Why`, e.target.value)}
             rows={2}
-            className="w-full text-sm p-3 outline-none resize-none bg-transparent text-gray-800"
+            placeholder="Type here…"
+            className="w-full text-sm p-3 outline-none resize-none bg-white text-gray-800 placeholder:text-gray-300 focus:bg-gray-50/50"
           />
         </div>
       ))}
@@ -347,7 +398,8 @@ function ScriptSequenceTemplate({
             value={data[`s${n}Visual`] ?? ""}
             onChange={(e) => set(`s${n}Visual`, e.target.value)}
             rows={2}
-            className="w-full text-sm p-3 outline-none resize-none bg-transparent text-gray-800"
+            placeholder="Type here…"
+            className="w-full text-sm p-3 outline-none resize-none bg-white text-gray-800 placeholder:text-gray-300 focus:bg-gray-50/50"
           />
           <div className="px-4 py-2 bg-amber-50/60 text-sm font-semibold text-gray-700 border-t border-gray-100">
             Script:
@@ -356,7 +408,8 @@ function ScriptSequenceTemplate({
             value={data[`s${n}Script`] ?? ""}
             onChange={(e) => set(`s${n}Script`, e.target.value)}
             rows={3}
-            className="w-full text-sm p-3 outline-none resize-none bg-transparent text-gray-800"
+            placeholder="Type here…"
+            className="w-full text-sm p-3 outline-none resize-none bg-white text-gray-800 placeholder:text-gray-300 focus:bg-gray-50/50"
           />
         </div>
       ))}
@@ -453,6 +506,8 @@ export default function ContentTemplateRenderer({ doc, onChange }: Props) {
   switch (type) {
     case "videoOverview":
       return <VideoOverviewTemplate data={data} onChange={onChange} />;
+    case "adOverview":
+      return <AdOverviewTemplate data={data} onChange={onChange} />;
     case "videoScript":
       return <VideoScriptTemplate data={data} onChange={onChange} />;
     case "titleThumb":
