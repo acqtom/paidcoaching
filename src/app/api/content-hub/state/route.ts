@@ -15,6 +15,7 @@ const DEFAULT_STATE = {
   kanban: [] as unknown[],
   documents: [] as unknown[],
   teamMembers: [] as unknown[],
+  contentCalendar: { cells: {} } as { cells: Record<string, unknown> },
   updatedAt: 0,
 };
 
@@ -81,6 +82,10 @@ export async function POST(request: Request) {
     kanban: Array.isArray(body.kanban) ? body.kanban : [],
     documents: Array.isArray(body.documents) ? body.documents : [],
     teamMembers: Array.isArray(body.teamMembers) ? body.teamMembers : [],
+    contentCalendar:
+      body.contentCalendar && typeof body.contentCalendar.cells === "object"
+        ? body.contentCalendar
+        : DEFAULT_STATE.contentCalendar,
     updatedAt: Date.now(),
   };
 

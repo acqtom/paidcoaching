@@ -4,13 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import { ContentHubState, defaultContentHubState } from "./types";
 import KanbanBoard from "./KanbanBoard";
 import ContentDocs from "./ContentDocs";
+import ContentCalendarTab from "./ContentCalendarTab";
 import TeamTab from "./TeamTab";
 
 const POLL_INTERVAL_MS = 5000;
 const SAVE_DEBOUNCE_MS = 600;
 
-type Tab = "kanban" | "content" | "team";
+type Tab = "kanban" | "content" | "calendar" | "team";
 type Props = { mode: "owner" } | { mode: "code"; code: string };
+
+// A brand-new row's contentCalendar is { cells: {} } (no day keys at all)
+// -- distinct from a calendar the user has actually seeded/edited, which
+// always has all 7 day keys present. Used to decide when to swap in the
+// real starting template instead of showing a blank grid.
+function hasCalendarData(calendar: unknown): calendar is { cells: Record<string, unknown> } {
+  return (
+    !!calendar &&
+    typeof calendar === "object" &&
+    "cells" in calendar &&
+    !!calendar.cells &&
+    typeof calendar.cells === "object" &&
+    Object.keys(calendar.cells).length > 0
+  );
+}
 
 export default function ContentHubApp(props: Props) {
   const apiUrl =
@@ -49,6 +65,9 @@ export default function ContentHubApp(props: Props) {
               ? data.documents
               : defaultContentHubState().documents,
           teamMembers: Array.isArray(data.teamMembers) ? data.teamMembers : [],
+          contentCalendar: hasCalendarData(data.contentCalendar)
+            ? data.contentCalendar
+            : defaultContentHubState().contentCalendar,
           accessCode: data.accessCode || "",
           updatedAt: data.updatedAt || 0,
         });
@@ -88,6 +107,9 @@ export default function ContentHubApp(props: Props) {
                 ? data.documents
                 : stateRef.current.documents,
             teamMembers: Array.isArray(data.teamMembers) ? data.teamMembers : [],
+            contentCalendar: hasCalendarData(data.contentCalendar)
+              ? data.contentCalendar
+              : stateRef.current.contentCalendar,
             accessCode: data.accessCode || stateRef.current.accessCode,
             updatedAt: data.updatedAt,
           });
@@ -118,6 +140,7 @@ export default function ContentHubApp(props: Props) {
           kanban: saved.kanban,
           documents: saved.documents,
           teamMembers: saved.teamMembers,
+          contentCalendar: saved.contentCalendar || prev?.contentCalendar || defaultContentHubState().contentCalendar,
           accessCode: saved.accessCode || prev?.accessCode || "",
           updatedAt: saved.updatedAt,
         }));
@@ -162,6 +185,14 @@ export default function ContentHubApp(props: Props) {
             Content
           </button>
           <button
+            onClick={() => setTab("calendar")}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              tab === "calendar" ? "bg-gray-900 text-white" : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Content Calendar
+          </button>
+          <button
             onClick={() => setTab("team")}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
               tab === "team" ? "bg-gray-900 text-white" : "text-gray-600 hover:text-gray-900"
@@ -184,6 +215,12 @@ export default function ContentHubApp(props: Props) {
         <ContentDocs
           documents={state.documents}
           onChange={(documents) => scheduleSave({ ...state, documents })}
+        />
+      )}
+      {tab === "calendar" && (
+        <ContentCalendarTab
+          calendar={state.contentCalendar}
+          onChange={(contentCalendar) => scheduleSave({ ...state, contentCalendar })}
         />
       )}
       {tab === "team" && (

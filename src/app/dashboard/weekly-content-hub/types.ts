@@ -63,10 +63,28 @@ export type TeamMember = {
   createdAt: number;
 };
 
+export type CalendarColumn = "newContent" | "creatorFilm" | "postProduction" | "goesLive";
+
+export const CALENDAR_COLUMNS: { id: CalendarColumn; label: string }[] = [
+  { id: "newContent", label: "New Content" },
+  { id: "creatorFilm", label: "Creator Film" },
+  { id: "postProduction", label: "Post Production / Editing" },
+  { id: "goesLive", label: "Goes Live" },
+];
+
+export const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+// One weekly rhythm, not a specific week's dated schedule -- cells[day][column]
+// is free text, re-used every week rather than reset.
+export type ContentCalendarState = {
+  cells: Record<string, Record<CalendarColumn, string>>;
+};
+
 export type ContentHubState = {
   kanban: KanbanCard[];
   documents: ContentDoc[];
   teamMembers: TeamMember[];
+  contentCalendar: ContentCalendarState;
   accessCode: string;
   updatedAt: number;
 };
@@ -141,7 +159,6 @@ export function defaultDriveHubSections(): DriveHubSection[] {
 // a blank list.
 export function defaultDocuments(): ContentDoc[] {
   const titles = [
-    "-----Directory-----",
     "Youtube #1: Overview",
     "Youtube #1: Script",
     "Youtube #1: Title / Thumb",
@@ -168,8 +185,57 @@ export function defaultDocuments(): ContentDoc[] {
   }));
 }
 
+// Seeded with the actual recurring weekly rhythm already in use, same as
+// the Content tab's default documents and the Drive Hub folder names --
+// a real starting point rather than blank cells.
+export function defaultContentCalendar(): ContentCalendarState {
+  const emptyRow = (): Record<CalendarColumn, string> => ({
+    newContent: "",
+    creatorFilm: "",
+    postProduction: "",
+    goesLive: "",
+  });
+  const cells: Record<string, Record<CalendarColumn, string>> = {};
+  DAYS_OF_WEEK.forEach((day) => {
+    cells[day] = emptyRow();
+  });
+
+  cells.Monday = { ...cells.Monday, postProduction: "Edit YT #2", goesLive: "Reel #1" };
+  cells.Tuesday = { ...cells.Tuesday, postProduction: "Edit YT #2", goesLive: "Youtube #1" };
+  cells.Wednesday = { ...cells.Wednesday, postProduction: "Edit YT #2", goesLive: "Reel #2" };
+  cells.Thursday = {
+    ...cells.Thursday,
+    newContent: "Sent",
+    creatorFilm: "Bulk record x4 reels",
+    postProduction: "Edit YT #2",
+    goesLive: "Reel #3 + ads",
+  };
+  cells.Friday = {
+    ...cells.Friday,
+    creatorFilm: "Bulk record x5 ads",
+    postProduction: "Edit YT #1",
+    goesLive: "Youtube #2",
+  };
+  cells.Saturday = {
+    ...cells.Saturday,
+    creatorFilm: "Youtube #1\nYoutube #2",
+    postProduction: "Edit YT #1",
+    goesLive: "Reel #4",
+  };
+  cells.Sunday = { ...cells.Sunday, postProduction: "Edit YT #1" };
+
+  return { cells };
+}
+
 export function defaultContentHubState(): ContentHubState {
-  return { kanban: [], documents: defaultDocuments(), teamMembers: [], accessCode: "", updatedAt: 0 };
+  return {
+    kanban: [],
+    documents: defaultDocuments(),
+    teamMembers: [],
+    contentCalendar: defaultContentCalendar(),
+    accessCode: "",
+    updatedAt: 0,
+  };
 }
 
 export { makeId };

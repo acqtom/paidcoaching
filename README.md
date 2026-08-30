@@ -160,7 +160,7 @@ in and you'll land on `/dashboard`.
   cross-device persistence.
 - `src/app/dashboard/weekly-content-hub` — the Weekly Content Hub, built
   natively (not a port) as real React/Tailwind components, since there was
-  no existing app to preserve behavior from. Three tabs: a Kanban board
+  no existing app to preserve behavior from. Four tabs: a Kanban board
   (Idea → Scripting → Filming → Editing → Published columns, native HTML5
   drag-and-drop between them, no library; each card also carries a
   High/Medium/Low priority, chosen when adding it and editable anytime
@@ -168,22 +168,32 @@ in and you'll land on `/dashboard`.
   an optional due date set the same way — a hidden native date input
   behind a clickable pill, blue while upcoming and turning red once
   past-due), Content (a left sidebar of documents — seeded on first visit
-  with the existing YouTube/Instagram/Ads planning template — each opening
-  a plain title + free-text body editor on the right, except the one
-  seeded "Drive hub" document, which instead gets a fixed-id (`DRIVE_HUB_DOC_ID`
-  in `types.ts`, not the random id every other document has, so it survives
+  with the existing YouTube/Instagram/Ads planning template, minus the
+  "Directory" entry and the four "<X>: Asset Hub" entries, both dropped
+  at the user's request after the first pass — each opening a plain title
+  + free-text body editor on the right, except the one seeded "Drive hub"
+  document, which instead gets a fixed-id (`DRIVE_HUB_DOC_ID` in
+  `types.ts`, not the random id every other document has, so it survives
   reloads) `driveHub` field rendering `DriveHubTable.tsx`: four cards
   (Youtube video #1/#2, Instagram Reels, Meta Ads) in a responsive
   two-column grid that fills the available width, each row an editable
   folder-name field with a 📁 icon — no real Drive links wired up yet,
   just the structure and editable names, per explicit direction that the
   rest comes later. Styled with the same neutral white/gray card language
-  as the rest of the app (not the source planning sheet's blue/tan
-  spreadsheet colors, which didn't match) — narrow single-column and
+  as the rest of the app, not the source planning sheet's blue/tan
+  spreadsheet colors, which didn't match — narrow single-column and
   spreadsheet-colored on the first pass, corrected after explicit
-  feedback), and
-  Team (`TeamTab.tsx`) — a small name + stage table; each saved member
-  shows as a "Responsible: <name>" label under that stage's Kanban column
+  feedback), Content Calendar (`ContentCalendarTab.tsx`) — a 7-day ×
+  4-column weekly-rhythm grid (New Content / Creator Film / Post
+  Production/Editing / Goes Live), each cell a free-text textarea, seeded
+  with the actual recurring weekly schedule already in use
+  (`defaultContentCalendar()` in `types.ts`) rather than starting blank.
+  Deliberately restyled away from the source spreadsheet screenshot's
+  literal blue/tan/pink/green cell-fill colors into the app's own card
+  language — small colored dots on the column headers instead, per
+  explicit "make it way better than this" direction — and Team
+  (`TeamTab.tsx`) — a small name + stage table; each saved member shows
+  as a "Responsible: <name>" label under that stage's Kanban column
   header (one general owner per column, not a per-card assignee —
   multiple members on the same stage are comma-joined).
 
@@ -254,8 +264,18 @@ in and you'll land on `/dashboard`.
   the four "Asset Hub" entries (one per Youtube/Instagram/Ads section)
   were dropped from the default template at the user's request: confirmed
   the sidebar seeds exactly the remaining 15 items in the same order,
-  divider rows included — all matched expectations with zero console
-  errors.
+  divider rows included. After the Content Calendar tab was added and
+  "Directory" was dropped from the template too: caught and fixed a real
+  bug before shipping — the initial "does this need seeding" check used
+  `data.contentCalendar.cells` truthiness, which is true even for a
+  brand-new row's genuinely empty `{}`, so a first-time user would never
+  have seen the real starting template at all; fixed by checking for at
+  least one actual day key instead (`hasCalendarData()`). Confirmed the
+  tab order is Kanban Board → Content → Content Calendar → Team, confirmed
+  all 17 non-empty seeded cells match the real weekly rhythm exactly,
+  edited a cell and confirmed it holds, and confirmed the Content tab's
+  sidebar no longer has a "Directory" entry — all matched expectations
+  with zero console errors.
 
 ## Deploying
 
