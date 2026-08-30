@@ -17,11 +17,15 @@ const DEFAULT_BOARD = {
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from("task_backlog_state")
     .select("data")
     .eq("id", 1)
     .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json(row?.data ?? DEFAULT_BOARD);
 }

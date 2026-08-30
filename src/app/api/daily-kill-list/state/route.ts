@@ -8,11 +8,15 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const supabase = await createClient();
-  const { data: row } = await supabase
+  const { data: row, error } = await supabase
     .from("daily_kill_list_state")
     .select("data")
     .eq("id", 1)
     .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ data: null, error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ data: row?.data ?? null });
 }
