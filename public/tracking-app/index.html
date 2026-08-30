@@ -739,6 +739,10 @@ function loadStored(){
     if(raw){
       const p=JSON.parse(raw);
       if(p.CLIENTS&&p.CLIENTS.length){CLIENTS=p.CLIENTS.map(migrateClient);currentClientId=p.currentClientId||CLIENTS[0].id;}
+      // One-time migration: browsers that saved data under the old
+      // hardcoded "EDUCATR" default (before clients were renamed to the
+      // person's own @username) get renamed automatically here.
+      if(CLIENTS.length===1&&CLIENTS[0].name==='EDUCATR'){CLIENTS[0].name='@'+studentUsername();queueSave();}
       if(p.rangeStart)rangeStart=p.rangeStart;
       if(p.rangeEnd)rangeEnd=p.rangeEnd;
       if(p.tabNames)Object.assign(tabNames,p.tabNames);
