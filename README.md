@@ -162,13 +162,16 @@ in and you'll land on `/dashboard`.
   natively (not a port) as real React/Tailwind components, since there was
   no existing app to preserve behavior from. Three tabs: a Kanban board
   (Idea → Scripting → Filming → Editing → Published columns, native HTML5
-  drag-and-drop between them, no library), Content (a left sidebar of
-  documents — seeded on first visit with the existing YouTube/Instagram/Ads
-  planning template — each opening a plain title + free-text body editor
-  on the right), and Team (`TeamTab.tsx`) — a small name + stage table; each
-  saved member shows as a "Responsible: <name>" label under that stage's
-  Kanban column header (one general owner per column, not a per-card
-  assignee — multiple members on the same stage are comma-joined).
+  drag-and-drop between them, no library; each card also carries a
+  High/Medium/Low priority, chosen when adding it and editable anytime
+  after via a colored pill-select on the card, defaulting to Medium),
+  Content (a left sidebar of documents — seeded on first visit with the
+  existing YouTube/Instagram/Ads planning template — each opening a plain
+  title + free-text body editor on the right), and Team (`TeamTab.tsx`) —
+  a small name + stage table; each saved member shows as a
+  "Responsible: <name>" label under that stage's Kanban column header (one
+  general owner per column, not a per-card assignee — multiple members on
+  the same stage are comma-joined).
 
   Unlike every other feature in this app, this one is **private per
   account** rather than shared team-wide, per the user's explicit call.
@@ -219,8 +222,13 @@ in and you'll land on `/dashboard`.
   confirmed the resulting page loads that same account's real documents
   and lets a fully anonymous session add a Kanban card with the change
   persisting, and confirmed an unknown code shows "Invalid or unknown
-  secret key" instead of silently failing — all matched expectations with
-  zero console errors.
+  secret key" instead of silently failing. After priority was added to
+  Kanban cards: since `/team-access` needs no middleware changes to test,
+  added a card with High priority selected and confirmed it saved with
+  the right value and red pill styling, changed an existing card to Low
+  and confirmed the pill updated, and confirmed a card added without
+  touching the priority selector defaults to Medium — all matched
+  expectations with zero console errors.
 
 ## Deploying
 

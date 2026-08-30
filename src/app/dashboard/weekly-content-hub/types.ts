@@ -8,11 +8,20 @@ export const STAGES: { id: Stage; label: string }[] = [
   { id: "published", label: "Published" },
 ];
 
+export type Priority = "high" | "medium" | "low";
+
+export const PRIORITIES: { id: Priority; label: string }[] = [
+  { id: "high", label: "High" },
+  { id: "medium", label: "Medium" },
+  { id: "low", label: "Low" },
+];
+
 export type KanbanCard = {
   id: string;
   title: string;
   notes: string;
   stage: Stage;
+  priority: Priority;
   position: number;
   createdAt: number;
 };
