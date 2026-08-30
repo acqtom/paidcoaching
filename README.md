@@ -184,13 +184,16 @@ in and you'll land on `/dashboard`.
   spreadsheet colors, which didn't match — narrow single-column and
   spreadsheet-colored on the first pass, corrected after explicit
   feedback), Content Calendar (`ContentCalendarTab.tsx`) — a 7-day ×
-  N-column weekly-rhythm grid, each cell a free-text textarea (no
-  placeholder dash on empty cells — removed at the user's request), seeded
+  N-column weekly-rhythm grid, each cell a free-text textarea, seeded
   with 5 starting columns matching the Kanban board's own stage names
   (Idea/Scripting/Filming/Editing/Published — shared label text only, not
-  a live link back to Kanban) carrying the actual recurring weekly
-  schedule already in use (`defaultContentCalendar()` in `types.ts`)
-  rather than starting blank. Columns are user-defined, not fixed:
+  a live link back to Kanban). Cells themselves start genuinely empty —
+  an earlier pass had seeded them with the user's real example weekly
+  schedule (from the reference screenshot) as a head start, but that read
+  as placeholder content rather than something to build on, so it was
+  dropped entirely at the user's explicit follow-up ("the calendar is not
+  empty"); same reasoning killed the "—" placeholder dash on empty cells
+  a step before that. Columns are user-defined, not fixed:
   `CalendarColumnDef { id, label }` in a `columns` array (state also
   carries `cells[day][columnId]`, so deleting a column also prunes it out
   of every day's cells), add via a "+" cell at the end of the header row,
@@ -300,7 +303,11 @@ in and you'll land on `/dashboard`.
   textarea has a placeholder attribute anymore, confirmed all 17 seeded
   cells landed under the correct remapped column (e.g. "Sent" now under
   Idea instead of the old "New Content"), and confirmed renaming still
-  works post-remap — all matched expectations with zero console errors.
+  works post-remap. After the seeded example data was dropped entirely:
+  confirmed all 35 cells (7 days × 5 columns) are genuinely empty
+  (`cellValues.some((v) => v !== "")` is false) while the 5 column labels
+  still read correctly — all matched expectations with zero console
+  errors.
 
 ## Deploying
 

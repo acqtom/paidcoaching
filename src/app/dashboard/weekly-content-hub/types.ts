@@ -184,19 +184,20 @@ export function defaultDocuments(): ContentDoc[] {
   }));
 }
 
-// Seeded with the same stage names as the Kanban board (Idea/Scripting/
-// Filming/Editing/Published), matching the actual recurring weekly rhythm
-// already in use -- a real starting point rather than blank cells. Just
-// shared label text, not a live link to Kanban -- these columns are
-// independently editable from here on (add/rename/remove), same as any
-// other column.
+// Columns are seeded with the same stage names as the Kanban board
+// (Idea/Scripting/Filming/Editing/Published) -- shared label text only,
+// not a live link to Kanban, and independently editable from here on
+// (add/rename/remove) same as any other column. Cells start genuinely
+// empty (no example content) -- the user fills in their own real
+// schedule.
 export function defaultContentCalendar(): ContentCalendarState {
-  const idea: CalendarColumnDef = { id: makeId(), label: "Idea" };
-  const scripting: CalendarColumnDef = { id: makeId(), label: "Scripting" };
-  const filming: CalendarColumnDef = { id: makeId(), label: "Filming" };
-  const editing: CalendarColumnDef = { id: makeId(), label: "Editing" };
-  const published: CalendarColumnDef = { id: makeId(), label: "Published" };
-  const columns = [idea, scripting, filming, editing, published];
+  const columns: CalendarColumnDef[] = [
+    { id: makeId(), label: "Idea" },
+    { id: makeId(), label: "Scripting" },
+    { id: makeId(), label: "Filming" },
+    { id: makeId(), label: "Editing" },
+    { id: makeId(), label: "Published" },
+  ];
 
   const emptyRow = (): Record<string, string> => {
     const row: Record<string, string> = {};
@@ -209,30 +210,6 @@ export function defaultContentCalendar(): ContentCalendarState {
   DAYS_OF_WEEK.forEach((day) => {
     cells[day] = emptyRow();
   });
-
-  cells.Monday = { ...cells.Monday, [editing.id]: "Edit YT #2", [published.id]: "Reel #1" };
-  cells.Tuesday = { ...cells.Tuesday, [editing.id]: "Edit YT #2", [published.id]: "Youtube #1" };
-  cells.Wednesday = { ...cells.Wednesday, [editing.id]: "Edit YT #2", [published.id]: "Reel #2" };
-  cells.Thursday = {
-    ...cells.Thursday,
-    [idea.id]: "Sent",
-    [filming.id]: "Bulk record x4 reels",
-    [editing.id]: "Edit YT #2",
-    [published.id]: "Reel #3 + ads",
-  };
-  cells.Friday = {
-    ...cells.Friday,
-    [filming.id]: "Bulk record x5 ads",
-    [editing.id]: "Edit YT #1",
-    [published.id]: "Youtube #2",
-  };
-  cells.Saturday = {
-    ...cells.Saturday,
-    [filming.id]: "Youtube #1\nYoutube #2",
-    [editing.id]: "Edit YT #1",
-    [published.id]: "Reel #4",
-  };
-  cells.Sunday = { ...cells.Sunday, [editing.id]: "Edit YT #1" };
 
   return { columns, cells };
 }
