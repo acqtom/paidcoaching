@@ -172,11 +172,16 @@ in and you'll land on `/dashboard`.
   a plain title + free-text body editor on the right, except the one
   seeded "Drive hub" document, which instead gets a fixed-id (`DRIVE_HUB_DOC_ID`
   in `types.ts`, not the random id every other document has, so it survives
-  reloads) `driveHub` field rendering `DriveHubTable.tsx`: four bordered
-  tables (Youtube video #1/#2, Instagram Reels, Meta Ads) matching an
-  existing planning sheet, each row an editable folder-name field with a
-  📁 icon — no real Drive links wired up yet, just the structure and
-  editable names, per explicit direction that the rest comes later), and
+  reloads) `driveHub` field rendering `DriveHubTable.tsx`: four cards
+  (Youtube video #1/#2, Instagram Reels, Meta Ads) in a responsive
+  two-column grid that fills the available width, each row an editable
+  folder-name field with a 📁 icon — no real Drive links wired up yet,
+  just the structure and editable names, per explicit direction that the
+  rest comes later. Styled with the same neutral white/gray card language
+  as the rest of the app (not the source planning sheet's blue/tan
+  spreadsheet colors, which didn't match) — narrow single-column and
+  spreadsheet-colored on the first pass, corrected after explicit
+  feedback), and
   Team (`TeamTab.tsx`) — a small name + stage table; each saved member
   shows as a "Responsible: <name>" label under that stage's Kanban column
   header (one general owner per column, not a per-card assignee —
