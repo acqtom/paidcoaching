@@ -5,12 +5,24 @@ import { STAGES, Stage, TeamMember, makeId } from "./types";
 
 interface Props {
   teamMembers: TeamMember[];
+  accessCode: string;
   onChange: (teamMembers: TeamMember[]) => void;
 }
 
-export default function TeamTab({ teamMembers, onChange }: Props) {
+export default function TeamTab({ teamMembers, accessCode, onChange }: Props) {
   const [name, setName] = useState("");
   const [stage, setStage] = useState<Stage>(STAGES[0].id);
+  const [copied, setCopied] = useState(false);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(accessCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.error("Copy failed:", e);
+    }
+  }
 
   function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +43,29 @@ export default function TeamTab({ teamMembers, onChange }: Props) {
 
   return (
     <div className="max-w-xl">
+      <div className="mb-6 border border-gray-200 rounded-xl p-4 bg-gray-50">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          Team Secret Key
+        </h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Share this key with your team. Anyone who enters it at{" "}
+          <span className="font-medium text-gray-700">/team-access</span> gets full access to this
+          board &mdash; no account needed.
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-lg font-semibold tracking-[0.3em] bg-white border border-gray-300 rounded-lg px-3 py-1.5">
+            {accessCode || "…"}
+          </span>
+          <button
+            onClick={copyCode}
+            disabled={!accessCode}
+            className="text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg px-3 py-1.5 disabled:opacity-40"
+          >
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      </div>
+
       <h2 className="text-sm font-semibold text-gray-700 mb-3">Add Team Member</h2>
 
       <form onSubmit={addMember} className="flex items-center gap-2 mb-6">

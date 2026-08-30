@@ -9,6 +9,8 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/tracking-app",
   "/daily-kill-list-app",
+  "/team-access",
+  "/api/content-hub/by-code",
 ];
 
 export async function updateSession(request: NextRequest) {

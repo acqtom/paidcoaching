@@ -17,7 +17,7 @@ export default function WeeklyContentHubPage() {
         </div>
       </header>
 
-      <ContentHubApp />
+      <ContentHubApp mode="owner" />
     </div>
   );
 }

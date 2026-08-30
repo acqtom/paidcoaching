@@ -6,16 +6,22 @@ import KanbanBoard from "./KanbanBoard";
 import ContentDocs from "./ContentDocs";
 import TeamTab from "./TeamTab";
 
-const API_URL = "/api/content-hub/state";
 const POLL_INTERVAL_MS = 5000;
 const SAVE_DEBOUNCE_MS = 600;
 
 type Tab = "kanban" | "content" | "team";
+type Props = { mode: "owner" } | { mode: "code"; code: string };
 
-export default function ContentHubApp() {
+export default function ContentHubApp(props: Props) {
+  const apiUrl =
+    props.mode === "owner"
+      ? "/api/content-hub/state"
+      : `/api/content-hub/by-code?code=${encodeURIComponent(props.code)}`;
+
   const [state, setState] = useState<ContentHubState | null>(null);
   const [tab, setTab] = useState<Tab>("kanban");
   const [syncStatus, setSyncStatus] = useState("Loading…");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const stateRef = useRef<ContentHubState | null>(null);
   const lastEditAt = useRef(0);
@@ -29,8 +35,11 @@ export default function ContentHubApp() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(API_URL);
-        if (!res.ok) throw new Error("load failed: " + res.status);
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || "load failed: " + res.status);
+        }
         const data = await res.json();
         if (cancelled) return;
         setState({
@@ -40,13 +49,18 @@ export default function ContentHubApp() {
               ? data.documents
               : defaultContentHubState().documents,
           teamMembers: Array.isArray(data.teamMembers) ? data.teamMembers : [],
+          accessCode: data.accessCode || "",
           updatedAt: data.updatedAt || 0,
         });
         setSyncStatus("Synced");
       } catch (e) {
         console.error("Content hub load failed:", e);
         if (!cancelled) {
-          setState(defaultContentHubState());
+          if (props.mode === "code") {
+            setLoadError(e instanceof Error ? e.message : "Failed to load");
+          } else {
+            setState(defaultContentHubState());
+          }
           setSyncStatus("Sync error");
         }
       }
@@ -54,14 +68,15 @@ export default function ContentHubApp() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
 
   useEffect(() => {
     const id = setInterval(async () => {
       if (!stateRef.current) return;
       if (Date.now() - lastEditAt.current < POLL_INTERVAL_MS / 2) return;
       try {
-        const res = await fetch(API_URL);
+        const res = await fetch(apiUrl);
         if (!res.ok) return;
         const data = await res.json();
         if (!stateRef.current) return;
@@ -73,6 +88,7 @@ export default function ContentHubApp() {
                 ? data.documents
                 : stateRef.current.documents,
             teamMembers: Array.isArray(data.teamMembers) ? data.teamMembers : [],
+            accessCode: data.accessCode || stateRef.current.accessCode,
             updatedAt: data.updatedAt,
           });
           setSyncStatus("Synced");
@@ -82,7 +98,7 @@ export default function ContentHubApp() {
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [apiUrl]);
 
   function scheduleSave(next: ContentHubState) {
     lastEditAt.current = Date.now();
@@ -91,20 +107,34 @@ export default function ContentHubApp() {
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(API_URL, {
+        const res = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
         if (!res.ok) throw new Error("save failed: " + res.status);
         const saved = await res.json();
-        setState(saved);
+        setState((prev) => ({
+          kanban: saved.kanban,
+          documents: saved.documents,
+          teamMembers: saved.teamMembers,
+          accessCode: saved.accessCode || prev?.accessCode || "",
+          updatedAt: saved.updatedAt,
+        }));
         setSyncStatus("Synced");
       } catch (e) {
         console.error("Content hub save failed:", e);
         setSyncStatus("Sync error");
       }
     }, SAVE_DEBOUNCE_MS);
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-[1600px] mx-auto px-8 py-10 text-sm text-gray-500">
+        {loadError}
+      </div>
+    );
   }
 
   if (!state) {
@@ -159,6 +189,7 @@ export default function ContentHubApp() {
       {tab === "team" && (
         <TeamTab
           teamMembers={state.teamMembers}
+          accessCode={state.accessCode}
           onChange={(teamMembers) => scheduleSave({ ...state, teamMembers })}
         />
       )}

@@ -30,7 +30,8 @@ Router) and Supabase Auth.
    the Daily Kill List's day-scoped sync (calls, braindump).
    `0004_task_backlog_state.sql` sets up the table behind its persistent
    backlog + Yearly Goals. `0005_content_hub_state.sql` sets up the
-   per-user table behind the Weekly Content Hub.
+   per-user table behind the Weekly Content Hub, plus the two
+   `SECURITY DEFINER` functions its `/team-access` secret-key flow calls.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -170,15 +171,32 @@ in and you'll land on `/dashboard`.
   assignee — multiple members on the same stage are comma-joined).
 
   Unlike every other feature in this app, this one is **private per
-  account** rather than shared team-wide, per the user's explicit call (a
-  future "custom team login" to let a user share their own board with
-  their team is planned separately, not built yet). Backed by
-  `content_hub_state` (`supabase/migrations/0005_...sql`) — one JSON blob
-  per user, RLS-gated to `auth.uid() = id` instead of the shared-singleton
-  pattern everywhere else — behind `/api/content-hub/state`
+  account** rather than shared team-wide, per the user's explicit call.
+  Backed by `content_hub_state` (`supabase/migrations/0005_...sql`) — one
+  JSON blob per user, RLS-gated to `auth.uid() = id` instead of the
+  shared-singleton pattern everywhere else — behind `/api/content-hub/state`
   (`src/app/api/content-hub/state/route.ts`). Local React state with a
   debounced save + background poll, same shape as Daily Kill List's
-  day-scoped side, just per-user instead of localStorage-cached.
+  day-scoped side, just per-user instead of localStorage-cached. That
+  route also generates a 5-character access code the first time it runs
+  for a given user (`ensureRow()`, retrying on the astronomically unlikely
+  case of a collision), so every account has one from day one without a
+  separate migration trigger to backfill existing users.
+
+  A teammate without a portal account can still reach one specific
+  person's hub with full edit rights via that code, no login at all: enter
+  it at `/team-access` (linked from `/login`, and shown to the owner at
+  the top of their own Team tab with a copy button) and it resolves
+  through `/api/content-hub/by-code` → two `SECURITY DEFINER` Postgres
+  functions (`get_content_hub_by_code` / `save_content_hub_by_code`, in
+  the same 0005 migration) that look up or overwrite exactly one row's
+  data by its code and return nothing else about that row — the RLS
+  bypass is scoped to those two narrow functions rather than a
+  service-role key, consistent with how every other feature in this app
+  avoids needing one. `src/app/dashboard/weekly-content-hub/ContentHubApp.tsx`
+  takes a `mode: "owner" | "code"` prop and points its fetches at whichever
+  endpoint applies; `/team-access/[code]/page.tsx` renders the same
+  component in code mode.
 
   Verified via Puppeteer: since this route sits behind real server-side
   auth (not just a public static asset), it was temporarily added to the
@@ -192,8 +210,17 @@ in and you'll land on `/dashboard`.
   document, and — after the Team tab was added — added two team members
   to different stages and confirmed each showed up as the right
   "Responsible: <name>" label under the matching Kanban column, and that
-  removing a member updated the table correctly — all matched
-  expectations with zero console errors.
+  removing a member updated the table correctly. After the secret-key
+  access was added: confirmed the owner's Team tab displays a generated
+  code, then — with `/team-access` and `/api/content-hub/by-code` both
+  genuinely public, so no middleware changes were needed for this part —
+  entered that code in lowercase at `/team-access` and confirmed the app
+  normalizes it to uppercase before redirecting to `/team-access/<CODE>`,
+  confirmed the resulting page loads that same account's real documents
+  and lets a fully anonymous session add a Kanban card with the change
+  persisting, and confirmed an unknown code shows "Invalid or unknown
+  secret key" instead of silently failing — all matched expectations with
+  zero console errors.
 
 ## Deploying
 

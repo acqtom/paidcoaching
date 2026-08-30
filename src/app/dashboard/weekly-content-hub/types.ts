@@ -38,6 +38,7 @@ export type ContentHubState = {
   kanban: KanbanCard[];
   documents: ContentDoc[];
   teamMembers: TeamMember[];
+  accessCode: string;
   updatedAt: number;
 };
 
@@ -82,7 +83,7 @@ export function defaultDocuments(): ContentDoc[] {
 }
 
 export function defaultContentHubState(): ContentHubState {
-  return { kanban: [], documents: defaultDocuments(), teamMembers: [], updatedAt: 0 };
+  return { kanban: [], documents: defaultDocuments(), teamMembers: [], accessCode: "", updatedAt: 0 };
 }
 
 export { makeId };

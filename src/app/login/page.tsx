@@ -22,6 +22,14 @@ export default async function LoginPage({
           >
             Sign up
           </Link>
+          <br />
+          Have a team secret key instead?{" "}
+          <Link
+            href="/team-access"
+            className="font-medium text-neutral-900 dark:text-neutral-100 underline"
+          >
+            Enter it here
+          </Link>
         </>
       }
     >
