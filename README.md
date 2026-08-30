@@ -29,7 +29,8 @@ Router) and Supabase Auth.
    `0003_daily_kill_list_state.sql` sets up the shared state table behind
    the Daily Kill List's day-scoped sync (calls, braindump).
    `0004_task_backlog_state.sql` sets up the table behind its persistent
-   backlog + Yearly Goals.
+   backlog + Yearly Goals. `0005_content_hub_state.sql` sets up the
+   per-user table behind the Weekly Content Hub.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -156,6 +157,36 @@ in and you'll land on `/dashboard`.
   yearly goal — all matched expectations with zero console errors. Both
   Supabase-backed tables need their migrations run (see Setup) for real
   cross-device persistence.
+- `src/app/dashboard/weekly-content-hub` — the Weekly Content Hub, built
+  natively (not a port) as real React/Tailwind components, since there was
+  no existing app to preserve behavior from. Two tabs: a Kanban board
+  (Idea → Scripting → Filming → Editing → Published columns, native HTML5
+  drag-and-drop between them, no library) and Content (a left sidebar of
+  documents — seeded on first visit with the existing YouTube/Instagram/Ads
+  planning template — each opening a plain title + free-text body editor
+  on the right).
+
+  Unlike every other feature in this app, this one is **private per
+  account** rather than shared team-wide, per the user's explicit call (a
+  future "custom team login" to let a user share their own board with
+  their team is planned separately, not built yet). Backed by
+  `content_hub_state` (`supabase/migrations/0005_...sql`) — one JSON blob
+  per user, RLS-gated to `auth.uid() = id` instead of the shared-singleton
+  pattern everywhere else — behind `/api/content-hub/state`
+  (`src/app/api/content-hub/state/route.ts`). Local React state with a
+  debounced save + background poll, same shape as Daily Kill List's
+  day-scoped side, just per-user instead of localStorage-cached.
+
+  Verified via Puppeteer: since this route sits behind real server-side
+  auth (not just a public static asset), it was temporarily added to the
+  middleware's public paths for this one local test run only, with `fetch`
+  mocked against an in-memory store matching the real route's contract,
+  then fully reverted (confirmed via `git diff`) before anything was
+  committed. Added cards to multiple Kanban columns, dragged one between
+  columns via simulated native `DragEvent`s and confirmed the column
+  counts updated correctly, confirmed all 19 default documents seed
+  correctly in order, edited a document's title/body, and added a new
+  document — all matched expectations with zero console errors.
 
 ## Deploying
 

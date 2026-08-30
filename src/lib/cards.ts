@@ -67,9 +67,9 @@ export const CARDS: Card[] = [
   {
     slug: "weekly-content-hub",
     title: "Weekly Content Hub",
-    description: "This week's content plan and assets.",
+    description: "Your own Kanban board and content docs.",
     icon: Calendar,
-    href: "https://content.paidcoaching.com",
+    href: "/dashboard/weekly-content-hub",
   },
   {
     slug: "sales-team-board",
