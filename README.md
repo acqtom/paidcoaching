@@ -164,8 +164,10 @@ in and you'll land on `/dashboard`.
   (Idea → Scripting → Filming → Editing → Published columns, native HTML5
   drag-and-drop between them, no library; each card also carries a
   High/Medium/Low priority, chosen when adding it and editable anytime
-  after via a colored pill-select on the card, defaulting to Medium),
-  Content (a left sidebar of documents — seeded on first visit with the
+  after via a colored pill-select on the card, defaulting to Medium, plus
+  an optional due date set the same way — a hidden native date input
+  behind a clickable pill, blue while upcoming and turning red once
+  past-due), Content (a left sidebar of documents — seeded on first visit with the
   existing YouTube/Instagram/Ads planning template — each opening a plain
   title + free-text body editor on the right), and Team (`TeamTab.tsx`) —
   a small name + stage table; each saved member shows as a
@@ -227,7 +229,11 @@ in and you'll land on `/dashboard`.
   added a card with High priority selected and confirmed it saved with
   the right value and red pill styling, changed an existing card to Low
   and confirmed the pill updated, and confirmed a card added without
-  touching the priority selector defaults to Medium — all matched
+  touching the priority selector defaults to Medium. After a due date was
+  added: added a card with a future date and confirmed the pill showed
+  that date in blue, changed it to a past date and confirmed the pill
+  turned red, and confirmed a card added without setting a date shows the
+  "Due date" placeholder pill instead of a blank/broken one — all matched
   expectations with zero console errors.
 
 ## Deploying

@@ -17,22 +17,40 @@ const PRIORITY_STYLES: Record<Priority, string> = {
 
 const DEFAULT_PRIORITY: Priority = "medium";
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatDueDate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
   const [addingIn, setAddingIn] = useState<Stage | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftPriority, setDraftPriority] = useState<Priority>(DEFAULT_PRIORITY);
+  const [draftDueDate, setDraftDueDate] = useState("");
   const [dragCardId, setDragCardId] = useState<string | null>(null);
 
   function cardsFor(stage: Stage) {
     return cards.filter((c) => c.stage === stage).sort((a, b) => a.position - b.position);
   }
 
+  function resetDraft() {
+    setAddingIn(null);
+    setDraftTitle("");
+    setDraftPriority(DEFAULT_PRIORITY);
+    setDraftDueDate("");
+  }
+
   function addCard(stage: Stage, createdAt: number) {
     const title = draftTitle.trim();
     const priority = draftPriority;
-    setDraftTitle("");
-    setDraftPriority(DEFAULT_PRIORITY);
-    setAddingIn(null);
+    const dueDate = draftDueDate;
+    resetDraft();
     if (!title) return;
     const newCard: KanbanCard = {
       id: makeId(),
@@ -40,6 +58,7 @@ export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
       notes: "",
       stage,
       priority,
+      dueDate,
       position: cardsFor(stage).length,
       createdAt,
     };
@@ -118,19 +137,38 @@ export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
                     ✕
                   </button>
                 </div>
-                <select
-                  value={card.priority ?? DEFAULT_PRIORITY}
-                  onChange={(e) => updateCard(card.id, { priority: e.target.value as Priority })}
-                  className={`mt-2 text-[11px] font-semibold rounded-full pl-2 pr-1 py-0.5 border-none outline-none cursor-pointer ${
-                    PRIORITY_STYLES[card.priority ?? DEFAULT_PRIORITY]
-                  }`}
-                >
-                  {PRIORITIES.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                  <select
+                    value={card.priority ?? DEFAULT_PRIORITY}
+                    onChange={(e) => updateCard(card.id, { priority: e.target.value as Priority })}
+                    className={`text-[11px] font-semibold rounded-full pl-2 pr-1 py-0.5 border-none outline-none cursor-pointer ${
+                      PRIORITY_STYLES[card.priority ?? DEFAULT_PRIORITY]
+                    }`}
+                  >
+                    {PRIORITIES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  <label
+                    className={`text-[11px] font-medium rounded-full px-2 py-0.5 cursor-pointer ${
+                      card.dueDate && card.dueDate < todayStr()
+                        ? "bg-red-50 text-red-600"
+                        : card.dueDate
+                          ? "bg-blue-50 text-blue-600"
+                          : "bg-gray-100 text-gray-400"
+                    }`}
+                  >
+                    {card.dueDate ? formatDueDate(card.dueDate) : "Due date"}
+                    <input
+                      type="date"
+                      value={card.dueDate}
+                      onChange={(e) => updateCard(card.id, { dueDate: e.target.value })}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
                 <textarea
                   value={card.notes}
                   onChange={(e) => updateCard(card.id, { notes: e.target.value })}
@@ -155,11 +193,7 @@ export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
                 onChange={(e) => setDraftTitle(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addCard(s.id, Date.now());
-                  if (e.key === "Escape") {
-                    setAddingIn(null);
-                    setDraftTitle("");
-                    setDraftPriority(DEFAULT_PRIORITY);
-                  }
+                  if (e.key === "Escape") resetDraft();
                 }}
                 placeholder="Content title…"
                 className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-gray-400"
@@ -169,11 +203,7 @@ export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
                 onChange={(e) => setDraftPriority(e.target.value as Priority)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addCard(s.id, Date.now());
-                  if (e.key === "Escape") {
-                    setAddingIn(null);
-                    setDraftTitle("");
-                    setDraftPriority(DEFAULT_PRIORITY);
-                  }
+                  if (e.key === "Escape") resetDraft();
                 }}
                 className="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-gray-400 bg-white"
               >
@@ -183,6 +213,16 @@ export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
                   </option>
                 ))}
               </select>
+              <input
+                type="date"
+                value={draftDueDate}
+                onChange={(e) => setDraftDueDate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addCard(s.id, Date.now());
+                  if (e.key === "Escape") resetDraft();
+                }}
+                className="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-gray-400 bg-white text-gray-600"
+              />
             </div>
           ) : (
             <button

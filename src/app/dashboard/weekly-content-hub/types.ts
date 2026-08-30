@@ -22,6 +22,7 @@ export type KanbanCard = {
   notes: string;
   stage: Stage;
   priority: Priority;
+  dueDate: string; // "YYYY-MM-DD", or "" for no due date
   position: number;
   createdAt: number;
 };
