@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ContentDoc, makeId } from "./types";
+import { ContentDoc, DriveHubSection, makeId } from "./types";
+import DriveHubTable from "./DriveHubTable";
 
 interface Props {
   documents: ContentDoc[];
@@ -27,6 +28,10 @@ export default function ContentDocs({ documents, onChange }: Props) {
 
   function updateDoc(id: string, patch: Partial<ContentDoc>) {
     onChange(documents.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  }
+
+  function updateDriveHub(id: string, sections: DriveHubSection[]) {
+    updateDoc(id, { driveHub: sections });
   }
 
   function deleteDoc(id: string) {
@@ -87,12 +92,19 @@ export default function ContentDocs({ documents, onChange }: Props) {
               placeholder="Untitled"
               className="text-lg font-semibold text-gray-900 outline-none mb-3 bg-transparent"
             />
-            <textarea
-              value={selected.body}
-              onChange={(e) => updateDoc(selected.id, { body: e.target.value })}
-              placeholder="Start writing…"
-              className="min-h-[480px] w-full text-sm text-gray-800 leading-relaxed outline-none resize-none border border-gray-200 rounded-xl p-4 focus:border-gray-300"
-            />
+            {selected.driveHub ? (
+              <DriveHubTable
+                sections={selected.driveHub}
+                onChange={(sections) => updateDriveHub(selected.id, sections)}
+              />
+            ) : (
+              <textarea
+                value={selected.body}
+                onChange={(e) => updateDoc(selected.id, { body: e.target.value })}
+                placeholder="Start writing…"
+                className="min-h-[480px] w-full text-sm text-gray-800 leading-relaxed outline-none resize-none border border-gray-200 rounded-xl p-4 focus:border-gray-300"
+              />
+            )}
           </div>
         ) : (
           <div className="text-sm text-gray-400">No document selected. Click &ldquo;+&rdquo; to create one.</div>

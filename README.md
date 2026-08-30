@@ -167,13 +167,20 @@ in and you'll land on `/dashboard`.
   after via a colored pill-select on the card, defaulting to Medium, plus
   an optional due date set the same way — a hidden native date input
   behind a clickable pill, blue while upcoming and turning red once
-  past-due), Content (a left sidebar of documents — seeded on first visit with the
-  existing YouTube/Instagram/Ads planning template — each opening a plain
-  title + free-text body editor on the right), and Team (`TeamTab.tsx`) —
-  a small name + stage table; each saved member shows as a
-  "Responsible: <name>" label under that stage's Kanban column header (one
-  general owner per column, not a per-card assignee — multiple members on
-  the same stage are comma-joined).
+  past-due), Content (a left sidebar of documents — seeded on first visit
+  with the existing YouTube/Instagram/Ads planning template — each opening
+  a plain title + free-text body editor on the right, except the one
+  seeded "Drive hub" document, which instead gets a fixed-id (`DRIVE_HUB_DOC_ID`
+  in `types.ts`, not the random id every other document has, so it survives
+  reloads) `driveHub` field rendering `DriveHubTable.tsx`: four bordered
+  tables (Youtube video #1/#2, Instagram Reels, Meta Ads) matching an
+  existing planning sheet, each row an editable folder-name field with a
+  📁 icon — no real Drive links wired up yet, just the structure and
+  editable names, per explicit direction that the rest comes later), and
+  Team (`TeamTab.tsx`) — a small name + stage table; each saved member
+  shows as a "Responsible: <name>" label under that stage's Kanban column
+  header (one general owner per column, not a per-card assignee —
+  multiple members on the same stage are comma-joined).
 
   Unlike every other feature in this app, this one is **private per
   account** rather than shared team-wide, per the user's explicit call.
@@ -233,8 +240,13 @@ in and you'll land on `/dashboard`.
   added: added a card with a future date and confirmed the pill showed
   that date in blue, changed it to a past date and confirmed the pill
   turned red, and confirmed a card added without setting a date shows the
-  "Due date" placeholder pill instead of a blank/broken one — all matched
-  expectations with zero console errors.
+  "Due date" placeholder pill instead of a blank/broken one. After the
+  Drive Hub table was added: confirmed all four section headers and all
+  21 rows across them render in the right order matching the source
+  planning sheet, edited a folder-name field and confirmed the value
+  updates and holds, and confirmed every other document (e.g. Directory)
+  still shows the normal plain-text editor rather than the table — all
+  matched expectations with zero console errors.
 
 ## Deploying
 

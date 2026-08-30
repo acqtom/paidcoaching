@@ -33,6 +33,25 @@ export type ContentDoc = {
   body: string;
   position: number;
   createdAt: number;
+  // Only set on the seeded Drive Hub document -- when present, the Content
+  // tab renders this structured table instead of the plain body editor.
+  driveHub?: DriveHubSection[];
+};
+
+// One row per file/asset a Drive folder should exist for. linkLabel is
+// just the folder's display name for now (no url yet -- real Drive links
+// come in a later pass); label is the fixed row name from the existing
+// planning template.
+export type DriveHubRow = {
+  id: string;
+  label: string;
+  linkLabel: string;
+};
+
+export type DriveHubSection = {
+  id: string;
+  title: string;
+  rows: DriveHubRow[];
 };
 
 // One general owner per Kanban stage (not a per-card assignee) -- shown as
@@ -54,6 +73,66 @@ export type ContentHubState = {
 
 function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// Fixed, well-known id for the one seeded document that gets the special
+// Drive Hub table instead of the plain text editor -- stable across
+// reloads (unlike the random makeId() every other document gets) so the
+// Content tab can reliably tell this one apart.
+export const DRIVE_HUB_DOC_ID = "drive-hub";
+
+function driveHubRow(label: string, linkLabel: string): DriveHubRow {
+  return { id: makeId(), label, linkLabel };
+}
+
+export function defaultDriveHubSections(): DriveHubSection[] {
+  return [
+    {
+      id: makeId(),
+      title: "Youtube video #1",
+      rows: [
+        driveHubRow("Raw file:", "Raw YT Videos"),
+        driveHubRow("B-roll", "B-roll"),
+        driveHubRow("Proof docs", "Proof / Receipts"),
+        driveHubRow("Edit file #1 (revision)", "Revision YT videos"),
+        driveHubRow("Edit file #2 (final)", "Final YT videos"),
+        driveHubRow("Thumbnail x2", "Thumbnails"),
+      ],
+    },
+    {
+      id: makeId(),
+      title: "Youtube video #2",
+      rows: [
+        driveHubRow("Raw file:", "Raw YT Videos"),
+        driveHubRow("B-roll", "B-roll"),
+        driveHubRow("Proof docs", "Proof / Receipts"),
+        driveHubRow("Edit file #1 (revision)", "Revision YT videos"),
+        driveHubRow("Edit file #2 (final)", "Final YT videos"),
+        driveHubRow("Thumbnail x2", "Thumbnails"),
+      ],
+    },
+    {
+      id: makeId(),
+      title: "Instagram Reels",
+      rows: [
+        driveHubRow("Raw file:", "Raw File Upload"),
+        driveHubRow("B-roll", "B-roll"),
+        driveHubRow("Proof docs", "Proof / Receipts"),
+        driveHubRow("Edit file #1 (revision)", "Revised File Upload"),
+        driveHubRow("Edit file #2 (final)", "Final Version"),
+      ],
+    },
+    {
+      id: makeId(),
+      title: "Meta Ads",
+      rows: [
+        driveHubRow("Raw File:", "Raw File Ads"),
+        driveHubRow("B-roll", "B-roll"),
+        driveHubRow("Proof docs", "Proof / Receipts"),
+        driveHubRow("Final edited version", "Edited Ads"),
+      ],
+    },
+  ];
 }
 
 // The default sidebar template a brand-new (or pre-existing) user sees the
@@ -84,11 +163,12 @@ export function defaultDocuments(): ContentDoc[] {
   ];
   const now = Date.now();
   return titles.map((title, i) => ({
-    id: makeId(),
+    id: title === "-----Drive hub------" ? DRIVE_HUB_DOC_ID : makeId(),
     title,
     body: "",
     position: i,
     createdAt: now + i,
+    ...(title === "-----Drive hub------" ? { driveHub: defaultDriveHubSections() } : {}),
   }));
 }
 
