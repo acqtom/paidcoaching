@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/auth/callback",
+  "/tracking-app",
 ];
 
 export async function updateSession(request: NextRequest) {

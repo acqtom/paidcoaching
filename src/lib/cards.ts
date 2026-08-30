@@ -42,7 +42,7 @@ export const CARDS: Card[] = [
     title: "Metrics Tracking",
     description: "Track key performance metrics across the team.",
     icon: BarChart3,
-    href: "https://tracking.helmbury.com",
+    href: "/dashboard/tracking",
   },
   {
     slug: "funnel-revenue-projections",

@@ -67,6 +67,20 @@ in and you'll land on `/dashboard`.
 - `src/components/BugReportButton.tsx` + `src/lib/bug-report-actions.ts` —
   the "Submit a bug" button/modal on the dashboard, which emails
   tom@educatr.co via Resend.
+- `public/tracking-app/index.html` + `src/app/dashboard/tracking` — the
+  Metrics Tracking dashboard, ported from the `acqtom/tracking` repo. It's a
+  fully self-contained client-side app (state lives in each viewer's own
+  `localStorage`, no backend), served as a static file and embedded via
+  iframe at `/dashboard/tracking` so it renders in complete CSS/JS isolation
+  from the rest of the app. The original's password gate was removed (this
+  route is already behind real login), and a pre-existing bug was fixed
+  where typing a second digit into a metric cell would scramble the value
+  (the table rebuilds on every keystroke and refocuses the new input
+  without restoring cursor position — fixed by switching those inputs from
+  `type="number"`, which can't have its selection set via JS, to `text`).
+  The repo's OAuth integration backend (Typeform/Calendly/Meta/Whop) was
+  *not* ported — it exists in that repo but was never actually wired into
+  its frontend, so nothing there was actually live to duplicate.
 
 ## Deploying
 
