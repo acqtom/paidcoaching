@@ -24,10 +24,10 @@ Router) and Supabase Auth.
    production, configure a custom SMTP provider under **Project Settings →
    Auth → SMTP Settings** so emails don't land in spam / hit rate limits.
 6. In the Supabase dashboard's **SQL Editor**, run the migrations in
-   `supabase/migrations/` in order (`0001_profiles.sql`, then
-   `0002_seed_tom_username.sql`). This creates the `profiles` table that
-   stores each user's username and auto-fills it from what they enter at
-   signup.
+   `supabase/migrations/` in order. `0001_profiles.sql` + `0002_...` set up
+   the `profiles` table (username, auto-filled at signup).
+   `0003_daily_kill_list_state.sql` sets up the shared state table behind
+   the Daily Kill List's cross-device sync.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -108,6 +108,35 @@ in and you'll land on `/dashboard`.
   hand): revenue → expenses (including Ad Spend) → net profit → editing,
   adding, and removing capital allocation categories, with dollar amounts
   and the allocated-% indicator all matching the formulas exactly.
+- `public/daily-kill-list-app/index.html` + `src/app/dashboard/daily-kill-list`
+  — the Daily Kill List, ported from `acqtom/todo` ("Focus Engine"): a hero
+  progress bar, needle-mover tasks, daily calls (with repeat schedules),
+  per-client to-do cards, a timezone-aware "today" (unfinished tasks roll
+  forward automatically), a per-day braindump, and revenue tracking with a
+  streak and a month-to-date bar chart. Same architecture as tracking (a
+  single big vanilla-JS-in-`useEffect` app with an empty JSX skeleton it
+  fills in imperatively), so it's ported the same way: reconstructed as a
+  static HTML/CSS/JS file and embedded via iframe for CSS/JS isolation.
+
+  Unlike tracking, this one has a real, actively-used backend: cross-device
+  sync through `/api/state`, originally backed by Upstash Redis. Since we
+  don't have Upstash and already have Supabase, that's swapped for a
+  `daily_kill_list_state` table (`supabase/migrations/0003_...sql`) — one
+  shared JSON blob, RLS-gated to any authenticated portal user (matching
+  the original's own "this app has exactly one user" design, just extended
+  to the whole team) — behind a new route at `/api/daily-kill-list/state`
+  (`src/app/api/daily-kill-list/state/route.ts`), which is the one string
+  changed in the ported script itself. Everything else — task rollover,
+  repeat-schedule logic, timezone handling, the revenue streak/chart math —
+  is unchanged from the original.
+
+  Verified via Puppeteer: checked off a task (hero % updated correctly),
+  typed a new task end-to-end with no dropped/reordered characters (this
+  app's author had already fixed the cursor-position bug found in
+  tracking), and entered revenue against the daily goal — all matched
+  hand-calculated expectations, zero console errors. The Supabase-backed
+  sync itself needs the migration run (see Setup) before it'll do anything
+  beyond each browser's own `localStorage`.
 
 ## Deploying
 

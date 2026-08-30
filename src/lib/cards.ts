@@ -35,7 +35,7 @@ export const CARDS: Card[] = [
     title: "Daily Kill List",
     description: "Today's must-do tasks, ranked by priority.",
     icon: ListChecks,
-    href: "https://daily.paidcoaching.com",
+    href: "/dashboard/daily-kill-list",
   },
   {
     slug: "metrics-tracking",
