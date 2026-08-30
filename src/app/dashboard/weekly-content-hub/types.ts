@@ -27,6 +27,14 @@ export type KanbanCard = {
   createdAt: number;
 };
 
+export type ContentTemplateType =
+  | "videoOverview"
+  | "videoScript"
+  | "titleThumb"
+  | "instagramScript"
+  | "instagramStories"
+  | "adScript";
+
 export type ContentDoc = {
   id: string;
   title: string;
@@ -36,6 +44,14 @@ export type ContentDoc = {
   // Only set on the seeded Drive Hub document -- when present, the Content
   // tab renders this structured table instead of the plain body editor.
   driveHub?: DriveHubSection[];
+  // Set on the other seeded structured documents (overviews, scripts,
+  // title/thumb, ads) -- when present, the Content tab renders the
+  // matching fixed-field card layout from ContentTemplates.tsx instead of
+  // the plain body editor. Field labels/instructions live in code (not
+  // user-editable structure, only the values are); templateData is a flat
+  // map of field-key -> the user's text for that field.
+  templateType?: ContentTemplateType;
+  templateData?: Record<string, string>;
 };
 
 // One row per file/asset a Drive folder should exist for. linkLabel is
@@ -152,6 +168,21 @@ export function defaultDriveHubSections(): DriveHubSection[] {
   ];
 }
 
+// Which structured card layout (if any) each seeded document title gets
+// instead of the plain body editor -- "Ads: Overview" is deliberately
+// left out (no template requested for it yet, stays plain text).
+const TEMPLATE_BY_TITLE: Record<string, ContentTemplateType> = {
+  "Youtube #1: Overview": "videoOverview",
+  "Youtube #1: Script": "videoScript",
+  "Youtube #1: Title / Thumb": "titleThumb",
+  "Youtube #2: Overview": "videoOverview",
+  "Youtube #2: Script": "videoScript",
+  "Youtube #2: Title / Thumb": "titleThumb",
+  "Instagram: Scripts": "instagramScript",
+  "Instagram: Stories": "instagramStories",
+  "Ads: Scripts": "adScript",
+};
+
 // The default sidebar template a brand-new (or pre-existing) user sees the
 // first time they open the Content tab -- mirrors the planning structure
 // already in use, so there's something useful here on day one rather than
@@ -174,14 +205,18 @@ export function defaultDocuments(): ContentDoc[] {
     "-----Drive hub------",
   ];
   const now = Date.now();
-  return titles.map((title, i) => ({
-    id: title === "-----Drive hub------" ? DRIVE_HUB_DOC_ID : makeId(),
-    title,
-    body: "",
-    position: i,
-    createdAt: now + i,
-    ...(title === "-----Drive hub------" ? { driveHub: defaultDriveHubSections() } : {}),
-  }));
+  return titles.map((title, i) => {
+    const templateType = TEMPLATE_BY_TITLE[title];
+    return {
+      id: title === "-----Drive hub------" ? DRIVE_HUB_DOC_ID : makeId(),
+      title,
+      body: "",
+      position: i,
+      createdAt: now + i,
+      ...(title === "-----Drive hub------" ? { driveHub: defaultDriveHubSections() } : {}),
+      ...(templateType ? { templateType, templateData: {} } : {}),
+    };
+  });
 }
 
 // Columns are seeded with the same stage names as the Kanban board

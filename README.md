@@ -183,7 +183,32 @@ in and you'll land on `/dashboard`.
   as the rest of the app, not the source planning sheet's blue/tan
   spreadsheet colors, which didn't match — narrow single-column and
   spreadsheet-colored on the first pass, corrected after explicit
-  feedback), Content Calendar (`ContentCalendarTab.tsx`) — a 7-day ×
+  feedback. Six other seeded documents get their own fixed-field card
+  layout instead of the plain editor too (`ContentTemplates.tsx`,
+  dispatched by a `ContentDoc.templateType` set in `defaultDocuments()`,
+  reading/writing a flat `templateData: Record<string, string>` — field
+  labels and instructions live in code, only the values are user-edited,
+  matching Drive Hub's "fixed structure, editable content" pattern): the
+  two "<X>: Overview" docs get `videoOverview` (a 7-field overview table,
+  then 8 instructional note cards — Loom Overview, Example, Story & WHY,
+  Persona/Like/Know/Trust, Proof & Receipts, B-Roll Needed, Energy &
+  Delivery, Other Notes — each pairing a fixed title/instruction with an
+  editable textarea); the two "<X>: Script" docs get `videoScript`
+  (HOOK → Point 1 → Point 2 → Mid-Video CTA → Point 3 → Point 4 → End
+  CTA); the two "<X>: Title / Thumb" docs get `titleThumb` (4 brainstorm
+  rows + an SEO Ranking table, then 2 fixed Title×Thumbnail Combination
+  cards, each with Face/Text/Elements/Objects/Location sub-fields); both
+  Instagram docs share one `ScriptSequenceTemplate` component parameterized
+  by a `blockLabel` prop — "Instagram: Scripts" gets `instagramScript`
+  (Loom Overview + 3 "Script #N" blocks), "Instagram: Stories" gets
+  `instagramStories` (identical shape, "Story Sequence #N" instead — the
+  source screenshot's own labels were inconsistent between blocks, this
+  standardizes them); "Ads: Scripts" gets `adScript` (a 6-field campaign
+  overview, then Hooks H1–H5 / Body B1–B3 / Closes C1–C2 tables with
+  narrow row labels). "Ads: Overview" was deliberately left as the plain
+  editor — no reference screenshot was given for it, matching the
+  established pattern of only building what's actually been asked for.
+  Content Calendar (`ContentCalendarTab.tsx`) — a 7-day ×
   N-column weekly-rhythm grid, each cell a free-text textarea, seeded
   with 5 starting columns matching the Kanban board's own stage names
   (Idea/Scripting/Filming/Editing/Published — shared label text only, not
@@ -307,6 +332,14 @@ in and you'll land on `/dashboard`.
   confirmed all 35 cells (7 days × 5 columns) are genuinely empty
   (`cellValues.some((v) => v !== "")` is false) while the 5 column labels
   still read correctly — all matched expectations with zero console
+  errors. After the six structured document templates were added:
+  visited all six template documents plus "Ads: Overview" and confirmed
+  each renders its own distinct structure (checked for template-specific
+  landmark text like "Loom Overview:", "MID-VIDEO CTA", "Brainstorm #1",
+  "Combination #2", "Story Sequence #3", "Closes:"/"C2") while "Ads:
+  Overview" still shows the plain `textarea[placeholder='Start writing…']`
+  untouched, typed into the Video Overview's "Video Concept:" field and
+  confirmed the value holds — all matched expectations with zero console
   errors.
 
 ## Deploying

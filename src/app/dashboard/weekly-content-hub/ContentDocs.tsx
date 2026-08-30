@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ContentDoc, DriveHubSection, makeId } from "./types";
 import DriveHubTable from "./DriveHubTable";
+import ContentTemplateRenderer from "./ContentTemplates";
 
 interface Props {
   documents: ContentDoc[];
@@ -32,6 +33,10 @@ export default function ContentDocs({ documents, onChange }: Props) {
 
   function updateDriveHub(id: string, sections: DriveHubSection[]) {
     updateDoc(id, { driveHub: sections });
+  }
+
+  function updateTemplateData(id: string, templateData: Record<string, string>) {
+    updateDoc(id, { templateData });
   }
 
   function deleteDoc(id: string) {
@@ -96,6 +101,11 @@ export default function ContentDocs({ documents, onChange }: Props) {
               <DriveHubTable
                 sections={selected.driveHub}
                 onChange={(sections) => updateDriveHub(selected.id, sections)}
+              />
+            ) : selected.templateType ? (
+              <ContentTemplateRenderer
+                doc={selected}
+                onChange={(templateData) => updateTemplateData(selected.id, templateData)}
               />
             ) : (
               <textarea
