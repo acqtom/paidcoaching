@@ -45,7 +45,7 @@ body{
 .brand svg{width:26px;height:26px;flex-shrink:0;}
 .brand-name{font-size:15px;font-weight:700;letter-spacing:-0.02em;color:var(--ink);}
 .brand-name span{color:var(--ink-2);font-weight:400;}
-.header-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.header-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto;}
 .header-eyebrow{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-3);}
 .header-title{font-size:15px;font-weight:700;letter-spacing:-0.02em;color:var(--ink);}
 
@@ -59,38 +59,9 @@ body{
   padding:6px 16px;
   font-size:12px;
   font-weight:600;
-  cursor:pointer;
   transition:.15s;
 }
 .client-tab.active{background:var(--ink);color:#FFF;border-color:var(--ink);}
-.client-tab:hover:not(.active){border-color:var(--rule);color:var(--ink);}
-.add-client-btn{
-  background:none;
-  border:1px dashed var(--rule);
-  color:var(--ink-3);
-  border-radius:100px;
-  padding:6px 14px;
-  font-size:12px;
-  cursor:pointer;
-  transition:.15s;
-}
-.add-client-btn:hover{border-color:var(--ink-2);color:var(--ink);}
-.add-client-form{display:flex;gap:6px;align-items:center;}
-.add-client-form input{
-  background:var(--surface);
-  border:1px solid var(--rule);
-  color:var(--ink);
-  border-radius:8px;
-  padding:6px 10px;
-  font-size:12px;
-  font-family:inherit;
-  outline:none;
-}
-.add-client-form input:focus{border-color:var(--ink);}
-.add-client-form button{
-  background:var(--ink);border:none;color:#FFF;font-weight:600;border-radius:8px;
-  padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;
-}
 
 /* ── Week nav ── */
 /* ── Date range picker ── */
@@ -129,18 +100,6 @@ body{
   font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;width:100%;transition:opacity .12s;
 }
 .drb-apply:hover{opacity:.8;}
-
-/* ── Ctx menu ── */
-.ctx-menu{
-  position:fixed;z-index:1000;background:var(--surface);border:1px solid var(--rule);
-  border-radius:10px;padding:5px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:160px;
-}
-.ctx-menu button{
-  display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);
-  font-family:inherit;font-size:12.5px;padding:7px 10px;border-radius:6px;cursor:pointer;
-}
-.ctx-menu button:hover{background:var(--surface-2);}
-.ctx-menu button.danger{color:var(--bad);}
 
 /* ── Charts ── */
 .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;}
@@ -397,17 +356,8 @@ footer{margin-top:36px;color:var(--ink-3);font-size:11px;text-align:center;lette
 
 <div class="wrap">
   <div class="header">
-    <div class="brand">
-      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="10" y="10" width="22" height="80" rx="8" fill="#111"/>
-        <rect x="10" y="10" width="80" height="22" rx="8" fill="#111"/>
-        <rect x="10" y="39" width="60" height="22" rx="8" fill="#111"/>
-        <rect x="10" y="68" width="80" height="22" rx="8" fill="#111"/>
-      </svg>
-      <div class="brand-name">educatr<span>.co</span></div>
-    </div>
     <div class="header-meta">
-      <div class="header-eyebrow">Call Funnel · Multi-Client</div>
+      <div class="header-eyebrow">Call Funnel</div>
       <div class="header-title">Growth Engine</div>
     </div>
   </div>
@@ -767,8 +717,14 @@ function migrateClient(cl){
 }
 
 /* ── Seed data ── */
+// The embedding page passes ?user=<username> (the person's own Student
+// Portal login handle) -- this tool is single-user per browser, so there's
+// no "add client" concept here; the one implicit client is just them.
+function studentUsername(){
+  return new URLSearchParams(location.search).get('user')||'you';
+}
 function seedDefaultClient(){
-  return{id:'default',name:'EDUCATR',data:{}};
+  return{id:'default',name:'@'+studentUsername(),data:{}};
 }
 let CLIENTS=[seedDefaultClient()];
 let currentClientId='default', trendMode='week';
@@ -819,47 +775,14 @@ function inputCell(value,format,attrs){
   return`<div class="input-cell">${prefix}<input type="text" inputmode="decimal" ${attrs} value="${val}" placeholder="–">${suffix}</div>`;
 }
 
-/* ── Context menu ── */
-function closeCtxMenu(){const m=document.getElementById('ctxMenu');if(m)m.remove();document.removeEventListener('click',closeCtxMenu);}
-function openClientCtxMenu(e,c){
-  closeCtxMenu();
-  const menu=document.createElement('div');menu.id='ctxMenu';menu.className='ctx-menu';
-  menu.style.cssText=`left:${e.clientX}px;top:${e.clientY}px`;
-  menu.innerHTML=`<button data-a="rename">Rename client</button><button data-a="delete" class="danger">Delete client</button>`;
-  document.body.appendChild(menu);
-  menu.querySelector('[data-a="rename"]').onclick=()=>{closeCtxMenu();const n=prompt('Rename client',c.name);if(n&&n.trim()){c.name=n.trim();queueSave();renderClientTabs();}};
-  menu.querySelector('[data-a="delete"]').onclick=()=>{closeCtxMenu();if(CLIENTS.length<=1){alert('Need at least one client.');return;}if(!confirm(`Delete "${c.name}"?`))return;CLIENTS=CLIENTS.filter(cl=>cl.id!==c.id);if(currentClientId===c.id){currentClientId=CLIENTS[0].id;}queueSave();renderAll();};
-  setTimeout(()=>document.addEventListener('click',closeCtxMenu),0);
-}
-
-/* ── Client tabs ── */
-let addingClient=false;
+/* ── Client label ── */
+// Single implicit client per logged-in person -- no add/rename/delete UI,
+// just a static label showing who this data belongs to.
 function renderClientTabs(){
   const row=document.getElementById('clientRow');row.innerHTML='';
-  CLIENTS.forEach(c=>{
-    const b=document.createElement('button');b.className='client-tab'+(c.id===currentClientId?' active':'');b.textContent=c.name;
-    b.onclick=()=>{currentClientId=c.id;queueSave();renderAll();};
-    b.oncontextmenu=e=>{e.preventDefault();openClientCtxMenu(e,c);};
-    row.appendChild(b);
-  });
-  if(addingClient){
-    const form=document.createElement('div');form.className='add-client-form';
-    form.innerHTML=`<input type="text" id="nci" placeholder="Client name" autofocus><button id="cac">Add</button>`;
-    row.appendChild(form);
-    document.getElementById('cac').onclick=addClientNow;
-    document.getElementById('nci').onkeydown=e=>{if(e.key==='Enter')addClientNow();};
-  }else{
-    const btn=document.createElement('button');btn.className='add-client-btn';btn.textContent='+ Add client';
-    btn.onclick=()=>{addingClient=true;renderClientTabs();document.getElementById('nci').focus();};
-    row.appendChild(btn);
-  }
-}
-function addClientNow(){
-  const inp=document.getElementById('nci');const name=(inp.value||'').trim();
-  if(!name){addingClient=false;renderClientTabs();return;}
-  const id='client-'+Date.now();
-  CLIENTS.push({id,name,data:{}});
-  currentClientId=id;addingClient=false;queueSave();renderAll();
+  const label=document.createElement('span');label.className='client-tab active';
+  label.textContent=currentClient().name;
+  row.appendChild(label);
 }
 
 /* ── Date range label ── */
