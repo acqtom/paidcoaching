@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 // Single shared JSON blob backing the Daily Kill List app's cross-device
-// sync (see supabase/migrations/0004_daily_kill_list_state.sql). Mirrors
+// sync (see supabase/migrations/0003_daily_kill_list_state.sql). Mirrors
 // the original app's GET -> { data } / POST -> { ok } contract so the
 // ported frontend script needs no changes beyond the endpoint path.
 

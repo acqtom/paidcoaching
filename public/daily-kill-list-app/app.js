@@ -493,9 +493,16 @@ let backlogPollTimer = null;
 const syncStatus = $("#syncStatus");
 function setSyncStatus(text) { if (syncStatus) syncStatus.textContent = text; }
 
+async function readErrorDetail(res) {
+  try {
+    const body = await res.clone().json();
+    if (body && body.error) return body.error;
+  } catch (e) { /* body wasn't JSON */ }
+  return res.statusText || "";
+}
 async function apiGetBacklog() {
   const res = await fetch(BACKLOG_API_URL);
-  if (!res.ok) throw new Error("request failed: " + res.status);
+  if (!res.ok) throw new Error("GET " + BACKLOG_API_URL + " failed: " + res.status + " " + (await readErrorDetail(res)));
   return res.json();
 }
 async function apiSaveBacklog(state) {
@@ -504,7 +511,7 @@ async function apiSaveBacklog(state) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(state),
   });
-  if (!res.ok) throw new Error("request failed: " + res.status);
+  if (!res.ok) throw new Error("POST " + BACKLOG_API_URL + " failed: " + res.status + " " + (await readErrorDetail(res)));
   return res.json();
 }
 function applyBacklogState(state) {
@@ -527,7 +534,8 @@ async function mutateBacklogState(mutator) {
     applyBacklogState(saved);
     setSyncStatus("Synced");
   } catch (e) {
-    setSyncStatus("Sync error");
+    console.error("Daily Kill List backlog save failed:", e);
+    setSyncStatus("Sync error: " + e.message);
   }
 }
 async function pollBacklogForUpdates() {
@@ -537,7 +545,9 @@ async function pollBacklogForUpdates() {
       applyBacklogState(state);
       setSyncStatus("Synced");
     }
-  } catch (e) { /* transient network hiccup; try again next interval */ }
+  } catch (e) {
+    console.error("Daily Kill List backlog poll failed:", e);
+  }
 }
 async function initBacklog() {
   setSyncStatus("Loading…");
@@ -546,7 +556,8 @@ async function initBacklog() {
     applyBacklogState(state);
     setSyncStatus("Synced");
   } catch (e) {
-    setSyncStatus("Sync error");
+    console.error("Daily Kill List backlog load failed:", e);
+    setSyncStatus("Sync error: " + e.message);
   }
   if (backlogPollTimer) clearInterval(backlogPollTimer);
   backlogPollTimer = setInterval(pollBacklogForUpdates, BACKLOG_POLL_INTERVAL_MS);
