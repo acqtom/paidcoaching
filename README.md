@@ -250,8 +250,12 @@ in and you'll land on `/dashboard`.
   21 rows across them render in the right order matching the source
   planning sheet, edited a folder-name field and confirmed the value
   updates and holds, and confirmed every other document (e.g. Directory)
-  still shows the normal plain-text editor rather than the table — all
-  matched expectations with zero console errors.
+  still shows the normal plain-text editor rather than the table. After
+  the four "Asset Hub" entries (one per Youtube/Instagram/Ads section)
+  were dropped from the default template at the user's request: confirmed
+  the sidebar seeds exactly the remaining 15 items in the same order,
+  divider rows included — all matched expectations with zero console
+  errors.
 
 ## Deploying
 
