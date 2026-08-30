@@ -77,12 +77,13 @@ export default function ContentHubApp(props: Props) {
       } catch (e) {
         console.error("Content hub load failed:", e);
         if (!cancelled) {
+          const message = e instanceof Error ? e.message : "Failed to load";
           if (props.mode === "code") {
-            setLoadError(e instanceof Error ? e.message : "Failed to load");
+            setLoadError(message);
           } else {
             setState(defaultContentHubState());
           }
-          setSyncStatus("Sync error");
+          setSyncStatus("Sync error: " + message);
         }
       }
     })();
@@ -136,7 +137,10 @@ export default function ContentHubApp(props: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(next),
         });
-        if (!res.ok) throw new Error("save failed: " + res.status);
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || "save failed: " + res.status);
+        }
         const saved = await res.json();
         setState((prev) => ({
           kanban: saved.kanban,
@@ -149,7 +153,7 @@ export default function ContentHubApp(props: Props) {
         setSyncStatus("Synced");
       } catch (e) {
         console.error("Content hub save failed:", e);
-        setSyncStatus("Sync error");
+        setSyncStatus("Sync error: " + (e instanceof Error ? e.message : "unknown"));
       }
     }, SAVE_DEBOUNCE_MS);
   }
