@@ -13,18 +13,20 @@ const SAVE_DEBOUNCE_MS = 600;
 type Tab = "kanban" | "content" | "calendar" | "team";
 type Props = { mode: "owner" } | { mode: "code"; code: string };
 
-// A brand-new row's contentCalendar is { cells: {} } (no day keys at all)
-// -- distinct from a calendar the user has actually seeded/edited, which
-// always has all 7 day keys present. Used to decide when to swap in the
-// real starting template instead of showing a blank grid.
-function hasCalendarData(calendar: unknown): calendar is { cells: Record<string, unknown> } {
+// A brand-new row's contentCalendar is { columns: [], cells: {} } -- no
+// columns at all -- distinct from a calendar the user has actually
+// seeded/edited (or added columns to), which always has at least one.
+// Used to decide when to swap in the real starting template instead of
+// showing a blank grid.
+function hasCalendarData(
+  calendar: unknown
+): calendar is { columns: unknown[]; cells: Record<string, unknown> } {
   return (
     !!calendar &&
     typeof calendar === "object" &&
-    "cells" in calendar &&
-    !!calendar.cells &&
-    typeof calendar.cells === "object" &&
-    Object.keys(calendar.cells).length > 0
+    "columns" in calendar &&
+    Array.isArray(calendar.columns) &&
+    calendar.columns.length > 0
   );
 }
 

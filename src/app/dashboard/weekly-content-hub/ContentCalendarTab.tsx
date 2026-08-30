@@ -1,26 +1,58 @@
 "use client";
 
-import { CALENDAR_COLUMNS, CalendarColumn, ContentCalendarState, DAYS_OF_WEEK } from "./types";
+import { CalendarColumnDef, ContentCalendarState, DAYS_OF_WEEK, makeId } from "./types";
 
 interface Props {
   calendar: ContentCalendarState;
   onChange: (calendar: ContentCalendarState) => void;
 }
 
-const DOT_COLORS: Record<CalendarColumn, string> = {
-  newContent: "bg-gray-400",
-  creatorFilm: "bg-purple-400",
-  postProduction: "bg-amber-400",
-  goesLive: "bg-emerald-400",
-};
+const DOT_PALETTE = [
+  "bg-gray-400",
+  "bg-purple-400",
+  "bg-amber-400",
+  "bg-emerald-400",
+  "bg-blue-400",
+  "bg-pink-400",
+  "bg-cyan-400",
+  "bg-orange-400",
+];
 
 export default function ContentCalendarTab({ calendar, onChange }: Props) {
-  function updateCell(day: string, column: CalendarColumn, value: string) {
+  const columns = calendar.columns;
+
+  function updateCell(day: string, columnId: string, value: string) {
     onChange({
+      ...calendar,
       cells: {
         ...calendar.cells,
-        [day]: { ...calendar.cells[day], [column]: value },
+        [day]: { ...calendar.cells[day], [columnId]: value },
       },
+    });
+  }
+
+  function renameColumn(columnId: string, label: string) {
+    onChange({
+      ...calendar,
+      columns: columns.map((c) => (c.id === columnId ? { ...c, label } : c)),
+    });
+  }
+
+  function addColumn() {
+    const newCol: CalendarColumnDef = { id: makeId(), label: "New column" };
+    onChange({ ...calendar, columns: [...columns, newCol] });
+  }
+
+  function deleteColumn(columnId: string) {
+    const nextCells: Record<string, Record<string, string>> = {};
+    Object.entries(calendar.cells).forEach(([day, row]) => {
+      const rest = { ...row };
+      delete rest[columnId];
+      nextCells[day] = rest;
+    });
+    onChange({
+      columns: columns.filter((c) => c.id !== columnId),
+      cells: nextCells,
     });
   }
 
@@ -32,22 +64,42 @@ export default function ContentCalendarTab({ calendar, onChange }: Props) {
       <div className="overflow-x-auto">
         <div
           className="min-w-[880px] grid gap-px bg-gray-200 border border-gray-200 rounded-xl overflow-hidden"
-          style={{ gridTemplateColumns: "120px repeat(4, 1fr)" }}
+          style={{ gridTemplateColumns: `120px repeat(${columns.length}, 1fr) 44px` }}
         >
           <div className="bg-gray-50" />
-          {CALENDAR_COLUMNS.map((col) => (
-            <div key={col.id} className="bg-gray-50 px-3 py-2.5 flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_COLORS[col.id]}`} />
-              <span className="text-xs font-semibold text-gray-600">{col.label}</span>
+          {columns.map((col, i) => (
+            <div key={col.id} className="group bg-gray-50 px-3 py-2.5 flex items-center gap-2 min-w-0">
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_PALETTE[i % DOT_PALETTE.length]}`} />
+              <input
+                value={col.label}
+                onChange={(e) => renameColumn(col.id, e.target.value)}
+                className="text-xs font-semibold text-gray-600 bg-transparent outline-none min-w-0 flex-1"
+              />
+              <button
+                onClick={() => deleteColumn(col.id)}
+                className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 text-xs"
+                title="Remove column"
+              >
+                ✕
+              </button>
             </div>
           ))}
+          <div className="bg-gray-50 flex items-center justify-center">
+            <button
+              onClick={addColumn}
+              className="text-gray-400 hover:text-gray-700 text-base leading-none"
+              title="Add column"
+            >
+              +
+            </button>
+          </div>
 
           {DAYS_OF_WEEK.map((day) => (
             <div key={day} className="contents">
               <div className="bg-white px-3 py-2 flex items-center text-sm font-semibold text-gray-700">
                 {day}
               </div>
-              {CALENDAR_COLUMNS.map((col) => (
+              {columns.map((col) => (
                 <div key={col.id} className="bg-white p-1">
                   <textarea
                     value={calendar.cells[day]?.[col.id] ?? ""}
@@ -58,6 +110,7 @@ export default function ContentCalendarTab({ calendar, onChange }: Props) {
                   />
                 </div>
               ))}
+              <div className="bg-white" />
             </div>
           ))}
         </div>

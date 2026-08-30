@@ -184,14 +184,23 @@ in and you'll land on `/dashboard`.
   spreadsheet colors, which didn't match — narrow single-column and
   spreadsheet-colored on the first pass, corrected after explicit
   feedback), Content Calendar (`ContentCalendarTab.tsx`) — a 7-day ×
-  4-column weekly-rhythm grid (New Content / Creator Film / Post
-  Production/Editing / Goes Live), each cell a free-text textarea, seeded
-  with the actual recurring weekly schedule already in use
-  (`defaultContentCalendar()` in `types.ts`) rather than starting blank.
-  Deliberately restyled away from the source spreadsheet screenshot's
-  literal blue/tan/pink/green cell-fill colors into the app's own card
-  language — small colored dots on the column headers instead, per
-  explicit "make it way better than this" direction — and Team
+  N-column weekly-rhythm grid, each cell a free-text textarea, seeded
+  with 4 starting columns (New Content / Creator Film / Post
+  Production/Editing / Goes Live) matching the actual recurring weekly
+  schedule already in use (`defaultContentCalendar()` in `types.ts`)
+  rather than starting blank. Columns are user-defined, not fixed:
+  `CalendarColumnDef { id, label }` in a `columns` array (state also
+  carries `cells[day][columnId]`, so deleting a column also prunes it out
+  of every day's cells), add via a "+" cell at the end of the header row,
+  rename inline like every other editable label in this app, remove via a
+  hover ✕ — a rotating color palette (`DOT_PALETTE` in
+  `ContentCalendarTab.tsx`) assigns each column's header dot by position
+  so newly-added columns automatically get a distinct color with no user
+  configuration. Deliberately restyled away from the source spreadsheet
+  screenshot's literal blue/tan/pink/green cell-fill colors into the
+  app's own card language — small colored dots on the column headers
+  instead, per explicit "make it way better than this" direction — and
+  Team
   (`TeamTab.tsx`) — a small name + stage table; each saved member shows
   as a "Responsible: <name>" label under that stage's Kanban column
   header (one general owner per column, not a per-card assignee —
@@ -274,8 +283,16 @@ in and you'll land on `/dashboard`.
   tab order is Kanban Board → Content → Content Calendar → Team, confirmed
   all 17 non-empty seeded cells match the real weekly rhythm exactly,
   edited a cell and confirmed it holds, and confirmed the Content tab's
-  sidebar no longer has a "Directory" entry — all matched expectations
-  with zero console errors.
+  sidebar no longer has a "Directory" entry. After columns became
+  user-defined instead of a fixed 4: `hasCalendarData()` was updated to
+  check `columns.length` instead of cell keys (more direct, and correct
+  now that an added column with still-empty cells must count as
+  "already seeded"). Confirmed the 4 default columns still render in
+  order, added a 5th column and confirmed the grid reflowed to 5 equal
+  data columns without breaking the fixed day/add-button columns,
+  renamed it inline, typed into one of its cells, and deleted a column
+  and confirmed the grid correctly dropped back to 4 — all matched
+  expectations with zero console errors.
 
 ## Deploying
 

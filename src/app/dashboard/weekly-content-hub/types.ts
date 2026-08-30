@@ -63,21 +63,20 @@ export type TeamMember = {
   createdAt: number;
 };
 
-export type CalendarColumn = "newContent" | "creatorFilm" | "postProduction" | "goesLive";
-
-export const CALENDAR_COLUMNS: { id: CalendarColumn; label: string }[] = [
-  { id: "newContent", label: "New Content" },
-  { id: "creatorFilm", label: "Creator Film" },
-  { id: "postProduction", label: "Post Production / Editing" },
-  { id: "goesLive", label: "Goes Live" },
-];
+// Columns are user-defined (add/rename/remove), not a fixed set -- the
+// four below are just the seeded starting point.
+export type CalendarColumnDef = {
+  id: string;
+  label: string;
+};
 
 export const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-// One weekly rhythm, not a specific week's dated schedule -- cells[day][column]
+// One weekly rhythm, not a specific week's dated schedule -- cells[day][columnId]
 // is free text, re-used every week rather than reset.
 export type ContentCalendarState = {
-  cells: Record<string, Record<CalendarColumn, string>>;
+  columns: CalendarColumnDef[];
+  cells: Record<string, Record<string, string>>;
 };
 
 export type ContentHubState = {
@@ -189,42 +188,49 @@ export function defaultDocuments(): ContentDoc[] {
 // the Content tab's default documents and the Drive Hub folder names --
 // a real starting point rather than blank cells.
 export function defaultContentCalendar(): ContentCalendarState {
-  const emptyRow = (): Record<CalendarColumn, string> => ({
-    newContent: "",
-    creatorFilm: "",
-    postProduction: "",
-    goesLive: "",
-  });
-  const cells: Record<string, Record<CalendarColumn, string>> = {};
+  const newContent: CalendarColumnDef = { id: makeId(), label: "New Content" };
+  const creatorFilm: CalendarColumnDef = { id: makeId(), label: "Creator Film" };
+  const postProduction: CalendarColumnDef = { id: makeId(), label: "Post Production / Editing" };
+  const goesLive: CalendarColumnDef = { id: makeId(), label: "Goes Live" };
+  const columns = [newContent, creatorFilm, postProduction, goesLive];
+
+  const emptyRow = (): Record<string, string> => {
+    const row: Record<string, string> = {};
+    columns.forEach((c) => {
+      row[c.id] = "";
+    });
+    return row;
+  };
+  const cells: Record<string, Record<string, string>> = {};
   DAYS_OF_WEEK.forEach((day) => {
     cells[day] = emptyRow();
   });
 
-  cells.Monday = { ...cells.Monday, postProduction: "Edit YT #2", goesLive: "Reel #1" };
-  cells.Tuesday = { ...cells.Tuesday, postProduction: "Edit YT #2", goesLive: "Youtube #1" };
-  cells.Wednesday = { ...cells.Wednesday, postProduction: "Edit YT #2", goesLive: "Reel #2" };
+  cells.Monday = { ...cells.Monday, [postProduction.id]: "Edit YT #2", [goesLive.id]: "Reel #1" };
+  cells.Tuesday = { ...cells.Tuesday, [postProduction.id]: "Edit YT #2", [goesLive.id]: "Youtube #1" };
+  cells.Wednesday = { ...cells.Wednesday, [postProduction.id]: "Edit YT #2", [goesLive.id]: "Reel #2" };
   cells.Thursday = {
     ...cells.Thursday,
-    newContent: "Sent",
-    creatorFilm: "Bulk record x4 reels",
-    postProduction: "Edit YT #2",
-    goesLive: "Reel #3 + ads",
+    [newContent.id]: "Sent",
+    [creatorFilm.id]: "Bulk record x4 reels",
+    [postProduction.id]: "Edit YT #2",
+    [goesLive.id]: "Reel #3 + ads",
   };
   cells.Friday = {
     ...cells.Friday,
-    creatorFilm: "Bulk record x5 ads",
-    postProduction: "Edit YT #1",
-    goesLive: "Youtube #2",
+    [creatorFilm.id]: "Bulk record x5 ads",
+    [postProduction.id]: "Edit YT #1",
+    [goesLive.id]: "Youtube #2",
   };
   cells.Saturday = {
     ...cells.Saturday,
-    creatorFilm: "Youtube #1\nYoutube #2",
-    postProduction: "Edit YT #1",
-    goesLive: "Reel #4",
+    [creatorFilm.id]: "Youtube #1\nYoutube #2",
+    [postProduction.id]: "Edit YT #1",
+    [goesLive.id]: "Reel #4",
   };
-  cells.Sunday = { ...cells.Sunday, postProduction: "Edit YT #1" };
+  cells.Sunday = { ...cells.Sunday, [postProduction.id]: "Edit YT #1" };
 
-  return { cells };
+  return { columns, cells };
 }
 
 export function defaultContentHubState(): ContentHubState {
