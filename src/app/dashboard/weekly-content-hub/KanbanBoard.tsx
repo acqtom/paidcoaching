@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { STAGES, Stage, KanbanCard, makeId } from "./types";
+import { STAGES, Stage, KanbanCard, TeamMember, makeId } from "./types";
 
 interface Props {
   cards: KanbanCard[];
+  teamMembers: TeamMember[];
   onChange: (cards: KanbanCard[]) => void;
 }
 
-export default function KanbanBoard({ cards, onChange }: Props) {
+export default function KanbanBoard({ cards, teamMembers, onChange }: Props) {
   const [addingIn, setAddingIn] = useState<Stage | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [dragCardId, setDragCardId] = useState<string | null>(null);
@@ -47,6 +48,10 @@ export default function KanbanBoard({ cards, onChange }: Props) {
     onChange(cards.map((c) => (c.id === id ? { ...c, stage, position: cardsFor(stage).length } : c)));
   }
 
+  function membersFor(stage: Stage) {
+    return teamMembers.filter((m) => m.stage === stage);
+  }
+
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
       {STAGES.map((s) => (
@@ -61,9 +66,16 @@ export default function KanbanBoard({ cards, onChange }: Props) {
           }}
           className="flex-none w-72 bg-gray-50 border border-gray-200 rounded-xl p-3"
         >
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h3 className="text-sm font-semibold text-gray-700">{s.label}</h3>
-            <span className="text-xs text-gray-400">{cardsFor(s.id).length}</span>
+          <div className="mb-3 px-1">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">{s.label}</h3>
+              <span className="text-xs text-gray-400">{cardsFor(s.id).length}</span>
+            </div>
+            {membersFor(s.id).length > 0 && (
+              <div className="mt-0.5 text-xs text-gray-400 truncate">
+                Responsible: {membersFor(s.id).map((m) => m.name).join(", ")}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

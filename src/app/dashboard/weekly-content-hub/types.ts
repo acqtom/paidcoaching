@@ -25,9 +25,19 @@ export type ContentDoc = {
   createdAt: number;
 };
 
+// One general owner per Kanban stage (not a per-card assignee) -- shown as
+// a label under that column's header on the board.
+export type TeamMember = {
+  id: string;
+  name: string;
+  stage: Stage;
+  createdAt: number;
+};
+
 export type ContentHubState = {
   kanban: KanbanCard[];
   documents: ContentDoc[];
+  teamMembers: TeamMember[];
   updatedAt: number;
 };
 
@@ -72,7 +82,7 @@ export function defaultDocuments(): ContentDoc[] {
 }
 
 export function defaultContentHubState(): ContentHubState {
-  return { kanban: [], documents: defaultDocuments(), updatedAt: 0 };
+  return { kanban: [], documents: defaultDocuments(), teamMembers: [], updatedAt: 0 };
 }
 
 export { makeId };

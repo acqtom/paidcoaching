@@ -159,12 +159,15 @@ in and you'll land on `/dashboard`.
   cross-device persistence.
 - `src/app/dashboard/weekly-content-hub` — the Weekly Content Hub, built
   natively (not a port) as real React/Tailwind components, since there was
-  no existing app to preserve behavior from. Two tabs: a Kanban board
+  no existing app to preserve behavior from. Three tabs: a Kanban board
   (Idea → Scripting → Filming → Editing → Published columns, native HTML5
-  drag-and-drop between them, no library) and Content (a left sidebar of
+  drag-and-drop between them, no library), Content (a left sidebar of
   documents — seeded on first visit with the existing YouTube/Instagram/Ads
   planning template — each opening a plain title + free-text body editor
-  on the right).
+  on the right), and Team (`TeamTab.tsx`) — a small name + stage table; each
+  saved member shows as a "Responsible: <name>" label under that stage's
+  Kanban column header (one general owner per column, not a per-card
+  assignee — multiple members on the same stage are comma-joined).
 
   Unlike every other feature in this app, this one is **private per
   account** rather than shared team-wide, per the user's explicit call (a
@@ -185,8 +188,12 @@ in and you'll land on `/dashboard`.
   committed. Added cards to multiple Kanban columns, dragged one between
   columns via simulated native `DragEvent`s and confirmed the column
   counts updated correctly, confirmed all 19 default documents seed
-  correctly in order, edited a document's title/body, and added a new
-  document — all matched expectations with zero console errors.
+  correctly in order, edited a document's title/body, added a new
+  document, and — after the Team tab was added — added two team members
+  to different stages and confirmed each showed up as the right
+  "Responsible: <name>" label under the matching Kanban column, and that
+  removing a member updated the table correctly — all matched
+  expectations with zero console errors.
 
 ## Deploying
 

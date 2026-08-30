@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { ContentHubState, defaultContentHubState } from "./types";
 import KanbanBoard from "./KanbanBoard";
 import ContentDocs from "./ContentDocs";
+import TeamTab from "./TeamTab";
 
 const API_URL = "/api/content-hub/state";
 const POLL_INTERVAL_MS = 5000;
 const SAVE_DEBOUNCE_MS = 600;
 
-type Tab = "kanban" | "content";
+type Tab = "kanban" | "content" | "team";
 
 export default function ContentHubApp() {
   const [state, setState] = useState<ContentHubState | null>(null);
@@ -38,6 +39,7 @@ export default function ContentHubApp() {
             Array.isArray(data.documents) && data.documents.length
               ? data.documents
               : defaultContentHubState().documents,
+          teamMembers: Array.isArray(data.teamMembers) ? data.teamMembers : [],
           updatedAt: data.updatedAt || 0,
         });
         setSyncStatus("Synced");
@@ -70,6 +72,7 @@ export default function ContentHubApp() {
               Array.isArray(data.documents) && data.documents.length
                 ? data.documents
                 : stateRef.current.documents,
+            teamMembers: Array.isArray(data.teamMembers) ? data.teamMembers : [],
             updatedAt: data.updatedAt,
           });
           setSyncStatus("Synced");
@@ -128,16 +131,35 @@ export default function ContentHubApp() {
           >
             Content
           </button>
+          <button
+            onClick={() => setTab("team")}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              tab === "team" ? "bg-gray-900 text-white" : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Team
+          </button>
         </div>
         <span className="text-xs text-gray-400 tabular-nums">{syncStatus}</span>
       </div>
 
-      {tab === "kanban" ? (
-        <KanbanBoard cards={state.kanban} onChange={(kanban) => scheduleSave({ ...state, kanban })} />
-      ) : (
+      {tab === "kanban" && (
+        <KanbanBoard
+          cards={state.kanban}
+          teamMembers={state.teamMembers}
+          onChange={(kanban) => scheduleSave({ ...state, kanban })}
+        />
+      )}
+      {tab === "content" && (
         <ContentDocs
           documents={state.documents}
           onChange={(documents) => scheduleSave({ ...state, documents })}
+        />
+      )}
+      {tab === "team" && (
+        <TeamTab
+          teamMembers={state.teamMembers}
+          onChange={(teamMembers) => scheduleSave({ ...state, teamMembers })}
         />
       )}
     </div>
