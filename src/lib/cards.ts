@@ -4,7 +4,6 @@ import {
   FileText,
   FolderOpen,
   Funnel,
-  Layers,
   ListChecks,
   MessagesSquare,
   Rocket,
@@ -33,7 +32,7 @@ export const CARDS: Card[] = [
   {
     slug: "daily-kill-list",
     title: "Daily Kill List",
-    description: "Today's must-do tasks, ranked by priority.",
+    description: "Daily calls and braindump, plus the shared department backlog and yearly goals.",
     icon: ListChecks,
     href: "/dashboard/daily-kill-list",
   },
@@ -64,13 +63,6 @@ export const CARDS: Card[] = [
     description: "Books, invoices, and financial records.",
     icon: FileText,
     href: "/dashboard/accounting",
-  },
-  {
-    slug: "task-backlog",
-    title: "Prioritization Task Backlog",
-    description: "The full backlog, ready to be triaged.",
-    icon: Layers,
-    href: "/dashboard/task-backlog",
   },
   {
     slug: "weekly-content-hub",

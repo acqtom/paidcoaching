@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Single shared JSON blob backing the Prioritization Task Backlog's
-// cross-device sync (see supabase/migrations/0004_task_backlog_state.sql).
-// Mirrors the original app's GET -> board / POST -> board contract (the
-// board itself, not wrapped) so the ported frontend script needs no
-// changes beyond the endpoint path.
+// Single shared JSON blob backing the Daily Kill List's persistent
+// Marketing/Sales/Operations/Fulfilment backlog + Yearly Goals -- not
+// scoped to the selected day (see /api/daily-kill-list/state for that).
+// Reuses the task_backlog_state table from the original standalone Task
+// Backlog port (just a jsonb column, so no migration needed for the
+// updated shape). Mirrors the original app's GET -> board / POST -> board
+// contract (the board itself, not wrapped).
 
 const DEFAULT_BOARD = {
   tasks: [] as unknown[],
-  clients: ["Adriel", "Alex"],
   yearlyGoals: [] as unknown[],
   updatedAt: 0,
 };
@@ -31,7 +32,6 @@ export async function POST(request: Request) {
 
   const board = {
     tasks: Array.isArray(body.tasks) ? body.tasks : [],
-    clients: Array.isArray(body.clients) && body.clients.length ? body.clients : DEFAULT_BOARD.clients,
     yearlyGoals: Array.isArray(body.yearlyGoals) ? body.yearlyGoals : [],
     updatedAt: Date.now(),
   };

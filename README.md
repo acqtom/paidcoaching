@@ -27,8 +27,9 @@ Router) and Supabase Auth.
    `supabase/migrations/` in order. `0001_profiles.sql` + `0002_...` set up
    the `profiles` table (username, auto-filled at signup).
    `0003_daily_kill_list_state.sql` sets up the shared state table behind
-   the Daily Kill List's cross-device sync. `0004_task_backlog_state.sql`
-   does the same for the Prioritization Task Backlog.
+   the Daily Kill List's day-scoped sync (calls, braindump).
+   `0004_task_backlog_state.sql` sets up the table behind its persistent
+   backlog + Yearly Goals.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -109,64 +110,52 @@ in and you'll land on `/dashboard`.
   hand): revenue → expenses (including Ad Spend) → net profit → editing,
   adding, and removing capital allocation categories, with dollar amounts
   and the allocated-% indicator all matching the formulas exactly.
-- `public/daily-kill-list-app/index.html` + `src/app/dashboard/daily-kill-list`
-  — the Daily Kill List, ported from `acqtom/todo` ("Focus Engine"): a hero
-  progress bar, needle-mover tasks, daily calls (with repeat schedules),
-  per-client to-do cards, a timezone-aware "today" (unfinished tasks roll
-  forward automatically), a per-day braindump, and revenue tracking with a
-  streak and a month-to-date bar chart. Same architecture as tracking (a
-  single big vanilla-JS-in-`useEffect` app with an empty JSX skeleton it
-  fills in imperatively), so it's ported the same way: reconstructed as a
-  static HTML/CSS/JS file and embedded via iframe for CSS/JS isolation.
+- `public/daily-kill-list-app/` + `src/app/dashboard/daily-kill-list` — the
+  Daily Kill List. Originally two separate ports (Daily Kill List, from
+  `acqtom/todo` "Focus Engine", and the standalone Prioritization Task
+  Backlog, from `acqtom/backlog`) that were later merged into one card at
+  the user's request. Static HTML/CSS/JS, embedded via iframe as usual.
 
-  Unlike tracking, this one has a real, actively-used backend: cross-device
-  sync through `/api/state`, originally backed by Upstash Redis. Since we
-  don't have Upstash and already have Supabase, that's swapped for a
-  `daily_kill_list_state` table (`supabase/migrations/0003_...sql`) — one
-  shared JSON blob, RLS-gated to any authenticated portal user (matching
-  the original's own "this app has exactly one user" design, just extended
-  to the whole team) — behind a new route at `/api/daily-kill-list/state`
-  (`src/app/api/daily-kill-list/state/route.ts`), which is the one string
-  changed in the ported script itself. Everything else — task rollover,
-  repeat-schedule logic, timezone handling, the revenue streak/chart math —
-  is unchanged from the original.
+  Two independent state slices, each keeping its source app's original
+  sync architecture:
+  - **Day-scoped** (changes with the date-nav up top): Daily Calls (with
+    repeat schedules) and a per-day Braindump. Cross-device sync via
+    `/api/daily-kill-list/state` → a `daily_kill_list_state` table (one
+    shared JSON blob, RLS-gated to any authenticated portal user), cached
+    in each browser's `localStorage` for instant offline access with a
+    debounced background push — unchanged from the original Daily Kill
+    List. The original's needle-mover tasks, per-client to-do cards, and
+    revenue/streak tracking were dropped (superseded by the backlog below,
+    or just removed) at the user's request; their old data isn't deleted
+    from the stored JSON on save, just no longer read or rendered, so nothing
+    already entered there is destroyed by the merge.
+  - **Persistent** (ignores the date-nav — one shared, ongoing list): the
+    backlog and Yearly Goals, via `/api/daily-kill-list/backlog` → the
+    `task_backlog_state` table from the original standalone Task Backlog
+    port (reused as-is; it's just a jsonb column, so no migration was
+    needed for the new shape). Same GET-latest → mutate → POST round-trip
+    per change, no local cache, as the original Task Backlog. Its client
+    (Adriel/Alex) and per-assignee (Tom/Derek) routing was replaced with
+    four fixed departments — Marketing, Sales, Operations, Fulfilment —
+    each getting its own to-do card alongside the main filterable Backlog
+    list; the per-task assignee dropdown is gone, but level (High/Medium/
+    Low), the top-priority ⭐, and repeat-on-add are unchanged. Any task
+    saved under the old client/assignee schema before the merge shipped
+    still loads (nothing is deleted), defaulting to Marketing until
+    manually re-filed.
 
-  Verified via Puppeteer: checked off a task (hero % updated correctly),
-  typed a new task end-to-end with no dropped/reordered characters (this
-  app's author had already fixed the cursor-position bug found in
-  tracking), and entered revenue against the daily goal — all matched
-  hand-calculated expectations, zero console errors. The Supabase-backed
-  sync itself needs the migration run (see Setup) before it'll do anything
-  beyond each browser's own `localStorage`.
-- `public/task-backlog-app/index.html` + `src/app/dashboard/task-backlog` —
-  the Prioritization Task Backlog, ported from `acqtom/backlog`. Unlike
-  tracking/daily-kill-list this one was already plain static HTML/CSS/JS
-  (no JSX-embedded-vanilla-JS reconstruction needed), so the source files
-  carried over almost verbatim; embedded via iframe as usual for CSS/JS
-  isolation.
-
-  This app has no local-storage fallback at all — every add/complete/star
-  mutation does a GET-latest → mutate → POST round-trip against its
-  backend, originally Upstash Redis via `/api/tasks`. Swapped for a
-  `task_backlog_state` table (`supabase/migrations/0004_...sql`), same
-  shared-JSON-blob/RLS pattern as Daily Kill List, behind
-  `/api/task-backlog/state` (`src/app/api/task-backlog/state/route.ts`),
-  which matches the original's unwrapped GET/POST-the-board contract
-  exactly. The password gate and Lock button were removed (same reasoning
-  as the other ports). All task logic — priority/level/repeat-day
-  handling, per-assignee (Tom/Derek) backlog views, client stats, yearly
-  goals — is unchanged from the original.
-
-  Verified via Puppeteer with a mocked backend (a real authenticated
-  session isn't available in a headless test run, so `fetch` was
-  intercepted with an in-memory store matching the real route's exact
-  contract): added tasks with different assignees and confirmed they
-  routed to the right per-assignee backlog card, toggled the top-priority
-  star and confirmed it re-sorted above non-priority tasks, checked off a
-  task and confirmed it moved to Completed with the progress bar/counts
-  updating correctly, and added a yearly goal — all matched expectations
-  with zero console errors. The Supabase-backed sync needs the migration
-  run (see Setup) for real cross-device persistence.
+  Verified via Puppeteer with both endpoints mocked (a real authenticated
+  session isn't available in a headless run, so `fetch` was intercepted
+  with in-memory stores matching each real route's exact contract): added
+  a call and confirmed its Meet link and one-off (non-repeating) day
+  scoping, confirmed the braindump is keyed per day when navigating
+  dates, added tasks to each of the four departments and confirmed they
+  routed to the right card, confirmed the top-priority star re-sorts
+  above non-priority tasks, checked off a task and confirmed it moved to
+  Completed with the progress bar/counts updating correctly, and added a
+  yearly goal — all matched expectations with zero console errors. Both
+  Supabase-backed tables need their migrations run (see Setup) for real
+  cross-device persistence.
 
 ## Deploying
 

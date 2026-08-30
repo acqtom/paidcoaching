@@ -1,1566 +1,240 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Daily Kill List</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-:root{
-  --bg:#F5F5F7;
-  --card:#FFFFFF;
-  --card-2:#FBFBFC;
-  --border:#EAEAEF;
-  --ink:#16171B;
-  --muted:#8A8D98;
-  --faint:#C7C9D3;
-  --accent:#6C63FF;
-  --accent-ink:#4B44D6;
-  --accent-soft:#EEEDFF;
-  --blue:#2F6FED;
-  --blue-soft:#E9EFFE;
-  --green:#1D9A6C;
-  --green-soft:#E3F5EC;
-  --red:#E5484D;
-  --amber:#B45309;
-  --amber-soft:#FEF3C7;
-  --teal:#0E8A80;
-  --teal-soft:#E0F5F2;
-  --gold:#B8860B;
-  --gold-soft:#FDF3D7;
-  --gold-soft-hover:#FBEAC0;
-  --shadow: 0 1px 2px rgba(16,16,20,0.04), 0 10px 24px -12px rgba(16,16,20,0.10);
-  --radius-lg:20px;
-  --radius-md:14px;
-  --radius-sm:9px;
-  --tile-grad: linear-gradient(165deg, #FCFCFD 0%, #ECECF0 100%);
-  --tile-grad-soft: linear-gradient(165deg, #FFFFFF 0%, #F1F1F4 100%);
-  --tile-border: rgba(20,20,30,.07);
-  --tile-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 1px 2px rgba(16,16,20,.03), 0 16px 32px -18px rgba(16,16,20,.16);
-  --tile-shadow-soft: inset 0 1px 0 rgba(255,255,255,.9), 0 1px 1px rgba(16,16,20,.03), 0 10px 20px -14px rgba(16,16,20,.14);
-}
-*{box-sizing:border-box;}
-html,body{margin:0;padding:0;}
-body{
-  background:var(--bg);
-  color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;
-  min-height:100vh;
-}
-button{font:inherit;color:inherit;}
-.wrap{
-  max-width:1560px;
-  margin:0 auto;
-  padding:40px 28px 80px;
-  display:flex;
-  flex-direction:column;
-  gap:22px;
-}
-
-.page-grid{display:grid;grid-template-columns:minmax(0,1fr) 600px;gap:24px;align-items:stretch;}
-.main-col{display:flex;flex-direction:column;gap:22px;min-width:0;}
-.side-col{display:flex;flex-direction:column;gap:22px;min-width:0;}
-
-.braindump{
-  position:relative;flex:1;min-height:0;
-  background:var(--tile-grad-soft);border:1px solid var(--tile-border);border-radius:var(--radius-lg);
-  box-shadow:var(--tile-shadow-soft);padding:22px 22px 24px;
-  display:flex;flex-direction:column;
-}
-.braindump-head{margin-bottom:14px;flex:none;}
-.braindump-title{font-size:15px;font-weight:700;letter-spacing:-0.005em;}
-.braindump-date{font-size:12px;color:var(--muted);margin-top:2px;}
-.braindump-text{
-  flex:1;min-height:0;resize:none;border:1px solid var(--border);outline:none;background:#fff;
-  border-radius:12px;padding:14px 16px;font-family:inherit;font-size:14px;line-height:1.6;
-  color:var(--ink);overflow-y:auto;
-}
-.braindump-text::placeholder{color:var(--faint);}
-.braindump-text:focus{border-color:var(--faint);}
-
-@media (max-width:880px){
-  .page-grid{grid-template-columns:1fr;}
-  .braindump{min-height:280px;flex:none;}
-}
-
-/* header */
-.header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-.brand{display:flex;align-items:center;gap:10px;}
-.brand .mark{
-  width:26px;height:26px;border-radius:7px;background:var(--ink);color:var(--bg);
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none;
-}
-.brand .word{font-weight:700;font-size:16px;letter-spacing:-0.01em;}
-.brand .word span{color:var(--muted);font-weight:500;}
-.header-right{text-align:right;}
-.eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);}
-.h-title{font-size:21px;font-weight:700;letter-spacing:-0.01em;margin-top:2px;}
-
-/* control bar */
-.controlbar{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
-  background:var(--tile-grad-soft);border:1px solid var(--tile-border);border-radius:var(--radius-md);
-  padding:10px 14px;box-shadow:var(--tile-shadow-soft);
-}
-.controlbar-left{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
-.datenav{display:flex;align-items:center;gap:2px;}
-.datenav button{
-  width:30px;height:30px;border-radius:9px;border:1px solid transparent;background:transparent;
-  color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-}
-.datenav button:hover{background:var(--card-2);border-color:var(--border);color:var(--ink);}
-.date-label{padding:0 10px;text-align:center;min-width:150px;}
-.date-label .d1{font-size:13px;font-weight:700;}
-.date-label .d2{font-size:11px;color:var(--muted);}
-.tz-clock{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:4px 12px;margin-left:6px;border-left:1px solid var(--border);
-  cursor:pointer;user-select:none;border-radius:0 9px 9px 0;min-width:88px;
-}
-.tz-clock:hover{background:var(--card-2);}
-.tz-clock .tz-time{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;}
-.tz-clock .tz-zone{font-size:10.5px;color:var(--muted);white-space:nowrap;}
-.tz-select{
-  font-family:inherit;font-size:11.5px;font-weight:600;color:var(--muted);background:transparent;
-  border:none;outline:none;cursor:pointer;width:128px;padding:5px 6px;border-radius:8px;margin-left:2px;
-  text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
-}
-.tz-select:hover{background:var(--card-2);color:var(--ink);}
-.control-actions{display:flex;align-items:center;gap:8px;}
-.btn{
-  font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
-  border-radius:9px;padding:8px 13px;border:1px solid var(--border);background:var(--card);color:var(--ink);
-  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
-}
-.btn:hover{border-color:var(--faint);}
-.btn.ghost{background:transparent;}
-.btn .icon{display:inline-block;transition:transform .5s ease;}
-.btn .icon.spin{transform:rotate(360deg);}
-
-/* hero progress card */
-.hero{
-  position:relative;
-  background:var(--tile-grad);border:1px solid var(--tile-border);border-radius:var(--radius-lg);
-  box-shadow:var(--tile-shadow);padding:26px 28px;display:flex;flex-direction:column;gap:14px;
-}
-.hero-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-.hero-left{display:flex;align-items:baseline;gap:16px;}
-.hero-pct{font-size:40px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:var(--green);}
-.hero.complete .hero-pct{animation:pop .5s ease;}
-@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.12)}100%{transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){ .hero.complete .hero-pct{animation:none;} }
-.hero-msg{font-size:14.5px;font-weight:600;max-width:420px;}
-.hero-count{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
-.track{height:8px;border-radius:5px;background:var(--card-2);border:1px solid var(--border);overflow:hidden;}
-.fill{height:100%;background:var(--green);border-radius:5px;transition:width .4s cubic-bezier(.22,1,.36,1);}
-
-/* section card shell */
-.section{
-  position:relative;
-  background:var(--tile-grad);border:1px solid var(--tile-border);border-radius:var(--radius-lg);
-  box-shadow:var(--tile-shadow);padding:22px 24px;
-}
-.section.needle{border-color:color-mix(in srgb, var(--accent) 26%, var(--tile-border));}
-
-/* drag-handle style grip, bottom-right of a tile — decorative */
-.grip{position:absolute;right:16px;bottom:14px;width:9px;height:14px;}
-.grip i{
-  position:absolute;left:0;top:0;width:3px;height:3px;border-radius:50%;
-  background:var(--faint);opacity:.6;
-  box-shadow:6px 0 0 var(--faint), 0 5px 0 var(--faint), 6px 5px 0 var(--faint),
-             0 10px 0 var(--faint), 6px 10px 0 var(--faint);
-}
-.sec-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
-.sec-title-row{display:flex;align-items:center;gap:8px;}
-.dot{width:8px;height:8px;border-radius:50%;flex:none;}
-.dot.accent{background:var(--accent);}
-.dot.blue{background:var(--blue);}
-.dot.teal{background:var(--teal);}
-.dot.gold{background:var(--gold);}
-.sec-title{font-size:15px;font-weight:700;letter-spacing:-0.005em;}
-.sec-sub{font-size:12.5px;color:var(--muted);margin-top:4px;max-width:560px;line-height:1.45;}
-.sec-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:2px;}
-
-/* portfolio revenue */
-.revenue-card{flex:1;min-height:0;display:flex;flex-direction:column;}
-.revenue-card .sec-head{margin-bottom:14px;}
-.revenue-streak{
-  font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;
-  background:var(--card-2);color:var(--muted);
-}
-.revenue-streak.active{background:var(--gold-soft);color:var(--gold);}
-.revenue-content{flex:1;min-height:0;display:flex;flex-direction:column;}
-.revenue-daily{
-  flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;
-  padding-bottom:18px;border-bottom:1px solid var(--border);
-}
-.revenue-body{display:flex;align-items:center;gap:20px;}
-.donut-wrap{position:relative;flex:none;width:120px;height:120px;}
-.donut-track{stroke:var(--card-2);}
-.donut-fg{stroke:var(--gold);transition:stroke-dashoffset .4s cubic-bezier(.22,1,.36,1),stroke .3s;}
-.donut-fg.met{stroke:var(--green);}
-.donut-center{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;pointer-events:none;
-}
-.donut-pct{font-size:26px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;}
-.revenue-fields{display:flex;flex-direction:column;gap:12px;flex:1;min-width:0;}
-.revenue-field{display:flex;flex-direction:column;gap:5px;}
-.revenue-field-label{font-size:11px;font-weight:600;color:var(--muted);}
-.revenue-field-input{
-  display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);
-  border-radius:10px;padding:7px 10px;
-}
-.revenue-field-input span{color:var(--muted);font-weight:700;font-size:13px;}
-.revenue-input{
-  width:100%;min-width:0;border:none;outline:none;background:transparent;font-family:inherit;
-  font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;
-}
-.revenue-input::placeholder{color:var(--faint);font-weight:600;}
-.revenue-input::-webkit-outer-spin-button,.revenue-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
-.revenue-input.revenue-goal{color:var(--muted);}
-.revenue-msg{font-size:12.5px;color:var(--muted);}
-
-.revenue-monthly{flex:1;min-height:0;display:flex;flex-direction:column;padding-top:16px;}
-.revenue-monthly-head{
-  display:flex;align-items:baseline;justify-content:space-between;
-  font-size:11px;font-weight:600;color:var(--muted);margin-bottom:10px;
-}
-.revenue-monthly-chart{
-  flex:1;min-height:94px;position:relative;display:flex;align-items:flex-end;gap:3px;
-}
-.revenue-monthly-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:0;}
-.revenue-monthly-bar{
-  width:100%;max-width:13px;margin:0 auto;border-radius:3px 3px 1px 1px;background:var(--faint);
-  transition:height .4s cubic-bezier(.22,1,.36,1);
-}
-.revenue-monthly-bar.is-today{background:var(--gold);}
-.revenue-monthly-bar.met{background:var(--green);}
-.revenue-monthly-bar.is-today.met{background:var(--green);box-shadow:0 0 0 1.5px var(--gold-soft);}
-.revenue-monthly-label{
-  display:block;margin-top:5px;font-size:9.5px;line-height:1;color:var(--faint);
-  text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;
-}
-.revenue-monthly-goal-line{position:absolute;left:0;right:0;border-top:1.5px dashed var(--red);z-index:1;}
-
-/* task rows */
-.tasks{display:flex;flex-direction:column;gap:2px;}
-.task{display:flex;align-items:flex-start;gap:11px;padding:8px 4px;border-radius:9px;}
-.task:hover{background:var(--card-2);}
-.task:hover .task-del{opacity:1;}
-.chk{
-  width:19px;height:19px;border-radius:6px;border:1.6px solid var(--faint);flex:none;margin-top:3px;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--card);
-}
-.chk svg{width:12px;height:12px;opacity:0;stroke:white;stroke-width:3;fill:none;}
-.task.done .chk{background:var(--green);border-color:var(--green);}
-.task.done .chk svg{opacity:1;}
-.task.needle .chk{border-color:var(--accent);}
-.task.needle.done .chk{background:var(--accent);border-color:var(--accent);}
-.task.signal{background:var(--gold-soft);box-shadow:inset 3px 0 0 var(--gold);}
-.task.signal:hover{background:var(--gold-soft-hover);}
-.task-text{
-  flex:1;font-size:14.5px;line-height:1.45;padding:3px 0;
-  border:none;background:transparent;font-family:inherit;color:inherit;outline:none;min-width:0;
-  resize:none;overflow:hidden;
-}
-.task-text::placeholder{color:var(--faint);}
-.task.done .task-text{color:var(--faint);text-decoration:line-through;}
-.carry{
-  flex:none;font-size:10.5px;font-weight:700;letter-spacing:-.01em;margin-top:4px;
-  color:var(--amber);background:var(--amber-soft);
-  padding:3px 8px;border-radius:999px;white-space:nowrap;
-}
-.task-del{
-  opacity:0;background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;
-  padding:2px 4px;flex:none;margin-top:2px;
-}
-.task-del:hover{color:var(--red);}
-.repeat-badge{
-  flex:none;font-size:10.5px;font-weight:700;letter-spacing:-.01em;margin-top:4px;
-  color:var(--accent-ink);background:var(--accent-soft);
-  padding:3px 8px;border-radius:999px;white-space:nowrap;
-}
-.repeat-btn{
-  opacity:0;flex:none;background:none;border:none;color:var(--faint);cursor:pointer;font-size:14px;line-height:1;
-  padding:2px 5px;border-radius:6px;margin-top:2px;
-}
-.task:hover .repeat-btn{opacity:1;}
-.repeat-btn:hover{background:var(--card);color:var(--ink);}
-.repeat-btn.active{opacity:1;color:var(--accent);}
-.repeat-btn.active:hover{color:var(--accent-ink);}
-.star-btn{
-  flex:none;background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;
-  padding:2px 4px;border-radius:6px;margin-top:1px;
-}
-.star-btn:hover{background:var(--card);color:var(--muted);}
-.star-btn.active{color:var(--gold);}
-.star-btn.active:hover{color:#96690a;}
-.empty-hint{color:var(--faint);font-size:12.5px;font-style:italic;padding:8px 4px 4px;}
-
-.addrow{
-  display:flex;align-items:center;gap:9px;margin-top:6px;padding:7px 4px;border-radius:9px;
-  color:var(--muted);font-weight:600;font-size:13px;cursor:pointer;width:fit-content;
-}
-.addrow:hover{color:var(--ink);background:var(--card-2);}
-.addrow .plus{
-  width:19px;height:19px;border-radius:6px;border:1.5px dashed var(--faint);flex:none;
-  display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:13px;
-}
-
-/* daily calls */
-.calls{display:flex;flex-direction:column;gap:2px;}
-.call-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-radius:9px;}
-.call-row:hover{background:var(--card-2);}
-.call-row:hover .task-del,.call-row:hover .repeat-btn{opacity:1;}
-.call-title,.call-link{
-  flex:1;min-width:0;font-size:14.5px;font-family:inherit;color:inherit;outline:none;
-  border:none;background:transparent;padding:5px 0;
-}
-.call-title{font-weight:600;}
-.call-title::placeholder,.call-link::placeholder{color:var(--faint);font-weight:400;}
-.call-link{color:var(--teal);border-left:1px solid var(--border);padding-left:12px;}
-.call-open{
-  flex:none;width:26px;height:26px;border-radius:8px;border:none;background:var(--teal-soft);color:var(--teal);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;
-  text-decoration:none;
-}
-.call-open:hover{background:var(--teal);color:#fff;}
-.call-open.disabled{opacity:.4;cursor:default;background:var(--card-2);color:var(--faint);pointer-events:none;}
-
-/* client grid */
-.client-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px;}
-.client-card{
-  position:relative;
-  background:var(--tile-grad-soft);border:1px solid var(--tile-border);border-radius:var(--radius-md);
-  box-shadow:var(--tile-shadow-soft);
-  padding:16px 16px 20px;display:flex;flex-direction:column;
-}
-.client-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.avatar{
-  width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#fff;background:var(--accent);
-}
-.client-name{
-  font-size:14.5px;font-weight:700;flex:1;min-width:0;
-  border:none;background:transparent;font-family:inherit;color:inherit;outline:none;
-}
-.client-name::placeholder{color:var(--faint);font-weight:600;}
-.client-count{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
-.client-del{background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;padding:0 2px;}
-.client-del:hover{color:var(--red);}
-
-.client-head-right{display:flex;align-items:center;gap:8px;padding-top:2px;}
-.add-client-btn{
-  flex:none;width:20px;height:20px;border-radius:6px;border:1.5px dashed var(--faint);
-  background:transparent;color:var(--faint);cursor:pointer;font-size:13px;line-height:1;
-  display:flex;align-items:center;justify-content:center;
-}
-.add-client-btn:hover{border-color:var(--accent);color:var(--accent);border-style:solid;}
-
-.footer-note{text-align:center;font-size:11.5px;color:var(--faint);margin-top:6px;}
-
-/* confirm modal */
-.modal-overlay{
-  position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;
-  background:rgba(20,20,26,.42);
-}
-.modal-overlay[hidden]{display:none;}
-.modal{
-  width:min(400px,100%);background:var(--card);border:1px solid var(--border);
-  border-radius:16px;padding:20px;box-shadow:0 24px 60px -20px rgba(16,16,20,0.35);
-  animation:modalin .15s ease;
-}
-@keyframes modalin{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
-.modal-msg{font-size:14px;line-height:1.5;color:var(--ink);margin-bottom:18px;}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
-.modal-btn{
-  height:36px;padding:0 15px;border-radius:9px;cursor:pointer;font-weight:600;font-size:13px;
-  border:1px solid var(--border);background:var(--card-2);color:var(--ink);
-}
-.modal-btn:hover{border-color:var(--faint);}
-.modal-btn.danger{border:none;color:#fff;background:var(--red);}
-.modal-btn.danger:hover{background:#d3383d;}
-
-/* toast */
-.toast{
-  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);
-  background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;
-  box-shadow:0 14px 30px -10px rgba(16,16,20,0.4);opacity:0;pointer-events:none;transition:.2s;z-index:90;
-}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-
-/* repeat popover */
-.repeat-pop{
-  position:fixed;z-index:85;width:224px;
-  background:var(--tile-grad-soft);border:1px solid var(--tile-border);border-radius:14px;
-  box-shadow:0 22px 48px -18px rgba(16,16,20,.3);padding:10px;
-}
-.repeat-pop[hidden]{display:none;}
-.repeat-pop-presets{display:flex;flex-direction:column;gap:2px;margin-bottom:10px;}
-.repeat-pop-presets button{
-  text-align:left;font-size:12.5px;font-weight:600;padding:7px 9px;border-radius:8px;border:none;
-  background:transparent;color:var(--ink);cursor:pointer;font-family:inherit;
-}
-.repeat-pop-presets button:hover{background:var(--card-2);}
-.repeat-pop-presets button[data-preset="none"]{color:var(--muted);}
-.repeat-pop-days{display:flex;gap:5px;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;}
-.rp-day{
-  width:27px;height:27px;border-radius:50%;border:1px solid var(--border);background:var(--card);
-  color:var(--muted);font-size:10.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  padding:0;font-family:inherit;
-}
-.rp-day:hover{border-color:var(--faint);}
-.rp-day.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-
-@media (max-width:520px){
-  .hero-pct{font-size:32px;}
-  .controlbar{flex-direction:column;align-items:stretch;}
-  .control-actions{justify-content:space-between;}
-}
-
-</style>
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-      <div class="wrap">
 
-        <div class="header">
-          <div class="brand">
-            <div class="mark">E</div>
-            <div class="word">educatr<span>.co</span></div>
-          </div>
-          <div class="header-right">
-            <div class="eyebrow">DAILY OPS · MULTI-CLIENT</div>
-            <div class="h-title">Focus Engine</div>
-          </div>
-        </div>
-
-        <div class="page-grid">
-        <div class="main-col">
-
-        <div class="controlbar">
-          <div class="controlbar-left">
-            <div class="datenav">
-              <button id="prevDay" title="Previous day">‹</button>
-              <div class="date-label">
-                <div class="d1" id="dateD1">Today</div>
-                <div class="d2" id="dateD2">Fri, Jul 24, 2026</div>
-              </div>
-              <button id="nextDay" title="Next day">›</button>
-            </div>
-            <div class="tz-clock" id="tzClock" title="Click to change timezone">
-              <div class="tz-time" id="tzTime">4:32 PM</div>
-              <div class="tz-zone" id="tzZone">Dubai · GMT+4</div>
-            </div>
-            <select class="tz-select" id="tzSelect" title="Change timezone — everything shifts to match"></select>
-          </div>
-          <div class="control-actions">
-            <button class="btn ghost" id="resetDay"><span class="icon" id="resetIcon">↻</span> Reset day</button>
-          </div>
-        </div>
-
-        <div class="hero" id="heroProgress">
-          <div class="hero-top">
-            <div class="hero-left">
-              <div class="hero-pct" id="pctNum">0%</div>
-              <div class="hero-msg" id="heroMsg">Nothing done yet. The needle&apos;s waiting.</div>
-            </div>
-            <div class="hero-count" id="heroCount">0 of 0 done</div>
-          </div>
-          <div class="track"><div class="fill" id="progressFill" style="width: 0%"></div></div>
-          <span class="grip"><i></i></span>
-        </div>
-
-        <div class="section needle">
-          <div class="sec-head">
-            <div>
-              <div class="sec-title-row"><span class="dot accent"></span><span class="sec-title">Highest-Leverage · High-ROI</span></div>
-              <div class="sec-sub">The two or three things that actually move the needle. Don&apos;t finish one? It rolls to today automatically until it&apos;s done. Switch the date up top to line something up ahead.</div>
-            </div>
-            <div class="sec-count" id="needleCount">0 / 0</div>
-          </div>
-          <div class="tasks" id="needleTasks"></div>
-          <div class="addrow" id="needleAdd"><span class="plus">+</span> Add a needle-mover</div>
-          <span class="grip"><i></i></span>
-        </div>
-
-        <div class="section">
-          <div class="sec-head">
-            <div>
-              <div class="sec-title-row"><span class="dot teal"></span><span class="sec-title">Daily Calls</span></div>
-              <div class="sec-sub">Title on the left, Google Meet link on the right — click ↗ to join. Set a repeat to keep a standing call around.</div>
-            </div>
-            <div class="sec-count" id="callsCount">0 today</div>
-          </div>
-          <div class="calls" id="callsList"></div>
-          <div class="addrow" id="callAdd"><span class="plus">+</span> Add a call</div>
-          <span class="grip"><i></i></span>
-        </div>
-
-        <div class="section">
-          <div class="client-head">
-            <div>
-              <div class="sec-title-row"><span class="dot blue"></span><span class="sec-title">Client To-Dos</span></div>
-              <div class="sec-sub">One card per client. Anything you don&apos;t finish rolls to today automatically — nothing slips.</div>
-            </div>
-            <div class="client-head-right">
-              <span class="sec-count" id="clientHeadCount">0 clients</span>
-              <button class="add-client-btn" id="addClientBtn" type="button" title="Add client">+</button>
-            </div>
-          </div>
-          <div class="grid" id="clientGrid"></div>
-        </div>
-
-        <div class="footer-note">Synced across your devices · unfinished tasks roll to today automatically, repeating ones stick until removed · Reset day wipes what&apos;s shown so you can start fresh</div>
-
-        </div>
-
-        <div class="side-col">
-
-        <div class="section revenue-card">
-          <div class="sec-head">
-            <div class="sec-title-row"><span class="dot gold"></span><span class="sec-title">Revenue</span></div>
-            <div class="revenue-streak" id="revenueStreak">0-day streak</div>
-          </div>
-          <div class="revenue-content">
-
-            <div class="revenue-daily">
-              <div class="revenue-body">
-                <div class="donut-wrap">
-                  <svg viewBox="0 0 120 120" width="120" height="120">
-                    <circle class="donut-track" cx="60" cy="60" r="50" fill="none" strokeWidth="12"></circle>
-                    <circle class="donut-fg" id="revenueRing" cx="60" cy="60" r="50" fill="none" strokeWidth="12"
-                      strokeLinecap="round" strokeDasharray="314.159" strokeDashoffset="314.159"
-                      transform="rotate(-90 60 60)"></circle>
-                  </svg>
-                  <div class="donut-center">
-                    <div class="donut-pct" id="revenuePct">0%</div>
-                  </div>
-                </div>
-                <div class="revenue-fields">
-                  <label class="revenue-field">
-                    <span class="revenue-field-label">Today&apos;s revenue</span>
-                    <div class="revenue-field-input">
-                      <span>$</span>
-                      <input type="number" inputMode="decimal" class="revenue-input" id="revenueInput" placeholder="0" min="0" step="1" />
-                    </div>
-                  </label>
-                  <label class="revenue-field">
-                    <span class="revenue-field-label">Daily goal</span>
-                    <div class="revenue-field-input">
-                      <span>$</span>
-                      <input type="number" inputMode="decimal" class="revenue-input revenue-goal" id="revenueGoalInput" placeholder="10000" min="1" step="1" />
-                    </div>
-                  </label>
-                </div>
-              </div>
-              <div class="revenue-msg" id="revenueMsg">Nothing logged yet today.</div>
-            </div>
-
-            <div class="revenue-monthly">
-              <div class="revenue-monthly-head">
-                <span id="revenueMonthLabel">This month</span>
-                <span id="revenueMonthGoal">Goal: $10,000/day</span>
-              </div>
-              <div class="revenue-monthly-chart" id="revenueMonthChart"></div>
-            </div>
-
-          </div>
-          <span class="grip"><i></i></span>
-        </div>
-
-        <div class="braindump">
-          <div class="braindump-head">
-            <div class="braindump-title">Daily Braindump</div>
-            <div class="braindump-date" id="braindumpDate">Fri, Jul 24, 2026</div>
-          </div>
-          <textarea class="braindump-text" id="braindumpText" placeholder="Dump anything here… tomorrow starts blank, but today's notes are saved and still here if you navigate back."></textarea>
-        </div>
-
-        </div>
-
-        </div>
-
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-mark">E</div>
+        <span class="brand-name">educatr.co</span>
       </div>
-
-      <div class="modal-overlay" id="modalOverlay" hidden>
-        <div class="modal" role="alertdialog" aria-modal="true">
-          <div class="modal-msg" id="modalMsg"></div>
-          <div class="modal-actions">
-            <button class="modal-btn" id="modalCancel">Cancel</button>
-            <button class="modal-btn danger" id="modalOk">Confirm</button>
-          </div>
+      <div class="header-meta">
+        <span class="eyebrow">Internal &middot; Daily Ops</span>
+        <h1 class="page-title">Daily Kill List</h1>
+        <div class="header-actions">
+          <span class="sync-status" id="syncStatus"></span>
+          <span>&middot;</span>
+          <span class="today-date" id="todayDate"></span>
         </div>
       </div>
-      <div class="toast" id="toast" aria-live="polite"></div>
+    </header>
 
-      <div class="repeat-pop" id="repeatPop" hidden>
-        <div class="repeat-pop-presets">
-          <button type="button" data-preset="daily">Repeat daily</button>
-          <button type="button" data-preset="weekly">Repeat weekly</button>
-          <button type="button" data-preset="mwf">Weekly on Mon, Wed, Fri</button>
-          <button type="button" data-preset="none">Doesn&apos;t repeat</button>
+    <main class="content">
+     <div class="left-col">
+
+      <div class="card controlbar">
+        <div class="controlbar-left">
+          <div class="datenav">
+            <button type="button" id="prevDay" title="Previous day">&lsaquo;</button>
+            <div class="date-label">
+              <div class="d1" id="dateD1">Today</div>
+              <div class="d2" id="dateD2"></div>
+            </div>
+            <button type="button" id="nextDay" title="Next day">&rsaquo;</button>
+          </div>
+          <div class="tz-clock" id="tzClock" title="Click to change timezone">
+            <div class="tz-time" id="tzTime"></div>
+            <div class="tz-zone" id="tzZone"></div>
+          </div>
+          <select class="tz-select" id="tzSelect" title="Change timezone — everything shifts to match"></select>
         </div>
-        <div class="repeat-pop-days" id="repeatDays"></div>
       </div>
-    </>
-<script>
-    var STORAGE_KEY = 'focusEngineData_v2';
-    var OLD_STORAGE_KEY = 'focusEngineData_v1';
-    var $ = function(s){ return document.querySelector(s); };
 
-    function uid(){ return Math.random().toString(36).slice(2,10); }
-    function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-    function strToDate(s){ var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
-    function shiftKey(key, days){ var d = strToDate(key); d.setDate(d.getDate() + days); return dateKey(d); }
+      <section class="progress-card">
+        <div class="icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="20" x2="4" y2="14"></line>
+            <line x1="12" y1="20" x2="12" y2="9"></line>
+            <line x1="20" y1="20" x2="20" y2="4"></line>
+          </svg>
+        </div>
+        <div class="progress-top">
+          <div class="progress-percent" id="progressPercent">0%</div>
+          <div class="progress-info">
+            <div class="progress-headline" id="progressHeadline">Nothing done yet.</div>
+            <div class="progress-count" id="progressCount">0 of 0 done</div>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </section>
 
-    // which timezone "today" is measured in — pick any IANA zone from the dropdown. Everything
-    // (rollover, Today/Yesterday labels, Reset day) is derived from todayKey(), so changing this
-    // re-anchors the whole dashboard to that zone's calendar day, not just the clock display.
-    var TZ_DUBAI = 'Asia/Dubai';
-    var localTz = (function(){ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; }catch(e){ return 'UTC'; } })();
-    var activeTz = TZ_DUBAI;
-    function currentTzId(){ return activeTz; }
-    function todayKeyIn(tz){
-      try{ return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date()); }
-      catch(e){ return dateKey(new Date()); }
-    }
-    function todayKey(){ return todayKeyIn(currentTzId()); }
-    function tzOffsetMinutes(tz){
-      try{
-        var raw = (new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName:'longOffset' }).formatToParts(new Date())
-          .find(function(p){ return p.type === 'timeZoneName'; }) || {}).value || 'GMT+00:00';
-        var m = raw.match(/GMT([+-])(\d{2}):(\d{2})/);
-        if(!m) return 0;
-        return (m[1] === '-' ? -1 : 1) * (parseInt(m[2],10) * 60 + parseInt(m[3],10));
-      }catch(e){ return 0; }
-    }
-    function tzOffsetLabel(tz){
-      try{
-        return (new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName:'shortOffset' }).formatToParts(new Date())
-          .find(function(p){ return p.type === 'timeZoneName'; }) || {}).value || '';
-      }catch(e){ return ''; }
-    }
-    function isToday(d){ return dateKey(d) === todayKey(); }
-    function shortDate(key){
-      var d = strToDate(key);
-      var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return MON[d.getMonth()]+' '+d.getDate();
-    }
-    function newTask(text){ return { id: uid(), text: text||'', date: dateKey(viewDate), done:false, doneDate:null, repeat:null, doneDates:[], signal:false }; }
-    function newCall(title, link){ return { id: uid(), title: title||'', link: link||'', date: dateKey(viewDate), repeat:null }; }
+      <section class="card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Daily Calls</h2>
+            <span class="card-count" id="callsCount">0 today</span>
+          </div>
+        </div>
+        <div class="calls" id="callsList"></div>
+        <div class="addrow" id="callAdd"><span class="plus">+</span> Add a call</div>
+      </section>
 
-    function seedData(){
-      var today = todayKey();
-      var seed = function(text){ return { id: uid(), text: text, date: today, done:false, doneDate:null, repeat:null, doneDates:[], signal:false }; };
-      return {
-        hero: [
-          seed('Call Adriel Hsu re: Q3 funnel audit findings'),
-          seed('Finalize Ollexyt Meta Ads creative brief')
-        ],
-        calls: [
-          { id: uid(), title:'Daily Standup', link:'', date: today, repeat:{ days:[1,2,3,4,5] } }
-        ],
-        clients: [
-          { id: uid(), name:'Adriel Hsu', tasks: [
-            seed('Send updated show-rate report'),
-            seed('Book next discovery call slot')
-          ]},
-          { id: uid(), name:'Ollexyt', tasks: [
-            seed('Connect Whop account for revenue sync')
-          ]}
-        ],
-        timezone: TZ_DUBAI,
-        braindump: {},
-        revenue: {},
-        revenueGoal: 10000
-      };
-    }
+      <div class="filter-tabs" id="filterTabs"></div>
 
-    // migrate the previous (v1) schema — addedDate/completedDate/todos — into the current one
-    function migrateFromV1(old){
-      var fix = function(t){
-        return { id:t.id||uid(), text:t.text||'', date: t.addedDate || todayKey(), done: !!t.done, doneDate: t.completedDate || null, repeat:null, doneDates:[] };
-      };
-      return {
-        hero: (old.needleMovers||[]).map(fix),
-        calls: [],
-        clients: (old.clients||[]).map(function(c){
-          return { id: c.id||uid(), name: c.name||'', tasks: (c.todos||[]).map(fix) };
-        }),
-        timezone: TZ_DUBAI,
-        braindump: {},
-        revenue: {},
-        revenueGoal: 10000
-      };
-    }
+      <section class="card add-task-card">
+        <form id="addTaskForm" class="add-task-form">
+          <input type="text" id="taskInput" placeholder="Add a task..." required />
+          <select id="departmentSelect"></select>
+          <select id="levelSelect">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <button type="button" id="priorityToggle" class="star-toggle-btn" title="Mark as top priority">&#9734;</button>
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+        <div id="repeatDaysRow" class="repeat-days-row">
+          <span class="repeat-icon" title="Repeat on...">&#128257;</span>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="0" />Sun</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="1" />Mon</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="2" />Tue</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="3" />Wed</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="4" />Thu</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="5" />Fri</label>
+          <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="6" />Sat</label>
+        </div>
+      </section>
 
-    function load(){
-      try{
-        var raw = localStorage.getItem(STORAGE_KEY);
-        if(raw){
-          var parsed = JSON.parse(raw);
-          if(parsed && parsed.hero && parsed.clients){
-            if(!parsed.calls) parsed.calls = [];
-            if(!parsed.braindump) parsed.braindump = {};
-            if(!parsed.revenue) parsed.revenue = {};
-            if(!parsed.revenueGoal) parsed.revenueGoal = 10000;
-            if(!parsed.timezone){
-              // migrate the old two-mode toggle (dubai/local) into a plain IANA zone id
-              parsed.timezone = (parsed.clockMode === 'local') ? localTz : TZ_DUBAI;
-            }
-            delete parsed.clockMode;
-            return parsed;
-          }
-        }
-        var oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
-        if(oldRaw){
-          var migrated = migrateFromV1(JSON.parse(oldRaw));
-          localStorage.removeItem(OLD_STORAGE_KEY);
-          return migrated;
-        }
-        return seedData();
-      }catch(e){ return seedData(); }
-    }
-    // ---- cross-device sync ----
-    // localStorage is still written on every save for instant offline access, but the
-    // source of truth for "which device has the newest data" is state.updatedAt, synced
-    // through /api/state (backed by Redis). Pushes are debounced so rapid typing doesn't
-    // spam the network; pulls are skipped while the user is actively editing so a poll
-    // can't clobber in-progress keystrokes.
-    var pushTimer = null;
-    var lastLocalEditAt = 0;
-    var syncEnabled = true;
-    function schedulePush(){
-      if(!syncEnabled) return;
-      clearTimeout(pushTimer);
-      pushTimer = setTimeout(function(){
-        fetch('/api/daily-kill-list/state', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state)
-        }).then(function(r){ if(r.status === 501) syncEnabled = false; }).catch(function(){});
-      }, 700);
-    }
-    function isEditingNow(){
-      var el = document.activeElement;
-      if(!el) return false;
-      return el.classList && (el.classList.contains('task-text') || el.classList.contains('call-title') ||
-        el.classList.contains('call-link') || el.classList.contains('client-name') ||
-        el.classList.contains('revenue-input')) || el.id === 'braindumpText';
-    }
-    function pullFromServer(){
-      if(!syncEnabled) return;
-      fetch('/api/daily-kill-list/state').then(function(r){
-        if(r.status === 501){ syncEnabled = false; return null; }
-        return r.json();
-      }).then(function(res){
-        var serverState = res && res.data;
-        if(!serverState) return;
-        if(isEditingNow()) return;
-        if(Date.now() - lastLocalEditAt < 1500) return;
-        if(state.updatedAt && serverState.updatedAt && serverState.updatedAt <= state.updatedAt) return;
-        if(!serverState.calls) serverState.calls = [];
-        if(!serverState.braindump) serverState.braindump = {};
-        if(!serverState.revenue) serverState.revenue = {};
-        if(!serverState.revenueGoal) serverState.revenueGoal = 10000;
-        if(!serverState.timezone) serverState.timezone = TZ_DUBAI;
-        state = serverState;
-        activeTz = state.timezone;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        render();
-      }).catch(function(){});
-    }
-    function save(){
-      state.updatedAt = Date.now();
-      lastLocalEditAt = state.updatedAt;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      schedulePush();
-    }
+      <section class="card tasks-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Backlog</h2>
+            <span class="card-count" id="openCount">0 open</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 12 12 17 22 12"></polyline>
+              <polyline points="2 17 12 22 22 17"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div id="taskList" class="task-list"></div>
+        <p id="emptyState" class="empty-state">No tasks yet. Add one above to get started.</p>
+      </section>
 
-    var state = load();
-    activeTz = state.timezone || TZ_DUBAI; // load() may have run seedData()/migrateFromV1 against
-                                            // the TZ_DUBAI default above — now sync to any saved choice
-    var viewDate = strToDate(todayKey()); // anchor the initial view to "today" in the active zone
-    var focusId = null;
+      <div class="department-row">
+        <section class="card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Marketing To-Do</h2>
+              <span class="card-count" id="marketingOpenCount">0 open</span>
+            </div>
+          </div>
+          <div id="marketingTaskList" class="task-list"></div>
+          <p id="marketingEmptyState" class="empty-state">No tasks for Marketing.</p>
+        </section>
 
-    // an unfinished task always shows on real "today" once its date has arrived (rolls forward
-    // day after day on its own); a task dated in the future waits on its own day; a completed
-    // task stays put on the day it was finished.
-    function effectiveDate(t){
-      if(t.done) return t.doneDate || t.date;
-      var tk = todayKey();
-      return t.date <= tk ? tk : t.date;
-    }
+        <section class="card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Sales To-Do</h2>
+              <span class="card-count" id="salesOpenCount">0 open</span>
+            </div>
+          </div>
+          <div id="salesTaskList" class="task-list"></div>
+          <p id="salesEmptyState" class="empty-state">No tasks for Sales.</p>
+        </section>
 
-    var WD2 = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-    function isRepeating(t){ return !!(t.repeat && t.repeat.days && t.repeat.days.length); }
-    function weekdayOf(dateStr){ return strToDate(dateStr).getDay(); }
-    // a repeating task is a fixture: it shows on every matching weekday from its start date
-    // onward, forever, independent of whether earlier occurrences were completed or missed.
-    function occursOn(t, dateStr){
-      return dateStr >= t.date && t.repeat.days.indexOf(weekdayOf(dateStr)) !== -1;
-    }
-    function repeatSummary(t){
-      var days = t.repeat.days.slice().sort(function(a,b){ return a-b; });
-      if(days.length === 7) return 'Daily';
-      return days.map(function(d){ return WD2[d]; }).join('·');
-    }
-    function isDoneOn(t, dateStr){
-      if(isRepeating(t)) return (t.doneDates||[]).indexOf(dateStr) !== -1;
-      return !!t.done;
-    }
+        <section class="card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Operations To-Do</h2>
+              <span class="card-count" id="operationsOpenCount">0 open</span>
+            </div>
+          </div>
+          <div id="operationsTaskList" class="task-list"></div>
+          <p id="operationsEmptyState" class="empty-state">No tasks for Operations.</p>
+        </section>
 
-    function visibleFor(list){
-      var k = dateKey(viewDate);
-      return list.filter(function(t){ return isRepeating(t) ? occursOn(t, k) : effectiveDate(t) === k; });
-    }
-    // calls are scheduled events, not outstanding work — a one-off call only shows on the exact
-    // day it was set for (no rollover); a repeating call follows the same weekday rule as tasks.
-    function visibleCallsFor(list){
-      var k = dateKey(viewDate);
-      return list.filter(function(c){ return isRepeating(c) ? occursOn(c, k) : c.date === k; });
-    }
-    function normalizeUrl(u){
-      u = (u || '').trim();
-      if(!u) return '';
-      if(!/^https?:\/\//i.test(u)) u = 'https://' + u;
-      return u;
-    }
-    function updateCallOpenLink(anchor, rawLink){
-      var url = normalizeUrl(rawLink);
-      if(url){
-        anchor.href = url;
-        anchor.classList.remove('disabled');
-        anchor.removeAttribute('aria-disabled');
-      } else {
-        anchor.removeAttribute('href');
-        anchor.classList.add('disabled');
-        anchor.setAttribute('aria-disabled', 'true');
-      }
-    }
-    function toggle(t){
-      var k = dateKey(viewDate);
-      if(isRepeating(t)){
-        var arr = t.doneDates || (t.doneDates = []);
-        var i = arr.indexOf(k);
-        if(i >= 0) arr.splice(i,1); else arr.push(k);
-      } else if(t.done){ t.done = false; t.doneDate = null; }
-      else { t.done = true; t.doneDate = k; }
-      save(); render();
-    }
+        <section class="card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Fulfilment To-Do</h2>
+              <span class="card-count" id="fulfilmentOpenCount">0 open</span>
+            </div>
+          </div>
+          <div id="fulfilmentTaskList" class="task-list"></div>
+          <p id="fulfilmentEmptyState" class="empty-state">No tasks for Fulfilment.</p>
+        </section>
+      </div>
 
-    function autoGrow(el){ el.style.height='auto'; el.style.height=el.scrollHeight+'px'; }
+      <section class="card completed-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Tasks completed</h2>
+            <span class="card-count" id="completedCount">0 done</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <polyline points="8 12 11 15 16 9"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div id="completedList" class="task-list completed-list"></div>
+        <p id="emptyCompleted" class="empty-state">Nothing completed yet.</p>
+      </section>
 
-    function makeTaskRow(task, list, needle){
-      var k = dateKey(viewDate);
-      var done = isDoneOn(task, k);
-      var row = document.createElement('div');
-      row.className = 'task' + (done ? ' done' : '') + (needle ? ' needle' : '') + (needle && task.signal ? ' signal' : '');
-      row.setAttribute('data-task-id', task.id);
+      <div class="footer-note">Synced across your devices &middot; unfinished daily calls follow their repeat schedule, the backlog below is shared and ongoing</div>
 
-      var chk = document.createElement('div');
-      chk.className = 'chk';
-      chk.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="4,13 9,18 20,6"/></svg>';
-      chk.addEventListener('click', function(){ toggle(task); });
+     </div>
 
-      var ta = document.createElement('textarea');
-      ta.className = 'task-text';
-      ta.rows = 1;
-      ta.value = task.text;
-      ta.placeholder = 'Type a task…';
-      ta.addEventListener('input', function(){ task.text = ta.value; autoGrow(ta); save(); });
-      ta.addEventListener('keydown', function(e){
-        // Enter confirms the entry (same as clicking away) — it never spawns a new row or
-        // touches existing text. The only way to remove a task is the explicit × button.
-        if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); ta.blur(); }
-      });
+     <aside class="right-col">
+      <section class="card yearly-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Yearly Goals</h2>
+            <span class="card-count" id="yearlyProgressCount">0 of 0 done</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <circle cx="12" cy="12" r="5"></circle>
+              <circle cx="12" cy="12" r="1"></circle>
+            </svg>
+          </div>
+        </div>
+        <div class="progress-track yearly-track">
+          <div class="progress-fill" id="yearlyProgressFill"></div>
+        </div>
+        <form id="yearlyForm" class="yearly-form">
+          <input type="text" id="yearlyInput" placeholder="Add a yearly goal..." required />
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+        <div id="yearlyList" class="task-list yearly-list"></div>
+        <p id="yearlyEmpty" class="empty-state">No yearly goals yet.</p>
+      </section>
 
-      var repeatBtn = document.createElement('button');
-      repeatBtn.type = 'button';
-      repeatBtn.className = 'repeat-btn' + (isRepeating(task) ? ' active' : '');
-      repeatBtn.textContent = '↻';
-      repeatBtn.title = isRepeating(task) ? ('Repeats ' + repeatSummary(task)) : 'Set repeat';
-      repeatBtn.addEventListener('click', function(e){ e.stopPropagation(); openRepeatPop(task, repeatBtn); });
+      <section class="card braindump-card">
+        <div class="braindump-head">
+          <div class="braindump-title">Daily Braindump</div>
+          <div class="braindump-date" id="braindumpDate"></div>
+        </div>
+        <textarea class="braindump-text" id="braindumpText" placeholder="Dump anything here… tomorrow starts blank, but today's notes are saved and still here if you navigate back."></textarea>
+      </section>
+     </aside>
+    </main>
+  </div>
 
-      var del = document.createElement('button');
-      del.className = 'task-del';
-      del.textContent = '×';
-      del.title = 'Delete';
-      del.addEventListener('click', function(){
-        var i = list.indexOf(task);
-        list.splice(i,1); save(); render();
-      });
+  <div class="repeat-pop" id="repeatPop" hidden>
+    <div class="repeat-pop-presets">
+      <button type="button" data-preset="daily">Repeat daily</button>
+      <button type="button" data-preset="weekly">Repeat weekly</button>
+      <button type="button" data-preset="mwf">Weekly on Mon, Wed, Fri</button>
+      <button type="button" data-preset="none">Doesn&apos;t repeat</button>
+    </div>
+    <div class="repeat-pop-days" id="repeatDays"></div>
+  </div>
 
-      row.appendChild(chk); row.appendChild(ta);
-      if(isRepeating(task)){
-        var badge = document.createElement('span');
-        badge.className = 'repeat-badge';
-        badge.textContent = '↻ ' + repeatSummary(task);
-        badge.title = 'Repeats ' + repeatSummary(task);
-        row.appendChild(badge);
-      } else if(!task.done && task.date < k){
-        var chip = document.createElement('span');
-        chip.className = 'carry';
-        chip.textContent = '⟲ ' + shortDate(task.date);
-        chip.title = 'Rolled over from ' + shortDate(task.date);
-        row.appendChild(chip);
-      }
-      if(needle){
-        var starBtn = document.createElement('button');
-        starBtn.type = 'button';
-        starBtn.className = 'star-btn' + (task.signal ? ' active' : '');
-        starBtn.textContent = '★';
-        starBtn.title = task.signal ? 'Remove signal highlight' : 'Mark as signal';
-        starBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          task.signal = !task.signal;
-          save(); render();
-        });
-        row.appendChild(starBtn);
-      }
-      row.appendChild(repeatBtn);
-      row.appendChild(del);
-      return { row: row, ta: ta };
-    }
-
-    function makeCallRow(call){
-      var row = document.createElement('div');
-      row.className = 'call-row';
-      row.setAttribute('data-task-id', call.id);
-
-      var title = document.createElement('input');
-      title.type = 'text';
-      title.className = 'call-title';
-      title.value = call.title;
-      title.placeholder = 'Meeting title…';
-      title.addEventListener('input', function(){ call.title = title.value; save(); });
-      title.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); title.blur(); } });
-
-      var link = document.createElement('input');
-      link.type = 'text';
-      link.className = 'call-link';
-      link.value = call.link;
-      link.placeholder = 'Paste Google Meet link…';
-      link.addEventListener('input', function(){
-        call.link = link.value;
-        updateCallOpenLink(openBtn, call.link);
-        save();
-      });
-      link.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); link.blur(); } });
-
-      // a real <a target="_blank"> is used here on purpose — a scripted window.open() call is
-      // silently blocked inside a sandboxed iframe (no error, it just does nothing), whereas a
-      // genuine user click on a real hyperlink is the browser-sanctioned way to open a tab.
-      var openBtn = document.createElement('a');
-      openBtn.className = 'call-open';
-      openBtn.textContent = '↗';
-      openBtn.title = 'Join call';
-      openBtn.target = '_blank';
-      openBtn.rel = 'noopener noreferrer';
-      updateCallOpenLink(openBtn, call.link);
-
-      var repeatBtn = document.createElement('button');
-      repeatBtn.type = 'button';
-      repeatBtn.className = 'repeat-btn' + (isRepeating(call) ? ' active' : '');
-      repeatBtn.textContent = '↻';
-      repeatBtn.title = isRepeating(call) ? ('Repeats ' + repeatSummary(call)) : 'Set repeat';
-      repeatBtn.addEventListener('click', function(e){ e.stopPropagation(); openRepeatPop(call, repeatBtn); });
-
-      var del = document.createElement('button');
-      del.className = 'task-del';
-      del.textContent = '×';
-      del.title = 'Delete';
-      del.addEventListener('click', function(){
-        state.calls = state.calls.filter(function(c){ return c.id !== call.id; });
-        save(); render();
-      });
-
-      row.appendChild(title); row.appendChild(link); row.appendChild(openBtn);
-      if(isRepeating(call)){
-        var badge = document.createElement('span');
-        badge.className = 'repeat-badge';
-        badge.textContent = '↻ ' + repeatSummary(call);
-        badge.title = 'Repeats ' + repeatSummary(call);
-        row.appendChild(badge);
-      }
-      row.appendChild(repeatBtn);
-      row.appendChild(del);
-      return { row: row, title: title };
-    }
-
-    // ---- date nav ----
-    var WEEK = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    function renderDateLabel(){
-      var d = viewDate;
-      var dk = dateKey(d);
-      var tk = todayKey();
-      if(dk === tk) $('#dateD1').textContent = 'Today';
-      else if(dk === shiftKey(tk, -1)) $('#dateD1').textContent = 'Yesterday';
-      else if(dk === shiftKey(tk, 1)) $('#dateD1').textContent = 'Tomorrow';
-      else $('#dateD1').textContent = WEEK[d.getDay()];
-      $('#dateD2').textContent = WEEK[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
-    }
-    function handlePrevDay(){ viewDate = new Date(viewDate.getTime()-864e5); render(); }
-    function handleNextDay(){ viewDate = new Date(viewDate.getTime()+864e5); render(); }
-    $('#prevDay').addEventListener('click', handlePrevDay);
-    $('#nextDay').addEventListener('click', handleNextDay);
-
-    // ---- daily braindump ----
-    // one free-text note per calendar day, keyed by date — a new day always starts blank,
-    // and every previous day's note stays put, retrievable by navigating back to it.
-    var braindumpText = $('#braindumpText');
-    braindumpText.addEventListener('input', function(){
-      state.braindump[dateKey(viewDate)] = braindumpText.value;
-      save();
-    });
-    function renderBraindump(){
-      var k = dateKey(viewDate);
-      braindumpText.value = state.braindump[k] || '';
-      $('#braindumpDate').textContent = WEEK[viewDate.getDay()]+', '+MON[viewDate.getMonth()]+' '+viewDate.getDate()+', '+viewDate.getFullYear();
-    }
-
-    // ---- timezone clock + picker ----
-    var FALLBACK_ZONES = ['Pacific/Midway','Pacific/Honolulu','America/Anchorage','America/Los_Angeles',
-      'America/Denver','America/Chicago','America/New_York','America/Sao_Paulo','Atlantic/Azores','UTC',
-      'Europe/London','Europe/Paris','Europe/Berlin','Europe/Athens','Europe/Moscow','Africa/Cairo',
-      'Africa/Johannesburg','Asia/Dubai','Asia/Karachi','Asia/Kolkata','Asia/Dhaka','Asia/Bangkok',
-      'Asia/Jakarta','Asia/Shanghai','Asia/Singapore','Asia/Tokyo','Asia/Seoul','Australia/Perth',
-      'Australia/Sydney','Pacific/Auckland','Pacific/Fiji'];
-
-    function buildTimezoneList(){
-      var list = null;
-      try{ if(typeof Intl.supportedValuesOf === 'function') list = Intl.supportedValuesOf('timeZone').slice(); }catch(e){}
-      if(!list || !list.length) list = FALLBACK_ZONES.slice();
-      if(list.indexOf(localTz) === -1) list.push(localTz);
-      if(list.indexOf(TZ_DUBAI) === -1) list.push(TZ_DUBAI);
-      list.sort(function(a,b){
-        var oa = tzOffsetMinutes(a), ob = tzOffsetMinutes(b);
-        return oa !== ob ? oa - ob : a.localeCompare(b);
-      });
-      return list;
-    }
-    function populateTzSelect(){
-      var sel = $('#tzSelect');
-      sel.innerHTML = '';
-      buildTimezoneList().forEach(function(tz){
-        var opt = document.createElement('option');
-        opt.value = tz;
-        var city = tz.split('/').pop().replace(/_/g,' ');
-        opt.textContent = tzOffsetLabel(tz) + '  ' + city + (tz === localTz ? ' ★' : '');
-        opt.title = tz + (tz === localTz ? ' (this device)' : '');
-        sel.appendChild(opt);
-      });
-      sel.value = activeTz;
-    }
-    function tzZoneLabel(){
-      var city = activeTz.split('/').pop().replace(/_/g,' ');
-      var off = tzOffsetLabel(activeTz);
-      return city + (off ? ' · ' + off : '');
-    }
-    function renderClock(){
-      var timeStr;
-      try{ timeStr = new Date().toLocaleTimeString([], { hour:'numeric', minute:'2-digit', hour12:true, timeZone: activeTz }); }
-      catch(e){ timeStr = new Date().toLocaleTimeString([], { hour:'numeric', minute:'2-digit', hour12:true }); }
-      $('#tzTime').textContent = timeStr;
-      $('#tzZone').textContent = tzZoneLabel();
-    }
-    function applyTimezoneChange(newTz){
-      activeTz = newTz;
-      state.timezone = activeTz;
-      save();
-      // re-anchor the whole dashboard's "today" to the newly active zone's calendar day
-      viewDate = strToDate(todayKey());
-      renderClock();
-      render();
-    }
-    function handleTzSelectChange(){ applyTimezoneChange($('#tzSelect').value); }
-    function handleTzClockClick(){
-      var sel = $('#tzSelect');
-      if(sel.showPicker){ try{ sel.showPicker(); return; }catch(e){} }
-      sel.focus();
-    }
-    $('#tzSelect').addEventListener('change', handleTzSelectChange);
-    $('#tzClock').addEventListener('click', handleTzClockClick);
-    populateTzSelect();
-    renderClock();
-    var clockIntervalId = setInterval(renderClock, 15000);
-
-    // ---- confirm modal (native confirm()/prompt() can be blocked inside a sandboxed iframe) ----
-    function askConfirm(message, okLabel){
-      return new Promise(function(resolve){
-        $('#modalMsg').textContent = message;
-        var ok = $('#modalOk'), cancel = $('#modalCancel'), ov = $('#modalOverlay');
-        ok.textContent = okLabel || 'Confirm';
-        ov.hidden = false;
-        function finish(v){
-          ov.hidden = true;
-          ok.onclick = cancel.onclick = ov.onclick = null;
-          document.onkeydown = null;
-          resolve(v);
-        }
-        ok.onclick = function(){ finish(true); };
-        cancel.onclick = function(){ finish(false); };
-        ov.onclick = function(e){ if(e.target === ov) finish(false); };
-        document.onkeydown = function(e){ if(e.key === 'Escape') finish(false); else if(e.key === 'Enter') finish(true); };
-        ok.focus();
-      });
-    }
-    var toastTimer;
-    function toast(msg){
-      var el = $('#toast'); el.textContent = msg; el.classList.add('show');
-      clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2400);
-    }
-
-    // ---- reset day ----
-    // one-off tasks shown today get deleted outright; repeating tasks are fixtures — they
-    // just have today's completion cleared so they come back unchecked, never removed here.
-    function handleResetDay(){
-      var k = dateKey(viewDate);
-      var label = isToday(viewDate) ? 'today' : shortDate(k);
-      var onThisDay = function(t){ return isRepeating(t) ? occursOn(t, k) : effectiveDate(t) === k; };
-      var n = state.hero.filter(onThisDay).length;
-      state.clients.forEach(function(c){ n += c.tasks.filter(onThisDay).length; });
-      if(n === 0){ toast('Nothing on ' + label + ' to clear.'); return; }
-      askConfirm("Clear " + n + " task" + (n===1?'':'s') + " from " + label + "? One-off tasks are deleted; repeating ones are just marked incomplete for today.", 'Wipe day').then(function(ok){
-        if(!ok) return;
-        var wipe = function(t){
-          if(!onThisDay(t)) return true;
-          if(isRepeating(t)){
-            var arr = t.doneDates || []; var i = arr.indexOf(k);
-            if(i >= 0) arr.splice(i,1);
-            return true;
-          }
-          return false;
-        };
-        state.hero = state.hero.filter(wipe);
-        state.clients.forEach(function(c){ c.tasks = c.tasks.filter(wipe); });
-        save(); render();
-        var icon = $('#resetIcon');
-        icon.classList.add('spin');
-        setTimeout(function(){ icon.classList.remove('spin'); }, 520);
-        toast('Cleared ' + n + ' task' + (n===1?'':'s') + ' from ' + label + '.');
-      });
-    }
-    $('#resetDay').addEventListener('click', handleResetDay);
-
-    // ---- repeat popover ----
-    var repeatTarget = null;
-    function buildRepeatDayChips(){
-      var host = $('#repeatDays');
-      host.innerHTML = '';
-      WD2.forEach(function(label, idx){
-        var b = document.createElement('button');
-        b.type = 'button'; b.className = 'rp-day'; b.textContent = label; b.dataset.day = idx;
-        b.addEventListener('click', function(){ toggleRepeatDay(idx); });
-        host.appendChild(b);
-      });
-    }
-    function refreshRepeatPopUI(){
-      if(!repeatTarget) return;
-      var days = (repeatTarget.repeat && repeatTarget.repeat.days) || [];
-      Array.prototype.forEach.call($('#repeatDays').children, function(chip){
-        chip.classList.toggle('active', days.indexOf(+chip.dataset.day) !== -1);
-      });
-    }
-    function updateTaskRepeatUI(task){
-      var row = document.querySelector('[data-task-id="'+task.id+'"]');
-      if(!row) return;
-      var btn = row.querySelector('.repeat-btn');
-      var active = isRepeating(task);
-      if(btn){
-        btn.classList.toggle('active', active);
-        btn.title = active ? ('Repeats ' + repeatSummary(task)) : 'Set repeat';
-      }
-      var badge = row.querySelector('.repeat-badge');
-      if(active){
-        if(!badge){
-          badge = document.createElement('span');
-          badge.className = 'repeat-badge';
-          row.insertBefore(badge, btn);
-        }
-        badge.textContent = '↻ ' + repeatSummary(task);
-        badge.title = 'Repeats ' + repeatSummary(task);
-      } else if(badge){
-        badge.remove();
-      }
-    }
-    function setRepeatDays(days){
-      if(!repeatTarget) return;
-      days = Array.from(new Set(days)).sort(function(a,b){ return a-b; });
-      repeatTarget.repeat = days.length ? { days: days } : null;
-      save();
-      refreshRepeatPopUI();
-      updateTaskRepeatUI(repeatTarget);
-    }
-    function toggleRepeatDay(d){
-      var days = (repeatTarget.repeat && repeatTarget.repeat.days.slice()) || [];
-      var i = days.indexOf(d);
-      if(i >= 0) days.splice(i,1); else days.push(d);
-      setRepeatDays(days);
-    }
-    function openRepeatPop(task, btnEl){
-      repeatTarget = task;
-      refreshRepeatPopUI();
-      var pop = $('#repeatPop');
-      var r = btnEl.getBoundingClientRect();
-      pop.hidden = false;
-      var top = r.bottom + 6;
-      var left = Math.min(r.left, window.innerWidth - 240);
-      pop.style.top = Math.max(8, top) + 'px';
-      pop.style.left = Math.max(8, left) + 'px';
-    }
-    function closeRepeatPop(){
-      if($('#repeatPop').hidden) return;
-      $('#repeatPop').hidden = true;
-      repeatTarget = null;
-      render();
-    }
-    buildRepeatDayChips();
-    function handlePresetDaily(){ setRepeatDays([0,1,2,3,4,5,6]); }
-    function handlePresetWeekly(){ setRepeatDays([weekdayOf(repeatTarget.date)]); }
-    function handlePresetMwf(){ setRepeatDays([1,3,5]); }
-    function handlePresetNone(){ setRepeatDays([]); }
-    document.querySelector('[data-preset="daily"]').addEventListener('click', handlePresetDaily);
-    document.querySelector('[data-preset="weekly"]').addEventListener('click', handlePresetWeekly);
-    document.querySelector('[data-preset="mwf"]').addEventListener('click', handlePresetMwf);
-    document.querySelector('[data-preset="none"]').addEventListener('click', handlePresetNone);
-    function handleDocMouseDown(e){
-      var pop = $('#repeatPop');
-      if(pop.hidden || pop.contains(e.target) || (e.target.closest && e.target.closest('.repeat-btn'))) return;
-      closeRepeatPop();
-    }
-    function handleDocKeyDown(e){ if(e.key === 'Escape' && !$('#repeatPop').hidden) closeRepeatPop(); }
-    document.addEventListener('mousedown', handleDocMouseDown);
-    document.addEventListener('keydown', handleDocKeyDown);
-
-    // ---- needle movers ----
-    function handleNeedleAdd(){
-      var t = newTask('');
-      state.hero.push(t);
-      focusId = t.id;
-      save(); render();
-    }
-    $('#needleAdd').addEventListener('click', handleNeedleAdd);
-
-    function renderNeedle(){
-      var host = $('#needleTasks');
-      host.innerHTML = '';
-      var visible = visibleFor(state.hero);
-      if(!visible.length){
-        host.innerHTML = '<div class="empty-hint">Nothing lined up. Add the one thing that actually matters today.</div>';
-      }
-      visible.forEach(function(t){
-        var built = makeTaskRow(t, state.hero, true);
-        host.appendChild(built.row);
-      });
-      var k = dateKey(viewDate);
-      var done = visible.filter(function(t){ return isDoneOn(t, k); }).length;
-      $('#needleCount').textContent = done+' / '+visible.length;
-      return { done: done, total: visible.length };
-    }
-
-    // ---- daily calls ----
-    function handleCallAdd(){
-      var c = newCall('', '');
-      state.calls.push(c);
-      focusId = c.id;
-      save(); render();
-    }
-    $('#callAdd').addEventListener('click', handleCallAdd);
-
-    function renderCalls(){
-      var host = $('#callsList');
-      host.innerHTML = '';
-      var visible = visibleCallsFor(state.calls);
-      if(!visible.length){
-        host.innerHTML = '<div class="empty-hint">No calls today. Paste a Meet link below.</div>';
-      }
-      visible.forEach(function(c){
-        var built = makeCallRow(c);
-        host.appendChild(built.row);
-      });
-      $('#callsCount').textContent = visible.length + ' today';
-    }
-
-    // ---- clients ----
-    var clientGrid = $('#clientGrid');
-    function handleAddClient(){
-      var newId = uid();
-      state.clients.push({ id:newId, name:'', tasks:[newTask('')] });
-      save(); render();
-      var el = clientGrid.querySelector('[data-client-id="'+newId+'"] .client-name');
-      if(el) el.focus();
-    }
-    $('#addClientBtn').addEventListener('click', handleAddClient);
-
-    function clientCard(client){
-      var card = document.createElement('div');
-      card.className = 'client-card';
-      card.setAttribute('data-client-id', client.id);
-
-      var head = document.createElement('div');
-      head.className = 'client-card-head';
-      var av = document.createElement('div');
-      av.className = 'avatar';
-      av.textContent = (client.name.trim()[0] || '?').toUpperCase();
-      var name = document.createElement('input');
-      name.type = 'text';
-      name.className = 'client-name';
-      name.value = client.name;
-      name.maxLength = 60;
-      name.placeholder = 'Client name';
-      name.addEventListener('input', function(){
-        client.name = name.value;
-        av.textContent = (client.name.trim()[0] || '?').toUpperCase();
-        save();
-      });
-      name.addEventListener('keydown', function(e){ if(e.key === 'Enter') name.blur(); });
-
-      var visible = visibleFor(client.tasks);
-      var dk = dateKey(viewDate);
-      var done = visible.filter(function(t){ return isDoneOn(t, dk); }).length;
-
-      var count = document.createElement('div');
-      count.className = 'client-count';
-      count.textContent = done+'/'+visible.length;
-
-      var del = document.createElement('button');
-      del.className = 'client-del';
-      del.textContent = '×';
-      del.title = 'Remove client';
-      del.addEventListener('click', function(){
-        askConfirm('Remove '+(client.name||'this client')+' and all of their to-dos?', 'Remove').then(function(ok){
-          if(!ok) return;
-          state.clients = state.clients.filter(function(c){ return c.id !== client.id; });
-          save(); render();
-        });
-      });
-      head.appendChild(av); head.appendChild(name); head.appendChild(count); head.appendChild(del);
-
-      var list = document.createElement('div');
-      list.className = 'tasks';
-      if(!visible.length){
-        list.innerHTML = '<div class="empty-hint">No to-dos yet.</div>';
-      }
-      visible.forEach(function(t){
-        var built = makeTaskRow(t, client.tasks, false);
-        list.appendChild(built.row);
-      });
-
-      var addrow = document.createElement('div');
-      addrow.className = 'addrow';
-      addrow.innerHTML = '<span class="plus">+</span> Add to-do';
-      addrow.addEventListener('click', function(){
-        var t = newTask('');
-        client.tasks.push(t);
-        focusId = t.id;
-        save(); render();
-      });
-
-      var grip = document.createElement('span');
-      grip.className = 'grip';
-      grip.innerHTML = '<i></i>';
-
-      card.appendChild(head); card.appendChild(list); card.appendChild(addrow); card.appendChild(grip);
-      return { card: card, done: done, total: visible.length };
-    }
-
-    function renderClients(){
-      clientGrid.innerHTML = '';
-      var totalDone = 0, totalAll = 0;
-
-      state.clients.forEach(function(client){
-        var built = clientCard(client);
-        clientGrid.appendChild(built.card);
-        totalDone += built.done; totalAll += built.total;
-      });
-
-      $('#clientHeadCount').textContent = state.clients.length + (state.clients.length===1 ? ' client' : ' clients');
-      return { done: totalDone, total: totalAll };
-    }
-
-    // ---- portfolio revenue ----
-    // revenue itself resets every day (keyed by date, like everything else here), but the
-    // daily target is a standing setting the user can retune — so it lives on its own key,
-    // not per-day, and the streak is always judged against whatever the target currently is.
-    var DEFAULT_REVENUE_GOAL = 10000;
-    var RING_R = 50;
-    var RING_C = 2 * Math.PI * RING_R;
-    function formatMoney(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
-    var revenueInput = $('#revenueInput');
-    var revenueGoalInput = $('#revenueGoalInput');
-
-    revenueInput.addEventListener('input', function(){
-      var raw = revenueInput.value;
-      var k = dateKey(viewDate);
-      if(raw === '') delete state.revenue[k];
-      else { var n = Number(raw); if(!isNaN(n)) state.revenue[k] = n; }
-      save();
-      renderRevenueVisual();
-    });
-    revenueInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); revenueInput.blur(); } });
-
-    revenueGoalInput.addEventListener('input', function(){
-      var raw = revenueGoalInput.value;
-      if(raw !== ''){
-        var n = Number(raw);
-        if(!isNaN(n) && n > 0) state.revenueGoal = n;
-      }
-      save();
-      renderRevenueVisual();
-    });
-    revenueGoalInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); revenueGoalInput.blur(); } });
-    revenueGoalInput.addEventListener('blur', function(){ revenueGoalInput.value = state.revenueGoal || DEFAULT_REVENUE_GOAL; });
-
-    // counts consecutive goal-met days ending today (only if today already meets it) or
-    // yesterday (if today is still short) — so an in-progress day never breaks the streak
-    function computeStreak(){
-      var goal = state.revenueGoal || DEFAULT_REVENUE_GOAL;
-      var cursor = todayKey();
-      if(!((state.revenue[cursor] || 0) >= goal)) cursor = shiftKey(cursor, -1);
-      var streak = 0;
-      var guard = 0;
-      while((state.revenue[cursor] || 0) >= goal && guard < 3650){
-        streak++; guard++;
-        cursor = shiftKey(cursor, -1);
-      }
-      return streak;
-    }
-    function revenueMsg(amount, goal){
-      var when = isToday(viewDate) ? 'today' : 'this day';
-      if(amount <= 0) return 'Nothing logged yet ' + when + '.';
-      if(amount >= goal) return 'Goal cleared — streak stays alive.';
-      return formatMoney(goal - amount) + ' to go.';
-    }
-    function renderRevenueInputs(){
-      var v = state.revenue[dateKey(viewDate)];
-      revenueInput.value = (v === undefined || v === null) ? '' : v;
-      revenueGoalInput.value = state.revenueGoal || DEFAULT_REVENUE_GOAL;
-    }
-    function renderRevenueVisual(){
-      var goal = state.revenueGoal || DEFAULT_REVENUE_GOAL;
-      var amount = state.revenue[dateKey(viewDate)] || 0;
-      var pct = Math.round((amount / goal) * 100);
-      var ringPct = Math.max(0, Math.min(100, pct));
-      var ring = $('#revenueRing');
-      ring.style.strokeDashoffset = String(RING_C * (1 - ringPct / 100));
-      ring.classList.toggle('met', amount >= goal);
-      $('#revenuePct').textContent = pct + '%';
-      $('#revenueMsg').textContent = revenueMsg(amount, goal);
-      var streak = computeStreak();
-      var streakEl = $('#revenueStreak');
-      streakEl.textContent = (streak > 0 ? '🔥 ' : '') + streak + '-day streak';
-      streakEl.classList.toggle('active', streak > 0);
-      renderRevenueMonth();
-    }
-    // month-to-date bars — resets to a single bar on the 1st, fills in day by day.
-    // Anchored to the day being browsed (viewDate), not the real calendar day, so navigating
-    // to the next day banks the outgoing day's amount onto its bar and hands you a blank entry
-    // for the new day — same rule the braindump already follows.
-    function renderRevenueMonth(){
-      var goal = state.revenueGoal || DEFAULT_REVENUE_GOAL;
-      var viewK = dateKey(viewDate);
-      var year = +viewK.slice(0,4);
-      var month = +viewK.slice(5,7);
-      var prefix = viewK.slice(0,8);
-      var daysInMonth = new Date(year, month, 0).getDate();
-      var keys = [];
-      for(var d = 1; d <= daysInMonth; d++) keys.push(prefix + String(d).padStart(2,'0'));
-      var values = keys.map(function(k){ return state.revenue[k] || 0; });
-      var peak = values.reduce(function(a,b){ return Math.max(a,b); }, 0);
-      // generous headroom keeps the goal line well below the top of the chart, with
-      // plenty of room left over for bars that clear the goal
-      var max = Math.max(goal, peak) * 1.4;
-      var goalPct = Math.min(100, (goal / max) * 100);
-
-      $('#revenueMonthLabel').textContent = MON[month - 1] + ' 1–' + daysInMonth;
-      $('#revenueMonthGoal').textContent = 'Goal: ' + formatMoney(goal) + '/day';
-
-      var host = $('#revenueMonthChart');
-      host.innerHTML = '';
-      var goalLine = document.createElement('div');
-      goalLine.className = 'revenue-monthly-goal-line';
-      goalLine.style.bottom = goalPct + '%';
-      goalLine.title = 'Goal: ' + formatMoney(goal) + '/day';
-      host.appendChild(goalLine);
-      keys.forEach(function(k, idx){
-        var v = values[idx];
-        var col = document.createElement('div');
-        col.className = 'revenue-monthly-col';
-        var bar = document.createElement('div');
-        bar.className = 'revenue-monthly-bar' + (k === viewK ? ' is-today' : '') + (v >= goal ? ' met' : '');
-        bar.style.height = (v > 0 ? Math.max(2, (v / max) * 100) : 0) + '%';
-        bar.title = shortDate(k) + ' · ' + formatMoney(v);
-        var label = document.createElement('span');
-        label.className = 'revenue-monthly-label';
-        label.textContent = String(idx + 1);
-        col.appendChild(bar);
-        col.appendChild(label);
-        host.appendChild(col);
-      });
-    }
-    function renderRevenue(){ renderRevenueInputs(); renderRevenueVisual(); }
-
-    // ---- hero progress ----
-    function progressMsg(pct, total){
-      if(total === 0) return 'Nothing on the list. Add something.';
-      if(pct === 0) return "Nothing done yet. The needle's waiting.";
-      if(pct < 34) return 'Warming up.';
-      if(pct < 67) return "Now we're cooking.";
-      if(pct < 100) return "Almost there — don't fumble it.";
-      return 'Day cleared. Go be smug.';
-    }
-    function renderHero(needleStats, clientStats){
-      var done = needleStats.done + clientStats.done;
-      var total = needleStats.total + clientStats.total;
-      var pct = total === 0 ? 0 : Math.round((done/total)*100);
-      $('#pctNum').textContent = pct + '%';
-      $('#progressFill').style.width = pct + '%';
-      $('#heroCount').textContent = done + ' of ' + total + ' done';
-      $('#heroMsg').textContent = progressMsg(pct, total);
-      $('#heroProgress').classList.toggle('complete', total > 0 && pct === 100);
-    }
-
-    function render(){
-      renderDateLabel();
-      renderBraindump();
-      renderRevenue();
-      var needleStats = renderNeedle();
-      renderCalls();
-      var clientStats = renderClients();
-      renderHero(needleStats, clientStats);
-      // auto-size every textarea only now that all of them are attached to the live document —
-      // scrollHeight reads as 0 on a still-detached element (e.g. mid-build inside clientCard()),
-      // which was collapsing client to-do rows down to a sliver.
-      var boxes = document.querySelectorAll('.task-text');
-      for(var bi = 0; bi < boxes.length; bi++) autoGrow(boxes[bi]);
-      // focus after everything above is attached to the live DOM — an element still detached
-      // (e.g. mid-build inside clientCard()) silently ignores .focus(), which was the bug.
-      if(focusId){
-        var el = document.querySelector('[data-task-id="'+focusId+'"] .task-text, [data-task-id="'+focusId+'"] .call-title');
-        if(el){
-          el.focus();
-          var len = el.value.length;
-          el.setSelectionRange(len, len);
-        }
-      }
-      focusId = null;
-      save();
-    }
-
-    render();
-
-    // pick up whatever the other device last saved, then keep polling for it —
-    // this is also what carries fresh data to a phone opening the app for the first time.
-    pullFromServer();
-    var syncIntervalId = setInterval(pullFromServer, 5000);
-    function handleVisibilityChange(){ if(!document.hidden) pullFromServer(); }
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', pullFromServer);
-
-</script>
+  <script src="app.js"></script>
 </body>
 </html>
