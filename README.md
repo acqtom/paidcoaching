@@ -258,8 +258,12 @@ in and you'll land on `/dashboard`.
   A teammate without a portal account can still reach one specific
   person's hub with full edit rights via that code, no login at all: enter
   it at `/team-access` (linked from `/login`, and shown to the owner at
-  the top of their own Team tab with a copy button) and it resolves
-  through `/api/content-hub/by-code` → two `SECURITY DEFINER` Postgres
+  the top of their own Team tab, alongside the full `/team-access` URL
+  itself — both with their own copy button, since the owner needs to hand
+  their team both pieces to actually get in, derived client-side from
+  `window.location.origin` so it's correct on whatever domain the app is
+  actually running on rather than a hardcoded one) and it resolves through
+  `/api/content-hub/by-code` → two `SECURITY DEFINER` Postgres
   functions (`get_content_hub_by_code` / `save_content_hub_by_code`, in
   the same 0005 migration) that look up or overwrite exactly one row's
   data by its code and return nothing else about that row — the RLS
@@ -353,7 +357,18 @@ in and you'll land on `/dashboard`.
   "Proof & Receipts:") instead of the old plain textarea, confirmed a
   representative field's placeholder now reads "Type here…", and typed
   into that field to confirm the value both holds and shows the new focus
-  background — all matched expectations with zero console errors.
+  background — all matched expectations with zero console errors. After
+  the Team tab's secret-key card was extended to also show the
+  `/team-access` URL: confirmed it resolves to the page's actual origin
+  (`http://localhost:3000/team-access` in dev, matching whatever domain
+  it's really deployed on) rather than a hardcoded string, and confirmed
+  it and the key each still have their own working copy button — matched
+  expectations with zero console errors. Also fixed a real bug surfaced
+  by the SQL rollout: the Weekly Content Hub's owner-mode load/save
+  failures only logged the real error to console, leaving the on-page
+  status as an undiagnosable generic "Sync error" (the same gap already
+  fixed on Daily Kill List earlier, missed here) — now the actual message
+  is included in the status text for both paths.
 
 ## Deploying
 
