@@ -59,6 +59,13 @@
   .view { display: none; }
   .view.active { display: block; }
 
+  /* --- sync error banner --- */
+  .sync-banner {
+    background: #fdecea; border: 1px solid var(--red); color: var(--red);
+    border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 600;
+    text-align: center; margin-bottom: 16px;
+  }
+
   /* --- header --- */
   .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
   .brand { display: flex; align-items: center; gap: 10px; }
@@ -320,6 +327,8 @@
     <button class="view-tab" data-view="pcf">Post Call Form</button>
     <button class="view-tab" data-view="data">Data</button>
   </nav>
+
+  <div id="sync-banner" class="sync-banner" hidden></div>
 
   <div class="view active" id="view-dashboard">
 
@@ -1565,6 +1574,21 @@
   // ---------------------------------------------------------------------
   let pollTimer = null;
   let pollInFlight = false;
+  // Guards saves against the data-loss case where the initial load fails:
+  // a save always sends the *whole* deals array, so saving from an empty
+  // local `deals` (because the load never actually populated it) would
+  // overwrite this account's real history on the server with just
+  // whatever was added locally. Only set true once a load has succeeded.
+  let dataReady = false;
+
+  const syncBanner = document.getElementById("sync-banner");
+  function showSyncError(msg) {
+    syncBanner.textContent = msg;
+    syncBanner.hidden = false;
+  }
+  function clearSyncError() {
+    syncBanner.hidden = true;
+  }
 
   async function apiCall(path, body) {
     const res = await fetch(path, {
@@ -1589,18 +1613,34 @@
   }
 
   async function saveDeals() {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      return false;
+    }
     try {
       await apiCall("/api/sales-board/save", { deals });
+      clearSyncError();
+      return true;
     } catch (e) {
       console.error("Failed to save deals to server:", e);
+      showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
+      return false;
     }
   }
 
   async function saveNames() {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      return false;
+    }
     try {
       await apiCall("/api/sales-board/save", { closers: CLOSERS, setters: SETTERS });
+      clearSyncError();
+      return true;
     } catch (e) {
       console.error("Failed to save names to server:", e);
+      showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
+      return false;
     }
   }
 
@@ -1620,11 +1660,19 @@
     pollInFlight = true;
     try {
       await loadUserData();
+      dataReady = true;
+      clearSyncError();
       populateNameSelect(pcfCloserSelect, CLOSERS);
       populateNameSelect(pcfSetterSelect, SETTERS);
       renderAll();
     } catch (e) {
       console.error("Poll for updates failed:", e);
+      // Only surface this to the user if we've never successfully loaded --
+      // a transient blip once we already have good data isn't worth
+      // interrupting them for, since the next poll retries automatically.
+      if (!dataReady) {
+        showSyncError("Couldn't load your data. Refresh the page — until then, nothing you do here will be saved.");
+      }
     } finally {
       pollInFlight = false;
     }
@@ -1647,8 +1695,10 @@
   (async function boot() {
     try {
       await loadUserData();
+      dataReady = true;
     } catch (e) {
       console.error("Failed to load sales board data:", e);
+      showSyncError("Couldn't load your data. Refresh the page — until then, nothing you do here will be saved.");
     }
     initApp();
     startPolling();
