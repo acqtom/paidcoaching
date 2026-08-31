@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { pushSalesBoardMetrics } from "@/lib/metrics-tracking-state";
 
 // Anonymous, no-login access to a single user's Sales Team Board via their
 // 5-character secret key -- the same pattern as the Weekly Content Hub's
@@ -16,6 +17,13 @@ import { createClient } from "@/lib/supabase/server";
 // changed (just `deals`, or just `closers`+`setters`) -- so save merges
 // the given fields into the row's existing data server-side (via jsonb's
 // `||` operator inside save_sales_board_by_code) rather than replacing it.
+//
+// A save with `deals` in it also pushes into the same account's Metrics
+// Tracking, same as the session-cookie /save route -- since this path is
+// anonymous, get_sales_board_owner_id (0008_...sql) resolves the code to
+// the owning user's id first. Whoever already holds a valid code has full
+// read/write on that account's sales data via the RPCs above already, so
+// this exposes no new capability.
 
 const DEFAULT_STATE = {
   deals: [] as unknown[],
@@ -46,6 +54,8 @@ export async function GET(request: Request) {
   return NextResponse.json({ ...(data as object ?? DEFAULT_STATE), accessCode: code });
 }
 
+type SavedState = { deals?: unknown[] };
+
 export async function POST(request: Request) {
   const code = normalizeCode(new URL(request.url).searchParams.get("code"));
   if (!code) {
@@ -69,6 +79,13 @@ export async function POST(request: Request) {
   }
   if (!data) {
     return NextResponse.json({ error: "Invalid or unknown secret key" }, { status: 404 });
+  }
+
+  if (patch.deals !== undefined) {
+    const { data: ownerId } = await supabase.rpc("get_sales_board_owner_id", { p_code: code });
+    if (ownerId) {
+      await pushSalesBoardMetrics(supabase, ownerId as string, (data as SavedState).deals);
+    }
   }
 
   return NextResponse.json({ ...(data as object ?? DEFAULT_STATE), accessCode: code });

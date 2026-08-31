@@ -229,6 +229,16 @@
   /* --- post call form --- */
   .form-card { max-width: 780px; margin: 0 auto; }
 
+  .funnel-picker { margin-bottom: 20px; }
+  .funnel-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .funnel-btn {
+    border: 2px solid transparent; border-radius: 10px; padding: 11px 20px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .funnel-btn.selected { border-color: var(--black); }
+  .funnel-vsl { background: #dbe4fb; color: #3452c4; }
+  .funnel-webinar { background: #ead9fb; color: #7a3fc4; }
+
   .outcome-picker-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
   .outcome-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
   .outcome-btn {
@@ -452,6 +462,16 @@
       </div>
       <div class="card-body">
         <form id="pcf-form">
+          <div class="funnel-picker">
+            <span class="outcome-picker-label">Funnel</span>
+            <div class="funnel-buttons" id="pcf-funnel-buttons">
+              <button type="button" class="funnel-btn funnel-vsl" data-funnel="vsl">VSL</button>
+              <button type="button" class="funnel-btn funnel-webinar" data-funnel="webinar">Webinar</button>
+            </div>
+            <input type="hidden" name="funnelType" id="pcf-funnel-value">
+            <span class="form-error" id="pcf-funnel-error" hidden>Pick VSL or Webinar so this call's numbers land on the right metrics sheet.</span>
+          </div>
+
           <div class="outcome-picker">
             <span class="outcome-picker-label">Outcome</span>
             <div class="outcome-buttons" id="outcome-buttons">
@@ -607,6 +627,15 @@
     <div class="card-body">
       <form id="edit-form">
         <input type="hidden" name="dealId" id="edit-deal-id">
+        <div class="funnel-picker">
+          <span class="outcome-picker-label">Funnel</span>
+          <div class="funnel-buttons" id="edit-funnel-buttons">
+            <button type="button" class="funnel-btn funnel-vsl" data-funnel="vsl">VSL</button>
+            <button type="button" class="funnel-btn funnel-webinar" data-funnel="webinar">Webinar</button>
+          </div>
+          <input type="hidden" name="funnelType" id="edit-funnel-value">
+        </div>
+
         <div class="outcome-picker">
           <span class="outcome-picker-label">Outcome</span>
           <div class="outcome-buttons" id="edit-outcome-buttons">
@@ -1028,7 +1057,7 @@
 
   function renderDataTable() {
     const table = document.getElementById("data-table");
-    const cols = 14;
+    const cols = 15;
     const filtered = deals.filter(passesDataFilters);
     if (!filtered.length) {
       table.innerHTML = `<tr><td class="data-table-empty" colspan="${cols}">${deals.length ? "No calls match these filters." : "No calls logged yet."}</td></tr>`;
@@ -1039,6 +1068,7 @@
       .map(d => `
         <tr>
           <td>${d.closingDate}</td>
+          <td>${d.funnelType === "webinar" ? "Webinar" : "VSL"}</td>
           <td>${d.call || ""}</td>
           <td>${d.closer}</td>
           <td>${d.setter}</td>
@@ -1062,7 +1092,7 @@
     table.innerHTML = `
       <thead>
         <tr>
-          <th>Date</th><th>Call</th><th>Closer</th><th>Setter</th><th>Client</th><th>Email</th><th>Phone</th>
+          <th>Date</th><th>Funnel</th><th>Call</th><th>Closer</th><th>Setter</th><th>Client</th><th>Email</th><th>Phone</th>
           <th>Fathom</th><th>Outcome</th><th>Details</th><th>Why / Notes</th><th>Cash</th><th>Cash Type</th><th></th>
         </tr>
       </thead>
@@ -1418,6 +1448,8 @@
   const pcfOutcomeValue = document.getElementById("pcf-outcome-value");
   const pcfFormRest = document.getElementById("pcf-form-rest");
   const pcfOutcomeError = document.getElementById("pcf-outcome-error");
+  const pcfFunnelValue = document.getElementById("pcf-funnel-value");
+  const pcfFunnelError = document.getElementById("pcf-funnel-error");
   const pcfDynamicFields = document.getElementById("pcf-dynamic-fields");
   const pcfWhyWrap = document.getElementById("pcf-why-wrap");
   const pcfWhyLabel = document.getElementById("pcf-why-label");
@@ -1468,6 +1500,9 @@
     pcfOutcomeError.hidden = true;
     pcfDynamicFields.innerHTML = "";
     pcfWhyWrap.hidden = false;
+    document.querySelectorAll("#pcf-funnel-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
+    pcfFunnelValue.value = "";
+    pcfFunnelError.hidden = true;
   }
 
   document.querySelectorAll("#outcome-buttons .outcome-btn").forEach(btn => {
@@ -1478,6 +1513,18 @@
       pcfOutcomeError.hidden = true;
       pcfFormRest.hidden = false;
       applyOutcomeFormConfig(btn.dataset.outcome);
+    });
+  });
+
+  // Which of Metrics Tracking's two metric sheets (VSL / Webinar) this
+  // call's numbers land on -- see section 10c below, and
+  // src/lib/metrics-tracking-state.ts server-side.
+  document.querySelectorAll("#pcf-funnel-buttons .funnel-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#pcf-funnel-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      pcfFunnelValue.value = btn.dataset.funnel;
+      pcfFunnelError.hidden = true;
     });
   });
 
@@ -1517,6 +1564,7 @@
       clientPhone: form.clientPhone.value.trim(),
       fathomUrl: form.fathomUrl.value.trim(),
       callNotes: fieldValue(form, "callNotes"),
+      funnelType: fieldValue(form, "funnelType") || "vsl",
       callOutcome: outcome,
       closingDate: form.closingDate.value,
       cashCollected: Number(fieldValue(form, "cashCollected")) || 0,
@@ -1535,6 +1583,10 @@
     e.preventDefault();
     const form = e.target;
     const outcome = pcfOutcomeValue.value;
+    if (!pcfFunnelValue.value) {
+      pcfFunnelError.hidden = false;
+      return;
+    }
     if (!outcome) {
       pcfOutcomeError.hidden = false;
       return;
@@ -1566,6 +1618,7 @@
   const editForm = document.getElementById("edit-form");
   const editDealId = document.getElementById("edit-deal-id");
   const editOutcomeValue = document.getElementById("edit-outcome-value");
+  const editFunnelValue = document.getElementById("edit-funnel-value");
   const editDynamicFields = document.getElementById("edit-dynamic-fields");
   const editWhyWrap = document.getElementById("edit-why-wrap");
   const editWhyLabel = document.getElementById("edit-why-label");
@@ -1591,6 +1644,14 @@
     editForm.clientPhone.value = deal.clientPhone || "";
     editForm.fathomUrl.value = deal.fathomUrl || "";
 
+    // Legacy deals logged before the funnel picker existed default to VSL,
+    // matching how the metrics push treats an untagged deal server-side.
+    const funnelType = deal.funnelType || "vsl";
+    document.querySelectorAll("#edit-funnel-buttons .funnel-btn").forEach(b => {
+      b.classList.toggle("selected", b.dataset.funnel === funnelType);
+    });
+    editFunnelValue.value = funnelType;
+
     document.querySelectorAll("#edit-outcome-buttons .outcome-btn").forEach(b => {
       b.classList.toggle("selected", b.dataset.outcome === deal.callOutcome);
     });
@@ -1615,6 +1676,14 @@
       btn.classList.add("selected");
       editOutcomeValue.value = btn.dataset.outcome;
       applyOutcomeFormConfigTo(btn.dataset.outcome, editDynamicFields, editWhyWrap, editWhyLabel);
+    });
+  });
+
+  document.querySelectorAll("#edit-funnel-buttons .funnel-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#edit-funnel-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      editFunnelValue.value = btn.dataset.funnel;
     });
   });
 

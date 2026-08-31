@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureSalesBoardRow, SalesBoardData } from "@/lib/sales-board-state";
+import { pushSalesBoardMetrics } from "@/lib/metrics-tracking-state";
 
 // POST { deals?, closers?, setters? } -> writes whichever fields are
 // present for the logged-in portal user, leaving the rest untouched.
 // Private per account -- identified from the Supabase Auth session
 // cookie, no offer/password anymore.
+//
+// Whenever `deals` is part of the save, this also recomputes and pushes
+// the relevant closing-stage numbers into this user's Metrics Tracking
+// (see src/lib/metrics-tracking-state.ts) -- automatic, no separate step.
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -35,6 +40,10 @@ export async function POST(request: Request) {
       .eq("id", user.id);
 
     if (error) throw new Error(error.message);
+
+    if (body.deals !== undefined) {
+      await pushSalesBoardMetrics(supabase, user.id, next.deals);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {

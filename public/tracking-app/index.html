@@ -49,6 +49,9 @@ body{
 .header-eyebrow{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-3);}
 .header-title{font-size:15px;font-weight:700;letter-spacing:-0.02em;color:var(--ink);}
 
+/* ── Sync banner ── */
+.sync-banner{background:#FDECEA;border:1px solid var(--bad);color:var(--bad);border-radius:var(--radius);padding:10px 16px;font-size:12px;font-weight:600;text-align:center;margin-bottom:16px;}
+
 /* ── Client rail ── */
 .client-rail{display:flex;align-items:center;gap:6px;margin-bottom:24px;flex-wrap:wrap;}
 .client-tab{
@@ -361,6 +364,8 @@ footer{margin-top:36px;color:var(--ink-3);font-size:11px;text-align:center;lette
       <div class="header-title">Growth Engine</div>
     </div>
   </div>
+
+  <div id="sync-banner" class="sync-banner" hidden></div>
 
   <div class="client-rail" id="clientRow"></div>
   <div class="mode-toggle-row">
@@ -732,7 +737,104 @@ let currentClientId='default', trendMode='week';
 /* ── Storage ── */
 const STORE_KEY='growth-dashboard-v4';
 let saveTimer=null;
-function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify({CLIENTS,currentClientId,rangeStart,rangeEnd,tabNames,cardOrder}));}catch(e){}},400);}
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify({CLIENTS,currentClientId,rangeStart,rangeEnd,tabNames,cardOrder}));}catch(e){}},400);
+  queueServerSave();
+}
+
+/* ── Server sync ──
+   The metric *values* (currentClient().data only -- not targets, tab
+   names, card order, or which funnel mode is displayed, which stay
+   local/per-browser exactly as before) are additionally synced to this
+   account's row in Supabase, so they're the same across every device
+   and so the Sales Team Board can automatically push closed-call numbers
+   in here (see metrics_tracking_state / src/lib/metrics-tracking-state.ts).
+   Local save above is unchanged and still happens even if this fails. */
+let dataReady=false;
+let serverSaveTimer=null;
+let pollTimer=null;
+let pollInFlight=false;
+
+const syncBanner=document.getElementById('sync-banner');
+function showSyncError(msg){syncBanner.textContent=msg;syncBanner.hidden=false;}
+function clearSyncError(){syncBanner.hidden=true;}
+
+async function apiPost(path,body){
+  const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok){const err=new Error(data.error||'Request failed');err.status=res.status;throw err;}
+  return data;
+}
+
+async function loadServerData(){
+  const res=await apiPost('/api/tracking/session');
+  return res.data||{};
+}
+
+async function saveServerData(){
+  if(!dataReady)return;
+  try{
+    await apiPost('/api/tracking/save',{data:currentClient().data||{}});
+    clearSyncError();
+  }catch(e){
+    console.error('Failed to save tracking data to server:',e);
+    showSyncError("Couldn't save your last change to your account. Check your connection — it will retry automatically, but refresh to be safe.");
+  }
+}
+
+function queueServerSave(){clearTimeout(serverSaveTimer);serverSaveTimer=setTimeout(saveServerData,600);}
+
+function hasAnyMetricValues(data){
+  return!!data&&Object.keys(data).some(id=>data[id]&&Object.keys(data[id]).length>0);
+}
+
+// Re-fetches this account's synced data and re-renders in place -- skipped
+// entirely while the user is mid-edit in any input on the page, so a poll
+// (e.g. right after a sales rep logs a call elsewhere) can never yank a
+// value out from under active typing.
+async function pollServerData(){
+  if(pollInFlight||!dataReady)return;
+  const active=document.activeElement;
+  if(active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA'))return;
+  pollInFlight=true;
+  try{
+    currentClient().data=await loadServerData();
+    renderAll();
+    clearSyncError();
+  }catch(e){
+    console.error('Poll for tracking updates failed:',e);
+  }finally{
+    pollInFlight=false;
+  }
+}
+function startPolling(){stopPolling();pollTimer=setInterval(pollServerData,8000);}
+function stopPolling(){if(pollTimer)clearInterval(pollTimer);pollTimer=null;}
+window.addEventListener('focus',pollServerData);
+
+(async function bootServerSync(){
+  try{
+    const serverData=await loadServerData();
+    const serverHasData=hasAnyMetricValues(serverData);
+    const localHasData=hasAnyMetricValues(currentClient().data);
+    dataReady=true;
+    if(serverHasData){
+      currentClient().data=serverData;
+    }else if(localHasData){
+      const wantsImport=confirm("Import this browser's existing Metrics Tracking numbers into your account?\n\nChoose Cancel to start your account fresh instead.");
+      if(wantsImport){
+        await saveServerData();
+      }else{
+        currentClient().data={};
+      }
+    }
+    renderAll();
+    startPolling();
+  }catch(e){
+    console.error('Failed to load tracking data from server:',e);
+    showSyncError("Could not load your synced data. Refresh the page — until then, changes here may not be saved to your account, and Sales Board numbers won't appear.");
+  }
+})();
 function loadStored(){
   try{
     const raw=localStorage.getItem(STORE_KEY);

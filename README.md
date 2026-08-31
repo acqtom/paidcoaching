@@ -36,6 +36,9 @@ Router) and Supabase Auth.
    Sales Team Board. `0007_sales_board_access_code.sql` adds its own
    separate secret-key sharing flow (its own column + functions, distinct
    from Content Hub's), the same shape as 0005's but for the sales board.
+   `0008_metrics_tracking_state.sql` sets up the per-user table behind
+   Metrics Tracking, plus the `get_sales_board_owner_id` function the
+   Sales Team Board's secret-key save path needs to push into it.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -76,19 +79,82 @@ in and you'll land on `/dashboard`.
   the "Submit a bug" button/modal on the dashboard, which emails
   tom@educatr.co via Resend.
 - `public/tracking-app/index.html` + `src/app/dashboard/tracking` — the
-  Metrics Tracking dashboard, ported from the `acqtom/tracking` repo. It's a
-  fully self-contained client-side app (state lives in each viewer's own
-  `localStorage`, no backend), served as a static file and embedded via
-  iframe at `/dashboard/tracking` so it renders in complete CSS/JS isolation
-  from the rest of the app. The original's password gate was removed (this
-  route is already behind real login), and a pre-existing bug was fixed
-  where typing a second digit into a metric cell would scramble the value
-  (the table rebuilds on every keystroke and refocuses the new input
-  without restoring cursor position — fixed by switching those inputs from
-  `type="number"`, which can't have its selection set via JS, to `text`).
-  The repo's OAuth integration backend (Typeform/Calendly/Meta/Whop) was
-  *not* ported — it exists in that repo but was never actually wired into
-  its frontend, so nothing there was actually live to duplicate.
+  Metrics Tracking dashboard, ported from the `acqtom/tracking` repo. Served
+  as a static file and embedded via iframe at `/dashboard/tracking` so it
+  renders in complete CSS/JS isolation from the rest of the app. The
+  original's password gate was removed (this route is already behind real
+  login), and a pre-existing bug was fixed where typing a second digit into
+  a metric cell would scramble the value (the table rebuilds on every
+  keystroke and refocuses the new input without restoring cursor position —
+  fixed by switching those inputs from `type="number"`, which can't have
+  its selection set via JS, to `text`). The repo's OAuth integration
+  backend (Typeform/Calendly/Meta/Whop) was *not* ported — it exists in
+  that repo but was never actually wired into its frontend, so nothing
+  there was actually live to duplicate.
+
+  Originally fully client-side (all state in that one browser's
+  `localStorage`, no backend at all) — this became a real blocker once the
+  Sales Team Board needed to push numbers in here automatically, since
+  there was no server-side place to push into. The metric *values* only
+  (`data: { [metricId]: { [isoDate]: number } }`, the same shape
+  `localStorage` already used) now sync to a per-user
+  `metrics_tracking_state` row (`supabase/migrations/0008_...sql`) via
+  `/api/tracking/session` + `/api/tracking/save`
+  (`src/app/api/tracking/`) — targets, tab names, card order, and which
+  funnel mode is displayed stay local/per-browser exactly as before,
+  since those are view preferences the push doesn't need to touch. The
+  page still boots instantly from `localStorage` as before, then layers
+  the server sync on top asynchronously: on first load, if the server
+  already has data it wins (overwrites local); if the server's empty but
+  local storage has something, a one-time prompt offers to import it. A
+  background poll (8s, plus on window focus) keeps this in sync with
+  changes made elsewhere (another device, or a sales rep logging a call)
+  — skipped entirely whenever any input on the page is focused, so it can
+  never yank a value out from under active typing. A visible banner
+  surfaces any load/save failure instead of failing silently, the same
+  fix applied to the Sales Board earlier.
+
+  The Sales Team Board's Post Call Form now has a required VSL/Webinar
+  funnel picker (above the Outcome picker, also editable per-deal from
+  the Data view's edit modal) — see `src/lib/metrics-tracking-state.ts`
+  for the push logic, called from `/api/sales-board/save` and `/by-code`
+  whenever a save includes `deals`. It recomputes, from scratch, that
+  funnel's closing-stage numbers for every date any current deal touches
+  (VSL: `cash`, `revenue_gen`, `units`, `calls_show`; Webinar:
+  `total_revenue`, `deals_closed`, `calls_shown`) and writes them into
+  the same user's tracking row — recomputing rather than incrementing
+  means an edited or deleted deal is reflected correctly, not just
+  additive, per explicit direction to have this overwrite/recompute
+  rather than add on top. A `sales_board_dates` column (not a key inside
+  `data` itself) separately tracks which dates this feature has actually
+  written to, per funnel mode — without it, there'd be no way to tell "a
+  date I previously pushed to that now has no qualifying deals" (should
+  be zeroed) apart from "a date the user manually typed a number into
+  under one of these same 7 metric ids, that no deal has ever touched"
+  (must never be touched); every other metric a person enters by hand
+  (ad spend, CPC, and so on) is never touched by this either way. The
+  by-code (secret-key) save path resolves the code to its owning user's
+  id via `get_sales_board_owner_id` (0008_...sql, SECURITY DEFINER) before
+  pushing — safe to expose, since whoever already holds a valid code has
+  full read/write on that account's sales data via the existing by-code
+  RPCs anyway.
+
+  Verified with a standalone unit test against `mergeSalesBoardMetrics`
+  (25 cases: per-mode isolation on mixed VSL+Webinar days, summing
+  multiple same-day deals, `calls_show`/`calls_shown` correctly excluding
+  No-Show, legacy undated-funnel deals defaulting to VSL, a deleted deal's
+  date zeroing out via the real `sales_board_dates` bookkeeping, and —
+  the one real bug this test caught before it shipped — that a
+  VSL-only date never gets a stray `total_revenue`/`deals_closed` entry
+  written, and that an old manual entry under a shared metric id with no
+  deal history is left completely alone) and via Puppeteer end-to-end:
+  confirmed the funnel picker blocks Post Call Form submission until
+  chosen, confirmed the Data table's new Funnel column and the edit
+  modal's pre-fill/re-save both reflect it correctly, confirmed a
+  `metrics_tracking_state` row seeded server-side renders correctly in
+  Tracking's own Closing-stage table once the date range covers it, and
+  confirmed the one-time import prompt and the focused-input poll guard
+  both behave correctly.
 - `src/app/dashboard/accounting` — the Accounting Hub, ported natively (real
   React components, not an iframe) from the `acqtom/accounting` repo. Fully
   self-contained client-side (state in `localStorage`); loaded via
