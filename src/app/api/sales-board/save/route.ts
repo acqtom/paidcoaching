@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { ensureSalesBoardRow, SalesBoardData } from "@/lib/sales-board-state";
 
 // POST { deals?, closers?, setters? } -> writes whichever fields are
 // present for the logged-in portal user, leaving the rest untouched.
 // Private per account -- identified from the Supabase Auth session
 // cookie, no offer/password anymore.
-
-type BoardData = { deals?: unknown[]; closers?: unknown[]; setters?: unknown[] };
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -19,26 +18,29 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
 
-  const { data: existingRow } = await supabase
-    .from("sales_board_state")
-    .select("data")
-    .eq("id", user.id)
-    .maybeSingle();
+  try {
+    // Make sure the row (and its access_code) exists before updating it --
+    // covers the edge case of a save racing ahead of this user's first load.
+    const existingRow = await ensureSalesBoardRow(supabase, user.id);
+    const existing = existingRow.data ?? {};
+    const next: Required<SalesBoardData> = {
+      deals: body.deals !== undefined ? body.deals : (existing.deals ?? []),
+      closers: body.closers !== undefined ? body.closers : (existing.closers ?? []),
+      setters: body.setters !== undefined ? body.setters : (existing.setters ?? []),
+    };
 
-  const existing = (existingRow?.data as BoardData) ?? {};
-  const next: Required<BoardData> = {
-    deals: body.deals !== undefined ? body.deals : (existing.deals ?? []),
-    closers: body.closers !== undefined ? body.closers : (existing.closers ?? []),
-    setters: body.setters !== undefined ? body.setters : (existing.setters ?? []),
-  };
+    const { error } = await supabase
+      .from("sales_board_state")
+      .update({ data: next, updated_at: new Date().toISOString() })
+      .eq("id", user.id);
 
-  const { error } = await supabase
-    .from("sales_board_state")
-    .upsert({ id: user.id, data: next, updated_at: new Date().toISOString() });
+    if (error) throw new Error(error.message);
 
-  if (error) {
-    return NextResponse.json({ error: "Could not save data." }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Could not save data." },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true });
 }

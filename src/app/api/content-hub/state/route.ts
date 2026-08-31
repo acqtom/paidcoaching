@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateAccessCode } from "@/lib/content-hub-code";
+import { generateAccessCode } from "@/lib/access-code";
 
 // Per-user JSON blob backing the Weekly Content Hub (Kanban board +
 // Content documents + Team roster). Unlike every other stateful feature in

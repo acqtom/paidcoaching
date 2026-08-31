@@ -12,6 +12,8 @@ const PUBLIC_PATHS = [
   "/sales-board-app",
   "/team-access",
   "/api/content-hub/by-code",
+  "/sales-access",
+  "/api/sales-board/by-code",
 ];
 
 export async function updateSession(request: NextRequest) {

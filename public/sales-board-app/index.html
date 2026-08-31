@@ -262,14 +262,48 @@
   .form-field input:focus, .form-field select:focus, .form-field textarea:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
   .form-notes { margin-top: 16px; }
   .field-hint { font-size: 11px; color: var(--muted); font-weight: 400; }
-  .field-label-row { display: flex; align-items: center; gap: 8px; }
-  .add-name-btn {
-    width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--pill-border);
-    background: #fff; color: var(--badge-fg); font-size: 13px; line-height: 1; font-weight: 700;
-    cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; font-family: inherit;
-  }
-  .add-name-btn:hover { background: var(--badge-bg); }
   .form-actions { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
+
+  /* --- add team --- */
+  .name-manager + .name-manager { margin-top: 26px; }
+  .name-manager h3 { font-size: 13px; font-weight: 700; margin: 0 0 10px; color: var(--text-primary); }
+  .name-add-form { display: flex; gap: 8px; margin-bottom: 12px; }
+  .name-add-form input {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 13px; color: var(--text-primary);
+    border: 1px solid var(--pill-border); border-radius: 8px; padding: 9px 12px; background: #fff;
+  }
+  .name-add-form input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .name-add-form button {
+    background: var(--black); color: #fff; border: none; border-radius: 8px;
+    padding: 0 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .name-add-form button:hover { opacity: 0.9; }
+  .name-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .name-list-empty { font-size: 12px; color: var(--muted); }
+  .name-pill {
+    display: flex; align-items: center; gap: 6px; background: var(--badge-bg); color: var(--badge-fg);
+    border-radius: 20px; padding: 6px 8px 6px 12px; font-size: 12px; font-weight: 600;
+  }
+  .name-remove-btn {
+    border: none; background: none; color: inherit; cursor: pointer; font-size: 13px; line-height: 1;
+    padding: 2px; opacity: 0.6; font-family: inherit;
+  }
+  .name-remove-btn:hover { opacity: 1; }
+
+  .key-row + .key-row { margin-top: 18px; }
+  .key-row-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+  .key-row-value { display: flex; align-items: center; gap: 8px; }
+  .key-value {
+    flex: 1; min-width: 0; font-size: 13px; color: var(--text-primary); background: #fff;
+    border: 1px solid var(--pill-border); border-radius: 8px; padding: 9px 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .key-value-code { font-family: ui-monospace, monospace; font-size: 16px; font-weight: 700; letter-spacing: .25em; text-align: center; }
+  .key-copy-btn {
+    flex: none; border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
+    border-radius: 8px; padding: 9px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .key-copy-btn:hover { background: var(--surface-1); }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
     padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -326,6 +360,7 @@
     <button class="view-tab active" data-view="dashboard">Dashboard</button>
     <button class="view-tab" data-view="pcf">Post Call Form</button>
     <button class="view-tab" data-view="data">Data</button>
+    <button class="view-tab" data-view="team">Add Team</button>
   </nav>
 
   <div id="sync-banner" class="sync-banner" hidden></div>
@@ -444,11 +479,11 @@
                 <input type="date" name="closingDate" required>
               </label>
               <label class="form-field">
-                <span class="field-label-row"><span>Closer</span><button type="button" class="add-name-btn" id="pcf-add-closer" title="Add a new closer">+</button></span>
+                <span>Closer</span>
                 <select name="closer" id="pcf-closer" required></select>
               </label>
               <label class="form-field">
-                <span class="field-label-row"><span>Setter</span><button type="button" class="add-name-btn" id="pcf-add-setter" title="Add a new setter">+</button></span>
+                <span>Setter</span>
                 <select name="setter" id="pcf-setter" required></select>
               </label>
               <label class="form-field">
@@ -497,6 +532,59 @@
         <div class="filters" id="data-filters"></div>
         <div style="overflow-x:auto;">
           <table class="data-table" id="data-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ADD TEAM ================= -->
+  <div class="view" id="view-team">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <h2>Closers &amp; Setters</h2>
+          <p>Manage who shows up in the Post Call Form's Closer and Setter dropdowns.</p>
+        </div>
+        <div class="card-body">
+          <div class="name-manager">
+            <h3>Closers</h3>
+            <form class="name-add-form" id="team-closer-form">
+              <input type="text" id="team-closer-input" placeholder="Add a closer name…" required>
+              <button type="submit">Add</button>
+            </form>
+            <ul class="name-list" id="team-closer-list"></ul>
+          </div>
+          <div class="name-manager">
+            <h3>Setters</h3>
+            <form class="name-add-form" id="team-setter-form">
+              <input type="text" id="team-setter-input" placeholder="Add a setter name…" required>
+              <button type="submit">Add</button>
+            </form>
+            <ul class="name-list" id="team-setter-list"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>Team Secret Key</h2>
+          <p>Share this page and key with your sales team so they can log calls without a portal account. Separate from the Weekly Content Hub's key.</p>
+        </div>
+        <div class="card-body">
+          <div class="key-row">
+            <div class="key-row-label">Team login page</div>
+            <div class="key-row-value">
+              <span class="key-value" id="team-domain-value">…</span>
+              <button type="button" class="key-copy-btn" id="team-domain-copy">Copy</button>
+            </div>
+          </div>
+          <div class="key-row">
+            <div class="key-row-label">Secret key</div>
+            <div class="key-row-value">
+              <span class="key-value key-value-code" id="team-code-value">…</span>
+              <button type="button" class="key-copy-btn" id="team-code-copy">Copy</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1351,21 +1439,9 @@
   populateNameSelect(pcfCloserSelect, CLOSERS);
   populateNameSelect(pcfSetterSelect, SETTERS);
 
-  document.getElementById("pcf-add-closer").addEventListener("click", () => {
-    const name = (prompt("Add a new closer name:") || "").trim();
-    if (!name) return;
-    if (!CLOSERS.includes(name)) CLOSERS.push(name);
-    populateNameSelect(pcfCloserSelect, CLOSERS, name);
-    saveNames();
-  });
-
-  document.getElementById("pcf-add-setter").addEventListener("click", () => {
-    const name = (prompt("Add a new setter name:") || "").trim();
-    if (!name) return;
-    if (!SETTERS.includes(name)) SETTERS.push(name);
-    populateNameSelect(pcfSetterSelect, SETTERS, name);
-    saveNames();
-  });
+  // Closer/Setter names themselves are managed from the Add Team tab (see
+  // section 10b below), not from here — this just keeps both selects in
+  // sync whenever CLOSERS/SETTERS changes.
 
   // Generic so the edit modal's outcome picker can reuse the same field config
   // logic against its own dynamic-fields/why-note elements.
@@ -1564,13 +1640,17 @@
   });
 
   // ---------------------------------------------------------------------
-  // 10. DATA — private to whichever portal account is logged in. The
-  //     portal's own Supabase Auth session (a cookie, not anything this
-  //     script ever sees) is the only access control; /api/sales-board/*
-  //     identifies the caller from that cookie server-side, so no
-  //     offer/password or account concept exists here anymore. This
-  //     account's `deals` array and closer/setter picklist live in
-  //     Supabase (see src/app/api/sales-board/), private per portal user.
+  // 10. DATA — private to whichever portal account is logged in. Normally
+  //     the portal's own Supabase Auth session (a cookie, not anything
+  //     this script ever sees) is the only access control, and
+  //     /api/sales-board/* identifies the caller from that cookie
+  //     server-side. When opened with a ?code=... (via /sales-access, see
+  //     section 10b), there's no session cookie at all -- the same data is
+  //     reached instead through /api/sales-board/by-code, gated purely by
+  //     that one secret key. Either way this account's `deals` array and
+  //     closer/setter picklist live in Supabase (see
+  //     src/app/api/sales-board/ and supabase/migrations/0006-0007_...sql),
+  //     private per portal user.
   // ---------------------------------------------------------------------
   let pollTimer = null;
   let pollInFlight = false;
@@ -1581,6 +1661,15 @@
   // whatever was added locally. Only set true once a load has succeeded.
   let dataReady = false;
 
+  // A ?code=... in the URL means this page was opened via /sales-access,
+  // not by the logged-in owner -- route every load/save through the
+  // anonymous by-code endpoints instead of the session-cookie ones. Set
+  // once a load succeeds, `accessCode` backs the Add Team tab's "Secret
+  // key" display in owner mode.
+  const urlCode = new URLSearchParams(location.search).get("code");
+  let accessCode = urlCode || "";
+  const salesAccessUrl = `${location.origin}/sales-access`;
+
   const syncBanner = document.getElementById("sync-banner");
   function showSyncError(msg) {
     syncBanner.textContent = msg;
@@ -1590,7 +1679,18 @@
     syncBanner.hidden = true;
   }
 
-  async function apiCall(path, body) {
+  async function apiGet(path) {
+    const res = await fetch(path);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.error || "Request failed");
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  async function apiPost(path, body) {
     const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1606,10 +1706,17 @@
   }
 
   async function loadUserData() {
-    const data = await apiCall("/api/sales-board/session");
+    const data = urlCode
+      ? await apiGet(`/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}`)
+      : await apiPost("/api/sales-board/session");
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
+    if (data.accessCode) accessCode = data.accessCode;
+  }
+
+  function savePath() {
+    return urlCode ? `/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}` : "/api/sales-board/save";
   }
 
   async function saveDeals() {
@@ -1618,7 +1725,7 @@
       return false;
     }
     try {
-      await apiCall("/api/sales-board/save", { deals });
+      await apiPost(savePath(), { deals });
       clearSyncError();
       return true;
     } catch (e) {
@@ -1634,7 +1741,7 @@
       return false;
     }
     try {
-      await apiCall("/api/sales-board/save", { closers: CLOSERS, setters: SETTERS });
+      await apiPost(savePath(), { closers: CLOSERS, setters: SETTERS });
       clearSyncError();
       return true;
     } catch (e) {
@@ -1649,6 +1756,7 @@
     populateNameSelect(pcfSetterSelect, SETTERS);
     renderKpiGrid();
     renderAll();
+    renderTeamTab();
   }
 
   // Re-fetches this account's data from the server and re-renders in place —
@@ -1665,6 +1773,7 @@
       populateNameSelect(pcfCloserSelect, CLOSERS);
       populateNameSelect(pcfSetterSelect, SETTERS);
       renderAll();
+      renderTeamTab();
     } catch (e) {
       console.error("Poll for updates failed:", e);
       // Only surface this to the user if we've never successfully loaded --
@@ -1691,6 +1800,88 @@
   window.addEventListener("focus", pollForUpdates);
 
   initChartLocalFilters();
+
+  // ---------------------------------------------------------------------
+  // 10b. ADD TEAM — closer/setter management moved here from the Post Call
+  //      Form's old inline "+" buttons, plus the secret-key/domain sharing
+  //      UI (mirrors the Weekly Content Hub's team-access flow, but with
+  //      its own separate key -- see supabase/migrations/0007_...sql).
+  // ---------------------------------------------------------------------
+  function renderNameList(listEl, names, onRemove) {
+    if (!names.length) {
+      listEl.innerHTML = `<li class="name-list-empty">None added yet.</li>`;
+      return;
+    }
+    listEl.innerHTML = names.map(n => `
+      <li class="name-pill">
+        <span>${n}</span>
+        <button type="button" class="name-remove-btn" data-name="${n}" title="Remove">&times;</button>
+      </li>
+    `).join("");
+    listEl.querySelectorAll(".name-remove-btn").forEach(btn => {
+      btn.addEventListener("click", () => onRemove(btn.dataset.name));
+    });
+  }
+
+  const teamCloserList = document.getElementById("team-closer-list");
+  const teamSetterList = document.getElementById("team-setter-list");
+  const teamDomainValue = document.getElementById("team-domain-value");
+  const teamCodeValue = document.getElementById("team-code-value");
+
+  function renderTeamTab() {
+    renderNameList(teamCloserList, CLOSERS, name => {
+      CLOSERS = CLOSERS.filter(n => n !== name);
+      populateNameSelect(pcfCloserSelect, CLOSERS);
+      renderTeamTab();
+      saveNames();
+    });
+    renderNameList(teamSetterList, SETTERS, name => {
+      SETTERS = SETTERS.filter(n => n !== name);
+      populateNameSelect(pcfSetterSelect, SETTERS);
+      renderTeamTab();
+      saveNames();
+    });
+    teamDomainValue.textContent = salesAccessUrl;
+    teamCodeValue.textContent = accessCode || "…";
+  }
+
+  document.getElementById("team-closer-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("team-closer-input");
+    const name = input.value.trim();
+    if (!name) return;
+    if (!CLOSERS.includes(name)) CLOSERS.push(name);
+    input.value = "";
+    populateNameSelect(pcfCloserSelect, CLOSERS);
+    renderTeamTab();
+    saveNames();
+  });
+
+  document.getElementById("team-setter-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("team-setter-input");
+    const name = input.value.trim();
+    if (!name) return;
+    if (!SETTERS.includes(name)) SETTERS.push(name);
+    input.value = "";
+    populateNameSelect(pcfSetterSelect, SETTERS);
+    renderTeamTab();
+    saveNames();
+  });
+
+  async function copyToClipboard(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    } catch (e) {
+      console.error("Copy failed:", e);
+    }
+  }
+
+  document.getElementById("team-domain-copy").addEventListener("click", e => copyToClipboard(salesAccessUrl, e.currentTarget));
+  document.getElementById("team-code-copy").addEventListener("click", e => copyToClipboard(accessCode, e.currentTarget));
 
   (async function boot() {
     try {
