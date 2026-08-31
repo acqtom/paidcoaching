@@ -65,7 +65,40 @@ in and you'll land on `/dashboard`.
   login/signup.
 - `src/app/dashboard` — the card grid; each card (defined in
   `src/lib/cards.ts`, with its `href`) either opens an external tool in a
-  new tab or navigates to an internal page (Start Here, SOPs).
+  new tab or navigates to an internal page (Start Here, SOPs). Above the
+  grid, two live-data cards (`src/components/CashTargetCard.tsx` +
+  `UrgentTasksCard.tsx`) pull straight from two other features rather
+  than just linking to them:
+
+  `CashTargetCard` sums this user's own Sales Board deals
+  (`sales_board_state`) closed today (`callOutcome ===
+  "Closed/Won/Deposit"`, `closingDate === today`) against an editable
+  daily target — saved as `dailyCashTarget` inside that same
+  `sales_board_state` row (via the existing `/api/sales-board/save`,
+  which already merges whichever fields are present) rather than a new
+  table, since it's a Sales Board concept through and through and that
+  row is already private per user. Progress-bar color follows the same
+  good/warn/bad thresholds (≥100% / ≥75% / below) as Metrics Tracking's
+  own target system. `UrgentTasksCard` reads the shared
+  `task_backlog_state` singleton and shows starred (`priority: true`)
+  tasks not yet done — `isTaskDoneToday()` in `page.tsx` mirrors
+  `isTaskDone()` in `public/daily-kill-list-app/app.js` exactly (a
+  repeating task counts as done only if `lastCompletedDate` is today; a
+  one-off task just uses its own `done` flag) so a repeating urgent task
+  correctly reappears here each day it's due, not just once ever. Both
+  cards read their data as a plain server-rendered snapshot on page
+  load — no polling, matching how every other dashboard card is already
+  just a static tile.
+
+  Verified via a standalone unit test against both pieces of pure logic
+  (today-cash summing excludes other outcomes/dates; the done-today check
+  for repeating vs. one-off tasks; the combined urgent-task filter) since
+  the dashboard route itself needs a real logged-in session to render
+  and can't be fetch-mocked like the iframe apps (its data loads
+  server-side, not via client `fetch`) — and visually via a static
+  mockup using the exact same Tailwind classes as the live components,
+  to confirm the two-card row sits correctly above the existing grid at
+  every breakpoint.
 - `src/app/dashboard/sops` — SOP hub, three levels deep (data in
   `src/lib/sops.ts`): a department grid (Operations, Marketing, Sales,
   Fulfilment) → each department's list of SOPs → each SOP's sub-category

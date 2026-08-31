@@ -1,9 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { generateAccessCode } from "@/lib/access-code";
 
-export type SalesBoardData = { deals?: unknown[]; closers?: unknown[]; setters?: unknown[] };
+export type SalesBoardData = {
+  deals?: unknown[];
+  closers?: unknown[];
+  setters?: unknown[];
+  // The dashboard's "Today's Cash Collected" card target -- lives here
+  // rather than a new table since it's a Sales Board concept through and
+  // through, and this row is already private per portal user.
+  dailyCashTarget?: number | null;
+};
 
-export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = { deals: [], closers: [], setters: [] };
+export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
+  deals: [],
+  closers: [],
+  setters: [],
+  dailyCashTarget: null,
+};
 
 const UNIQUE_VIOLATION = "23505";
 const MAX_CODE_ATTEMPTS = 5;

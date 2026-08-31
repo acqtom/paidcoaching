@@ -3,10 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureSalesBoardRow, SalesBoardData } from "@/lib/sales-board-state";
 import { pushSalesBoardMetrics } from "@/lib/metrics-tracking-state";
 
-// POST { deals?, closers?, setters? } -> writes whichever fields are
-// present for the logged-in portal user, leaving the rest untouched.
-// Private per account -- identified from the Supabase Auth session
-// cookie, no offer/password anymore.
+// POST { deals?, closers?, setters?, dailyCashTarget? } -> writes
+// whichever fields are present for the logged-in portal user, leaving
+// the rest untouched. Private per account -- identified from the
+// Supabase Auth session cookie, no offer/password anymore. Also used by
+// the dashboard's "Today's Cash Collected" card to save its target.
 //
 // Whenever `deals` is part of the save, this also recomputes and pushes
 // the relevant closing-stage numbers into this user's Metrics Tracking
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
       deals: body.deals !== undefined ? body.deals : (existing.deals ?? []),
       closers: body.closers !== undefined ? body.closers : (existing.closers ?? []),
       setters: body.setters !== undefined ? body.setters : (existing.setters ?? []),
+      dailyCashTarget:
+        body.dailyCashTarget !== undefined ? body.dailyCashTarget : (existing.dailyCashTarget ?? null),
     };
 
     const { error } = await supabase
