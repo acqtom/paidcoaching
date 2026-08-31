@@ -69,8 +69,7 @@
   /* --- header --- */
   .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--black); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
-  .brand-mark-logo { font-weight: 800; font-size: 16px; line-height: 1; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .brand-mark-img { width: 28px; height: 28px; object-fit: contain; flex: none; }
   .brand-name { font-weight: 700; font-size: 16px; }
   .brand-context { text-align: right; }
   .context-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -379,8 +378,8 @@
 
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark brand-mark-logo" aria-label="educatr">E</div>
-      <div class="brand-name">Sales Board</div>
+      <img class="brand-mark-img" src="/logo.png" alt="paidcoaching.com">
+      <div class="brand-name">paidcoaching.com</div>
     </div>
     <div class="brand-context">
       <div class="context-label">Sales &amp; Commissions</div>
