@@ -90,7 +90,7 @@ export default async function DashboardPage() {
           <div className="sm:col-span-2">
             <CashTargetCard todayCash={todayCash} initialTarget={dailyCashTarget} />
           </div>
-          <UrgentTasksCard tasks={urgentTasks.slice(0, 3)} totalCount={urgentTasks.length} />
+          <UrgentTasksCard tasks={urgentTasks.slice(0, 2)} totalCount={urgentTasks.length} />
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

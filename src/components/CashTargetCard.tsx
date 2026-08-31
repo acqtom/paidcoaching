@@ -50,13 +50,13 @@ export function CashTargetCard({
   }
 
   return (
-    <div className="group relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 p-6 shadow-lg shadow-neutral-300/40 dark:shadow-black/50">
+    <div className="group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 p-5 shadow-lg shadow-neutral-300/40 dark:shadow-black/50">
       <div className="flex items-start justify-between">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           Today&apos;s Cash Collected
         </h2>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400">
-          <DollarSign size={18} strokeWidth={2} />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400">
+          <DollarSign size={16} strokeWidth={2} />
         </span>
       </div>
 
@@ -64,7 +64,7 @@ export function CashTargetCard({
         <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">{fmtUSD(todayCash)}</p>
 
         {!editing ? (
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-300/70 dark:bg-neutral-700/70">
               <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
             </div>
@@ -75,7 +75,7 @@ export function CashTargetCard({
         ) : null}
 
         {editing ? (
-          <form onSubmit={saveTarget} className="mt-3 flex items-center gap-2">
+          <form onSubmit={saveTarget} className="mt-2 flex items-center gap-2">
             <input
               autoFocus
               type="number"
@@ -108,7 +108,7 @@ export function CashTargetCard({
         ) : null}
         {error ? <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p> : null}
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between">
           {!editing ? (
             <button
               type="button"
