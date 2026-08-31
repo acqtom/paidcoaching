@@ -32,8 +32,8 @@ Router) and Supabase Auth.
    backlog + Yearly Goals. `0005_content_hub_state.sql` sets up the
    per-user table behind the Weekly Content Hub, plus the two
    `SECURITY DEFINER` functions its `/team-access` secret-key flow calls.
-   `0006_sales_board_state.sql` sets up the shared table (one row per
-   Sales Board account) behind the Sales Team Board.
+   `0006_sales_board_state.sql` sets up the per-user table behind the
+   Sales Team Board.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -376,43 +376,53 @@ in and you'll land on `/dashboard`.
   dashboard (KPI tiles, call-outcome/cash charts, a Post Call Form,
   commission tracking by closer/setter, and a raw data table with an edit
   modal) — a single self-contained `index.html`, no external
-  dependencies, embedded via iframe as usual. Unlike every prior port,
-  its own login screen was **kept, not stripped** — it isn't a redundant
-  gate duplicating the portal's Supabase Auth like the others were,
-  it's how the app picks *which* of its 3 fixed accounts (Alex/Adriel/Des,
-  hardcoded in the original `api/_lib/auth.js`, ported as-is into
-  `src/lib/sales-board-auth.ts`) you're viewing — each has entirely
-  separate deals/closers/setters data, so removing it would break the
-  tool rather than simplify it.
+  dependencies, embedded via iframe as usual.
 
-  Backend swapped from Upstash Redis (three keys per account —
-  `deals:<offer>`, `closers:<offer>`, `setters:<offer>`) to a
-  `sales_board_state` table (`supabase/migrations/0006_...sql`), one row
-  per account (`account` as the primary key, not tied to any portal-user
-  id) holding all three as one jsonb object — RLS just gates "authenticated
-  portal user" the same as the other shared-team-wide tables, since the
-  real per-account check is the offer/password pair validated server-side
-  in `/api/sales-board/session` and `/api/sales-board/save`
-  (`src/app/api/sales-board/`), mirroring the original app's own security
-  model exactly. `save/route.ts` reads the existing row and merges over it
-  before upserting, since the original API let a save touch just one of
-  deals/closers/setters at a time (one Redis key each) while Supabase
-  holds all three in a single jsonb column that a naive upsert would
-  otherwise blow away.
+  The original app gated itself with a fixed 3-account (Alex/Adriel/Des)
+  offer+password login, each account holding entirely separate
+  deals/closers/setters. First pass kept that login screen (reasoning: it
+  wasn't a redundant gate duplicating the portal's own Supabase Auth, it
+  was how the app picked *which* account's data you saw). Per explicit
+  follow-up ("This is ONE dashboard for the user and their account.
+  Privately") that whole account concept was removed instead: no login
+  screen, no offer/password, no `current-user-label`/logout button — the
+  portal's own Supabase Auth session is the only identity, exactly like
+  the Weekly Content Hub. `src/lib/sales-board-auth.ts` (the fixed
+  3-account list) was deleted entirely once nothing referenced it anymore.
 
-  Verified via Puppeteer (fetch mocked against both endpoints, matching
-  their exact contracts, since a real login session isn't available
-  headlessly): confirmed a wrong password shows the login error, logged
-  in correctly with a seeded account and confirmed the dashboard renders
-  the seeded deal's closer/setter correctly in the Deals Closed/Deals Set
-  breakdowns and in the Data view, confirmed the Post Call Form's outcome
-  buttons correctly reveal the rest of the form, and confirmed logout
-  returns to the login screen. One check (a KPI dollar figure) initially
-  came back wrong — traced to the test's own seed data using the field
-  name `outcome` instead of the app's actual `callOutcome`, not a defect
-  in the port (the closer/setter breakdowns, which read different fields,
-  matched correctly, confirming the real data path works) — all other
-  checks passed with zero console errors.
+  Backed by `sales_board_state` (`supabase/migrations/0006_...sql`) — one
+  JSON blob per user (`id` referencing `auth.users`, RLS gated to
+  `auth.uid() = id`), same design as `content_hub_state`, replacing both
+  the original's Upstash Redis keys (`deals:<offer>` etc.) *and* its
+  fixed-account model at once — behind `/api/sales-board/session` and
+  `/api/sales-board/save` (`src/app/api/sales-board/`), which read the
+  caller from the session cookie via `supabase.auth.getUser()` instead of
+  a request-body offer/password. `save/route.ts` still reads the existing
+  row and merges over it before upserting, since the original API let a
+  save touch just one of deals/closers/setters at a time (one Redis key
+  each) while Supabase holds all three in a single jsonb column that a
+  naive upsert would otherwise blow away.
+
+  Verified via Puppeteer both before and after the account-model rework
+  (fetch mocked against both endpoints, matching their exact contracts,
+  since a real login session isn't available headlessly). First pass:
+  confirmed a wrong password showed the login error, a correct login
+  rendered the seeded deal's closer/setter correctly in the Deals
+  Closed/Deals Set breakdowns and the Data view, the Post Call Form's
+  outcome buttons revealed the rest of the form, and logout returned to
+  the login screen. After removing the login entirely: confirmed no
+  `#view-login`/logout-btn/current-user-label element exists in the DOM
+  at all and the dashboard is visible immediately on load with no
+  interaction required, and re-confirmed the Data view and the Deals
+  Closed/Set breakdowns still render seeded data correctly. Two KPI
+  figures ($ sums, commission amounts) read wrong in both passes — traced
+  to the test's own synthetic seed data using field names (`outcome`,
+  `date`) that don't match what the real form actually submits
+  (`callOutcome`, `closingDate`, plus per-deal commission rates), not a
+  defect in the port — the fields that were seeded correctly (closer,
+  setter, cashCollected once callOutcome matched) rendered correctly
+  throughout, confirming the real data path works. Zero console errors
+  in every run.
 
 ## Deploying
 

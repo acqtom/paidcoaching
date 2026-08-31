@@ -1,30 +1,28 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { findSalesBoardUser } from "@/lib/sales-board-auth";
 
-// POST { offer, password, deals?, closers?, setters? } -> writes whichever
-// of deals/closers/setters are present for that account, leaving the rest
-// untouched -- mirrors the original app's api/save.js contract (there,
-// each field was its own Redis key; here they share one jsonb column, so
-// an unset field is preserved by merging over the existing row instead of
-// simply omitting a key from the write).
+// POST { deals?, closers?, setters? } -> writes whichever fields are
+// present for the logged-in portal user, leaving the rest untouched.
+// Private per account -- identified from the Supabase Auth session
+// cookie, no offer/password anymore.
 
 type BoardData = { deals?: unknown[]; closers?: unknown[]; setters?: unknown[] };
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
-  const user = findSalesBoardUser(body.offer, body.password);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Incorrect offer or password." }, { status: 401 });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const supabase = await createClient();
-  const key = user.offer.toLowerCase();
+  const body = await request.json().catch(() => ({}));
 
   const { data: existingRow } = await supabase
     .from("sales_board_state")
     .select("data")
-    .eq("account", key)
+    .eq("id", user.id)
     .maybeSingle();
 
   const existing = (existingRow?.data as BoardData) ?? {};
@@ -36,7 +34,7 @@ export async function POST(request: Request) {
 
   const { error } = await supabase
     .from("sales_board_state")
-    .upsert({ account: key, data: next, updated_at: new Date().toISOString() });
+    .upsert({ id: user.id, data: next, updated_at: new Date().toISOString() });
 
   if (error) {
     return NextResponse.json({ error: "Could not save data." }, { status: 500 });

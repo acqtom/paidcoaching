@@ -68,22 +68,6 @@
   .brand-context { text-align: right; }
   .context-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
   .context-title { font-size: 20px; font-weight: 700; margin-top: 2px; }
-  .logout-link {
-    border: none; background: none; color: var(--badge-fg); font-size: 12px; font-weight: 600;
-    cursor: pointer; font-family: inherit; padding: 0; margin-top: 4px;
-  }
-
-  /* --- login --- */
-  #view-login { display: flex; align-items: center; justify-content: center; min-height: 70vh; }
-  #view-login[hidden] { display: none; }
-  .login-card {
-    width: 100%; max-width: 360px;
-    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
-    border: 1px solid var(--card-border); border-radius: 16px;
-    box-shadow: var(--shadow-sm), var(--shadow-md);
-    padding: 32px 28px;
-  }
-  .login-title { font-size: 18px; font-weight: 700; margin: 0 0 20px; text-align: center; }
 
   .section { margin-bottom: 40px; scroll-margin-top: 24px; }
   .section + .section { padding-top: 8px; border-top: 1px solid var(--border); }
@@ -329,29 +313,7 @@
 <body>
 <div class="app">
 
-  <div id="view-login">
-    <div class="login-card">
-      <div class="brand" style="justify-content:center; margin-bottom:22px;">
-        <div class="brand-mark brand-mark-logo" aria-label="educatr">E</div>
-        <div class="brand-name">Sales Board</div>
-      </div>
-      <h2 class="login-title">Sign in</h2>
-      <form id="login-form">
-        <label class="form-field">
-          <span>Offer</span>
-          <input type="text" name="offer" required autocomplete="username">
-        </label>
-        <label class="form-field" style="margin-top:14px;">
-          <span>Password</span>
-          <input type="password" name="password" required autocomplete="current-password">
-        </label>
-        <span class="form-error" id="login-error" hidden>Incorrect offer or password.</span>
-        <button type="submit" class="btn-primary" style="width:100%; margin-top:18px;">Log In</button>
-      </form>
-    </div>
-  </div>
-
-  <div id="app-shell" hidden>
+  <div id="app-shell">
 
   <nav class="view-switcher">
     <button class="view-tab active" data-view="dashboard">Dashboard</button>
@@ -367,9 +329,8 @@
       <div class="brand-name">Sales Board</div>
     </div>
     <div class="brand-context">
-      <div class="context-label">Sales &amp; Commissions · <span id="current-user-label"></span></div>
+      <div class="context-label">Sales &amp; Commissions</div>
       <div class="context-title">Performance Dashboard</div>
-      <button type="button" id="logout-btn" class="logout-link">Log out</button>
     </div>
   </header>
 
@@ -1594,18 +1555,14 @@
   });
 
   // ---------------------------------------------------------------------
-  // 10. LOGIN — still a lightweight gate (fixed accounts, no user
-  //     management), but credentials are now checked server-side in /api,
-  //     since /api/session and /api/save are real network endpoints that
-  //     read/write each account's live data — the check has to be more
-  //     than decorative once there's real remote data behind it.
-  //     Each account's `deals` array and closer/setter picklist live in
-  //     Upstash, namespaced by account (see api/session.js, api/save.js),
-  //     so they sync across every device logged into that account.
+  // 10. DATA — private to whichever portal account is logged in. The
+  //     portal's own Supabase Auth session (a cookie, not anything this
+  //     script ever sees) is the only access control; /api/sales-board/*
+  //     identifies the caller from that cookie server-side, so no
+  //     offer/password or account concept exists here anymore. This
+  //     account's `deals` array and closer/setter picklist live in
+  //     Supabase (see src/app/api/sales-board/), private per portal user.
   // ---------------------------------------------------------------------
-  const SESSION_KEY = "salesboard_session_v1";
-  let currentUser = null;
-  let currentPassword = null;
   let pollTimer = null;
   let pollInFlight = false;
 
@@ -1613,7 +1570,7 @@
     const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body || {})
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -1624,27 +1581,24 @@
     return data;
   }
 
-  // Throws on failure (including bad credentials) — callers decide how to react.
-  async function loadUserData(offer, password) {
-    const data = await apiCall("/api/sales-board/session", { offer, password });
+  async function loadUserData() {
+    const data = await apiCall("/api/sales-board/session");
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
   }
 
   async function saveDeals() {
-    if (!currentUser) return;
     try {
-      await apiCall("/api/sales-board/save", { offer: currentUser, password: currentPassword, deals });
+      await apiCall("/api/sales-board/save", { deals });
     } catch (e) {
       console.error("Failed to save deals to server:", e);
     }
   }
 
   async function saveNames() {
-    if (!currentUser) return;
     try {
-      await apiCall("/api/sales-board/save", { offer: currentUser, password: currentPassword, closers: CLOSERS, setters: SETTERS });
+      await apiCall("/api/sales-board/save", { closers: CLOSERS, setters: SETTERS });
     } catch (e) {
       console.error("Failed to save names to server:", e);
     }
@@ -1662,20 +1616,15 @@
   // for the periodic poll and the window-focus refresh so other devices'
   // changes show up here without a manual reload.
   async function pollForUpdates() {
-    if (!currentUser || pollInFlight) return;
+    if (pollInFlight) return;
     pollInFlight = true;
     try {
-      await loadUserData(currentUser, currentPassword);
+      await loadUserData();
       populateNameSelect(pcfCloserSelect, CLOSERS);
       populateNameSelect(pcfSetterSelect, SETTERS);
       renderAll();
     } catch (e) {
-      if (e.status === 401) {
-        // Credentials no longer valid (e.g. account data was reset) — bounce to login.
-        showLogin();
-      } else {
-        console.error("Poll for updates failed:", e);
-      }
+      console.error("Poll for updates failed:", e);
     } finally {
       pollInFlight = false;
     }
@@ -1691,64 +1640,18 @@
     pollTimer = null;
   }
 
-  window.addEventListener("focus", () => { if (currentUser) pollForUpdates(); });
-
-  async function showApp(offer, password) {
-    currentUser = offer;
-    currentPassword = password;
-    await loadUserData(offer, password);
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ offer, password }));
-    document.getElementById("current-user-label").textContent = offer;
-    document.getElementById("view-login").hidden = true;
-    document.getElementById("app-shell").hidden = false;
-    initApp();
-    startPolling();
-  }
-
-  function showLogin() {
-    currentUser = null;
-    currentPassword = null;
-    stopPolling();
-    localStorage.removeItem(SESSION_KEY);
-    document.getElementById("app-shell").hidden = true;
-    document.getElementById("view-login").hidden = false;
-    loginForm.reset();
-    document.getElementById("login-error").hidden = true;
-  }
-
-  const loginForm = document.getElementById("login-form");
-  loginForm.addEventListener("submit", async e => {
-    e.preventDefault();
-    const offerInput = loginForm.offer.value.trim();
-    const passwordInput = loginForm.password.value;
-    const loginError = document.getElementById("login-error");
-    try {
-      await showApp(offerInput, passwordInput);
-      loginError.hidden = true;
-    } catch (err) {
-      loginError.textContent = err.status === 401
-        ? "Incorrect offer or password."
-        : "Could not reach the server — try again.";
-      loginError.hidden = false;
-    }
-  });
-
-  document.getElementById("logout-btn").addEventListener("click", showLogin);
+  window.addEventListener("focus", pollForUpdates);
 
   initChartLocalFilters();
 
-  (async function autoLogin() {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { saved = null; }
-    if (saved && saved.offer && saved.password) {
-      try {
-        await showApp(saved.offer, saved.password);
-        return;
-      } catch (e) {
-        // Saved session no longer valid — fall through to the login screen.
-      }
+  (async function boot() {
+    try {
+      await loadUserData();
+    } catch (e) {
+      console.error("Failed to load sales board data:", e);
     }
-    showLogin();
+    initApp();
+    startPolling();
   })();
 })();
 </script>
