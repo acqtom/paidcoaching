@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/tracking-app",
   "/daily-kill-list-app",
+  "/sales-board-app",
   "/team-access",
   "/api/content-hub/by-code",
 ];

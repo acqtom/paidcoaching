@@ -76,7 +76,7 @@ export const CARDS: Card[] = [
     title: "Sales Team Board",
     description: "Pipeline, deals, and sales team updates.",
     icon: TrendingUp,
-    href: "https://board.helmbury.com",
+    href: "/dashboard/sales-board",
   },
   {
     slug: "communications",

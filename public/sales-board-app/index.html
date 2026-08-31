@@ -1,0 +1,1756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Board Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='black'/%3E%3Ctext x='16' y='22' font-family='system-ui,-apple-system,Segoe UI,sans-serif' font-size='19' font-weight='800' fill='white' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f4f4f6;
+    --surface-1: #f9f9fb;
+    --text-primary: #101014;
+    --text-secondary: #55555c;
+    --muted: #9a9aa2;
+    --grid: #e8e8ec;
+    --baseline: #d6d6db;
+    --border: rgba(15,15,20,0.08);
+
+    --card-top: #ffffff;
+    --card-bottom: #f4f4f7;
+    --card-border: rgba(15,15,20,0.07);
+    --shadow-sm: 0 1px 2px rgba(16,16,20,0.05);
+    --shadow-md: 0 10px 24px rgba(16,16,20,0.06);
+    --badge-bg: #ecebfb;
+    --badge-fg: #6d64e8;
+    --pill-border: rgba(15,15,20,0.10);
+    --black: #101014;
+
+    --blue: #2a78d6;
+    --orange: #eb6834;
+    --aqua: #1baf7a;
+    --yellow: #eda100;
+    --magenta: #e87ba4;
+    --green: #008300;
+    --violet: #4a3aa7;
+    --red: #e34948;
+    --good: #0ca30c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 1400px; margin: 0 auto; padding: 28px 28px 72px; }
+
+  /* --- view switcher --- */
+  .view-switcher { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+  .view-tab {
+    border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
+    border-radius: 20px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: inherit; box-shadow: var(--shadow-sm);
+  }
+  .view-tab.active { background: var(--black); color: #fff; border-color: var(--black); }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* --- header --- */
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--black); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+  .brand-mark-logo { font-weight: 800; font-size: 16px; line-height: 1; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .brand-name { font-weight: 700; font-size: 16px; }
+  .brand-context { text-align: right; }
+  .context-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .context-title { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .logout-link {
+    border: none; background: none; color: var(--badge-fg); font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; padding: 0; margin-top: 4px;
+  }
+
+  /* --- login --- */
+  #view-login { display: flex; align-items: center; justify-content: center; min-height: 70vh; }
+  #view-login[hidden] { display: none; }
+  .login-card {
+    width: 100%; max-width: 360px;
+    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+    border: 1px solid var(--card-border); border-radius: 16px;
+    box-shadow: var(--shadow-sm), var(--shadow-md);
+    padding: 32px 28px;
+  }
+  .login-title { font-size: 18px; font-weight: 700; margin: 0 0 20px; text-align: center; }
+
+  .section { margin-bottom: 40px; scroll-margin-top: 24px; }
+  .section + .section { padding-top: 8px; border-top: 1px solid var(--border); }
+
+  h2.section-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  .page-desc { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+
+  /* --- shared card surface --- */
+  .card, .kpi-tile {
+    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm), var(--shadow-md);
+    overflow: hidden;
+  }
+  .card { margin-bottom: 20px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--card-border); }
+  .card-header h2 { font-size: 15px; margin: 0; font-weight: 600; }
+  .card-header p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .card-body { padding: 22px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr; } }
+
+  /* --- horizontal bar chart --- */
+  .hbar-chart { display: flex; flex-direction: column; gap: 14px; }
+  .hbar-row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 10px; }
+  .hbar-name { font-size: 13px; color: var(--text-secondary); text-align: right; }
+  .hbar-track { position: relative; height: 44px; }
+  .hbar-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: 0 6px 6px 0;
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 10px;
+    min-width: 4px;
+  }
+  .hbar-fill span { font-size: 12px; font-weight: 600; color: #fff; }
+  .hbar-axis { position: relative; height: 20px; margin-top: 2px; margin-left: 80px; }
+  .hbar-tick {
+    position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--grid);
+    font-size: 10px; color: var(--muted); padding-left: 4px; white-space: nowrap;
+  }
+  .hbar-gridlines { position: absolute; inset: 0; margin-left: 80px; pointer-events: none; }
+  .hbar-gridlines .gl { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--grid); }
+
+  /* --- pie / donut --- */
+  .pie-row { display: flex; align-items: center; gap: 28px; }
+  .pie-chart { position: relative; width: 190px; height: 190px; border-radius: 50%; flex: none; }
+  .pie-chart.donut::after {
+    content: ""; position: absolute; inset: 26%; border-radius: 50%; background: var(--surface-1); z-index: 0;
+  }
+  .pie-pct {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff; z-index: 1;
+  }
+  .pie-chart.donut .pie-pct { color: var(--text-primary); }
+  .pie-empty {
+    width: 190px; height: 190px; border-radius: 50%; flex: none;
+    border: 2px dashed var(--grid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--muted); text-align: center; padding: 10px;
+  }
+  .legend { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+  .legend-title { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  /* --- mini select (chart-local filters) --- */
+  .mini-select-wrap { display: inline-block; margin-bottom: 16px; }
+  .mini-select {
+    appearance: none; -webkit-appearance: none; font-family: inherit;
+    background: #fff; border: 1px solid var(--pill-border); border-radius: 8px;
+    padding: 8px 30px 8px 12px; font-size: 13px; color: var(--text-secondary); cursor: pointer;
+    background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2355555c%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpolyline points=%226 9 12 15 18 9%22/%3E%3C/svg%3E');
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
+  }
+
+  /* --- outcome donut (2-col legend) --- */
+  .outcome-row { display: flex; align-items: center; justify-content: center; gap: 32px; padding: 6px 0; }
+  .outcome-donut { width: 150px; height: 150px; }
+  .outcome-total { font-size: 22px; font-weight: 700; color: var(--text-primary); }
+  .legend-grid-2 { display: grid; grid-template-columns: auto auto; gap: 8px 28px; }
+
+  /* --- line chart --- */
+  .line-chart svg { width: 100%; height: 220px; display: block; overflow: visible; }
+
+  /* --- filters --- */
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; align-items: center; }
+  .filter { position: relative; }
+  .filter summary {
+    list-style: none; cursor: pointer; user-select: none;
+    border: 1px solid var(--pill-border); border-radius: 20px;
+    padding: 9px 14px; font-size: 13px; color: var(--text-secondary);
+    background: #fff; box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .filter summary::-webkit-details-marker { display: none; }
+  .filter summary .chevron { width: 13px; height: 13px; color: var(--muted); flex: none; }
+  .filter[open] summary { border-color: var(--black); color: var(--text-primary); }
+  .filter .badge {
+    background: var(--black); color: #fff; border-radius: 10px; font-size: 10px;
+    padding: 1px 6px; font-weight: 700;
+  }
+  .filter-panel {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
+    background: #fff; border: 1px solid var(--pill-border); border-radius: 12px;
+    padding: 10px; min-width: 200px; box-shadow: 0 14px 32px rgba(16,16,20,0.14);
+  }
+  .filter-panel label {
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+    padding: 6px 6px; border-radius: 6px; cursor: pointer; color: var(--text-secondary);
+  }
+  .filter-panel label:hover { background: rgba(16,16,20,0.05); }
+  .filter-panel input[type="checkbox"], .filter-panel input[type="radio"] { accent-color: var(--black); }
+  .reset-btn {
+    border: none; background: none; color: var(--badge-fg); font-size: 13px; font-weight: 600; cursor: pointer; padding: 9px 6px; font-family: inherit;
+  }
+
+  /* --- KPI tiles --- */
+  .kpi-row { display: grid; gap: 18px; margin-bottom: 18px; }
+  .kpi-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .kpi-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .kpi-row.cols-1 { grid-template-columns: 1fr; }
+  @media (max-width: 900px) {
+    .kpi-row.cols-3, .kpi-row.cols-2 { grid-template-columns: 1fr; }
+  }
+  .kpi-tile { padding: 18px 20px; position: relative; min-height: 116px; }
+  .kpi-tile.highlight {
+    background: linear-gradient(180deg, #eef0fd, #e1e4fb);
+    border-color: rgba(109,100,232,0.30);
+    box-shadow: var(--shadow-sm), 0 12px 26px rgba(109,100,232,0.16);
+  }
+  .kpi-tile.highlight::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--badge-fg); border-radius: 14px 14px 0 0;
+  }
+  .kpi-tile.highlight .kpi-label { color: #4a42c9; }
+  .kpi-tile.highlight .kpi-icon-badge { background: var(--badge-fg); color: #fff; }
+  .kpi-icon-badge {
+    position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 9px;
+    background: var(--badge-bg); color: var(--badge-fg); display: flex; align-items: center; justify-content: center;
+  }
+  .kpi-icon-badge svg { width: 16px; height: 16px; }
+  .kpi-tile .kpi-label { font-size: 13.5px; font-weight: 600; color: var(--text-primary); padding-right: 44px; }
+  .kpi-tile .kpi-value { font-size: 28px; font-weight: 700; margin: 12px 0 6px; color: var(--text-primary); }
+  .kpi-tile .kpi-sub { font-size: 12px; color: var(--muted); }
+  .kpi-grip { position: absolute; bottom: 12px; right: 14px; color: #d7d7dc; }
+  .kpi-grip svg { width: 14px; height: 14px; display: block; }
+
+  /* --- post call form --- */
+  .form-card { max-width: 780px; margin: 0 auto; }
+
+  .outcome-picker-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+  .outcome-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .outcome-btn {
+    border: 2px solid transparent; border-radius: 10px; padding: 11px 16px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-align: left;
+  }
+  .outcome-btn.selected { border-color: var(--black); }
+  .outcome-closed { background: #dbe4fb; color: #3452c4; }
+  .outcome-deposit { background: #d3f3ef; color: #12796f; }
+  .outcome-dq { background: #fbe0d3; color: #b1571e; }
+  .outcome-noshow { background: #d8f5e3; color: #1a7a49; }
+  .outcome-cancelled { background: #fbdce7; color: #c23572; }
+  .outcome-rescheduled { background: #fbf0cf; color: #9c7a10; }
+  .outcome-remainder { background: #f8cddc; color: #b52464; }
+  .outcome-secondcc { background: #ead9fb; color: #7a3fc4; }
+  .form-error { display: block; font-size: 12px; color: var(--red); font-weight: 600; margin-top: 10px; }
+  .form-error[hidden] { display: none; }
+  .form-rest { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--card-border); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+  .form-field[hidden] { display: none; }
+  .form-field input[type="text"], .form-field input[type="number"], .form-field input[type="date"],
+  .form-field input[type="email"], .form-field input[type="tel"], .form-field input[type="url"],
+  .form-field select, .form-field textarea {
+    font-family: inherit; font-size: 13px; color: var(--text-primary); font-weight: 400;
+    border: 1px solid var(--pill-border); border-radius: 8px; padding: 9px 12px; background: #fff;
+  }
+  .form-field textarea { resize: vertical; }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .form-notes { margin-top: 16px; }
+  .field-hint { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .field-label-row { display: flex; align-items: center; gap: 8px; }
+  .add-name-btn {
+    width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--pill-border);
+    background: #fff; color: var(--badge-fg); font-size: 13px; line-height: 1; font-weight: 700;
+    cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; font-family: inherit;
+  }
+  .add-name-btn:hover { background: var(--badge-bg); }
+  .form-actions { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
+  .btn-primary {
+    background: var(--black); color: #fff; border: none; border-radius: 20px;
+    padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .form-status { font-size: 13px; color: var(--good); font-weight: 600; }
+
+  /* --- data table --- */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+  .data-table th {
+    text-align: left; padding: 10px 14px; color: var(--muted); font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid var(--card-border);
+  }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--card-border); color: var(--text-secondary); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .row-actions { display: flex; gap: 12px; }
+  .data-table .row-delete {
+    border: none; background: none; color: var(--red); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit;
+  }
+  .data-table .row-edit {
+    border: none; background: none; color: var(--badge-fg); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit;
+  }
+  .data-table-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+  .data-table-notes { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* --- edit modal --- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,15,20,0.45);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 40px 20px; overflow-y: auto; z-index: 100;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal { width: 100%; }
+  .modal .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .modal-close {
+    border: none; background: none; font-size: 22px; line-height: 1; color: var(--muted);
+    cursor: pointer; padding: 2px 4px; font-family: inherit; flex: none;
+  }
+  .modal-close:hover { color: var(--text-primary); }
+  .btn-secondary {
+    background: none; color: var(--text-secondary); border: 1px solid var(--pill-border); border-radius: 20px;
+    padding: 10px 22px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .btn-secondary:hover { background: var(--surface-1); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div id="view-login">
+    <div class="login-card">
+      <div class="brand" style="justify-content:center; margin-bottom:22px;">
+        <div class="brand-mark brand-mark-logo" aria-label="educatr">E</div>
+        <div class="brand-name">Sales Board</div>
+      </div>
+      <h2 class="login-title">Sign in</h2>
+      <form id="login-form">
+        <label class="form-field">
+          <span>Offer</span>
+          <input type="text" name="offer" required autocomplete="username">
+        </label>
+        <label class="form-field" style="margin-top:14px;">
+          <span>Password</span>
+          <input type="password" name="password" required autocomplete="current-password">
+        </label>
+        <span class="form-error" id="login-error" hidden>Incorrect offer or password.</span>
+        <button type="submit" class="btn-primary" style="width:100%; margin-top:18px;">Log In</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app-shell" hidden>
+
+  <nav class="view-switcher">
+    <button class="view-tab active" data-view="dashboard">Dashboard</button>
+    <button class="view-tab" data-view="pcf">Post Call Form</button>
+    <button class="view-tab" data-view="data">Data</button>
+  </nav>
+
+  <div class="view active" id="view-dashboard">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark brand-mark-logo" aria-label="educatr">E</div>
+      <div class="brand-name">Sales Board</div>
+    </div>
+    <div class="brand-context">
+      <div class="context-label">Sales &amp; Commissions · <span id="current-user-label"></span></div>
+      <div class="context-title">Performance Dashboard</div>
+      <button type="button" id="logout-btn" class="logout-link">Log out</button>
+    </div>
+  </header>
+
+  <!-- ================= BASE DASHBOARD ================= -->
+  <section id="base" class="section">
+    <div class="filters" id="filters"></div>
+    <div id="kpi-grid"></div>
+  </section>
+
+  <!-- ================= TEAM PERFORMANCE ================= -->
+  <section id="performance" class="section">
+    <h2 class="section-title">Team Performance</h2>
+    <p class="page-desc">Deal and call outcome mix for the selected period.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <h2>Call outcomes</h2>
+          <p>Booked calls by result</p>
+        </div>
+        <div class="card-body">
+          <div class="mini-select-wrap">
+            <select class="mini-select" id="call-outcomes-filter"></select>
+          </div>
+          <div id="chart-call-outcomes"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Cash collected by day</h2>
+          <p>Daily total for the selected period</p>
+        </div>
+        <div class="card-body">
+          <div id="chart-cash-by-day"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><h2>Deals Closed</h2></div>
+        <div class="card-body" id="chart-deals-closed"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>Deals Set</h2></div>
+        <div class="card-body" id="chart-deals-set"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= COMMISSION TRACKING ================= -->
+  <section id="commission" class="section">
+    <h2 class="section-title">Commission Tracking</h2>
+    <p class="page-desc">Payout owed to each closer and setter this period.</p>
+
+    <div class="card">
+      <div class="card-header"><h2>Closers</h2></div>
+      <div class="card-body" id="chart-closers"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>DM Setters &amp; Dialers</h2></div>
+      <div class="card-body" id="chart-setters"></div>
+    </div>
+  </section>
+
+  </div>
+
+  <!-- ================= POST CALL FORM ================= -->
+  <div class="view" id="view-pcf">
+    <div class="card form-card">
+      <div class="card-header">
+        <h2>Post Call Form</h2>
+        <p>Log the outcome of a call — the dashboard recomputes as soon as you submit.</p>
+      </div>
+      <div class="card-body">
+        <form id="pcf-form">
+          <div class="outcome-picker">
+            <span class="outcome-picker-label">Outcome</span>
+            <div class="outcome-buttons" id="outcome-buttons">
+              <button type="button" class="outcome-btn outcome-closed" data-outcome="Closed/Won/Deposit" data-cash-type="new">Closed/Won/Deposit</button>
+              <button type="button" class="outcome-btn outcome-deposit" data-outcome="No Close" data-cash-type="none">No Close</button>
+              <button type="button" class="outcome-btn outcome-dq" data-outcome="Disqualified">Disqualified</button>
+              <button type="button" class="outcome-btn outcome-noshow" data-outcome="No-Show">No-Show</button>
+              <button type="button" class="outcome-btn outcome-cancelled" data-outcome="Cancelled">Cancelled</button>
+              <button type="button" class="outcome-btn outcome-rescheduled" data-outcome="Rescheduled">Rescheduled</button>
+              <button type="button" class="outcome-btn outcome-remainder" data-outcome="Remainder Collection (no call)" data-cash-type="remainder">Remainder Collection (no call)</button>
+              <button type="button" class="outcome-btn outcome-secondcc" data-outcome="2nd CC Call Booked">2nd CC Call Booked</button>
+            </div>
+            <input type="hidden" name="outcome" id="pcf-outcome-value">
+            <span class="form-error" id="pcf-outcome-error" hidden>Pick an outcome to continue.</span>
+          </div>
+
+          <div class="form-rest" id="pcf-form-rest" hidden>
+            <div class="form-grid">
+              <label class="form-field">
+                <span>Call</span>
+                <input type="text" name="call" required placeholder="e.g. Call 1">
+              </label>
+              <label class="form-field">
+                <span>Date</span>
+                <input type="date" name="closingDate" required>
+              </label>
+              <label class="form-field">
+                <span class="field-label-row"><span>Closer</span><button type="button" class="add-name-btn" id="pcf-add-closer" title="Add a new closer">+</button></span>
+                <select name="closer" id="pcf-closer" required></select>
+              </label>
+              <label class="form-field">
+                <span class="field-label-row"><span>Setter</span><button type="button" class="add-name-btn" id="pcf-add-setter" title="Add a new setter">+</button></span>
+                <select name="setter" id="pcf-setter" required></select>
+              </label>
+              <label class="form-field">
+                <span>Client Full Name</span>
+                <input type="text" name="clientName" required placeholder="e.g. Jamie Smith">
+              </label>
+              <label class="form-field">
+                <span>Client Email</span>
+                <input type="email" name="clientEmail" placeholder="e.g. jamie@email.com">
+              </label>
+              <label class="form-field">
+                <span>Client Phone Number</span>
+                <input type="tel" name="clientPhone" placeholder="e.g. (555) 123-4567">
+              </label>
+              <label class="form-field">
+                <span>Fathom URL</span>
+                <input type="url" name="fathomUrl" placeholder="https://fathom.video/...">
+              </label>
+            </div>
+
+            <div class="form-grid" id="pcf-dynamic-fields"></div>
+
+            <label class="form-field form-notes" id="pcf-why-wrap">
+              <span id="pcf-why-label">Any more call notes</span>
+              <textarea name="callNotes" rows="4" id="pcf-why-input" placeholder="Anything else worth logging about this call..."></textarea>
+            </label>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">Log Call</button>
+              <span class="form-status" id="pcf-status"></span>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DATA ================= -->
+  <div class="view" id="view-data">
+    <div class="card">
+      <div class="card-header">
+        <h2>Data</h2>
+        <p>Every logged call behind the dashboard. Edit or delete a row and every chart and total updates.</p>
+      </div>
+      <div class="card-body">
+        <div class="filters" id="data-filters"></div>
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="data-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+</div>
+
+<!-- ================= EDIT CALL MODAL ================= -->
+<div class="modal-overlay" id="edit-modal-overlay" hidden>
+  <div class="modal card form-card">
+    <div class="card-header">
+      <div>
+        <h2>Edit Call</h2>
+        <p>Update any detail — the dashboard recomputes as soon as you save.</p>
+      </div>
+      <button type="button" class="modal-close" id="edit-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="card-body">
+      <form id="edit-form">
+        <input type="hidden" name="dealId" id="edit-deal-id">
+        <div class="outcome-picker">
+          <span class="outcome-picker-label">Outcome</span>
+          <div class="outcome-buttons" id="edit-outcome-buttons">
+            <button type="button" class="outcome-btn outcome-closed" data-outcome="Closed/Won/Deposit">Closed/Won/Deposit</button>
+            <button type="button" class="outcome-btn outcome-deposit" data-outcome="No Close">No Close</button>
+            <button type="button" class="outcome-btn outcome-dq" data-outcome="Disqualified">Disqualified</button>
+            <button type="button" class="outcome-btn outcome-noshow" data-outcome="No-Show">No-Show</button>
+            <button type="button" class="outcome-btn outcome-cancelled" data-outcome="Cancelled">Cancelled</button>
+            <button type="button" class="outcome-btn outcome-rescheduled" data-outcome="Rescheduled">Rescheduled</button>
+            <button type="button" class="outcome-btn outcome-remainder" data-outcome="Remainder Collection (no call)">Remainder Collection (no call)</button>
+            <button type="button" class="outcome-btn outcome-secondcc" data-outcome="2nd CC Call Booked">2nd CC Call Booked</button>
+          </div>
+          <input type="hidden" name="outcome" id="edit-outcome-value">
+        </div>
+
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Call</span>
+            <input type="text" name="call" required placeholder="e.g. Call 1">
+          </label>
+          <label class="form-field">
+            <span>Date</span>
+            <input type="date" name="closingDate" required>
+          </label>
+          <label class="form-field">
+            <span>Closer</span>
+            <select name="closer" id="edit-closer" required></select>
+          </label>
+          <label class="form-field">
+            <span>Setter</span>
+            <select name="setter" id="edit-setter" required></select>
+          </label>
+          <label class="form-field">
+            <span>Client Full Name</span>
+            <input type="text" name="clientName" required placeholder="e.g. Jamie Smith">
+          </label>
+          <label class="form-field">
+            <span>Client Email</span>
+            <input type="email" name="clientEmail" placeholder="e.g. jamie@email.com">
+          </label>
+          <label class="form-field">
+            <span>Client Phone Number</span>
+            <input type="tel" name="clientPhone" placeholder="e.g. (555) 123-4567">
+          </label>
+          <label class="form-field">
+            <span>Fathom URL</span>
+            <input type="url" name="fathomUrl" placeholder="https://fathom.video/...">
+          </label>
+        </div>
+
+        <div class="form-grid" id="edit-dynamic-fields"></div>
+
+        <label class="form-field form-notes" id="edit-why-wrap">
+          <span id="edit-why-label">Any more call notes</span>
+          <textarea name="callNotes" rows="4" id="edit-why-input" placeholder="Anything else worth logging about this call..."></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Save Changes</button>
+          <button type="button" class="btn-secondary" id="edit-cancel-btn">Cancel</button>
+          <span class="form-status" id="edit-status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // 1. DATA MODEL
+  // Each record = one booked call. Swapped out per logged-in user (see the
+  // LOGIN section below) and persisted server-side in Upstash via /api, so
+  // each login keeps its own separate set of rows that syncs across
+  // devices — everything below recomputes from whatever's currently in
+  // this array.
+  // ---------------------------------------------------------------------
+  let deals = [];
+
+  const COLOR = {
+    closer: "var(--blue)",
+    setter: "var(--aqua)"
+  };
+
+  const ICONS = {
+    dollar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>',
+    percent: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"></line><circle cx="6.5" cy="6.5" r="2.5"></circle><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>',
+    hash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
+    grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>'
+  };
+
+  const fmtUSD = n => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtPct = n => (Math.round(n * 10) / 10) + "%";
+  const sum = (arr, fn) => arr.reduce((a, d) => a + fn(d), 0);
+  const groupBy = (arr, fn) => arr.reduce((m, d) => { const k = fn(d); (m[k] = m[k] || []).push(d); return m; }, {});
+
+  function niceTicks(max, targetCount) {
+    if (max <= 0) return [0, 1];
+    const rough = max / targetCount;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const norm = rough / mag;
+    let step;
+    if (norm < 1.5) step = 1 * mag;
+    else if (norm < 3) step = 2 * mag;
+    else if (norm < 7) step = 5 * mag;
+    else step = 10 * mag;
+    const ticks = [];
+    for (let v = 0; v <= max + step / 2; v += step) ticks.push(Math.round(v * 100) / 100);
+    return ticks;
+  }
+
+  // ---------------------------------------------------------------------
+  // 2. CHART RENDERERS
+  // ---------------------------------------------------------------------
+  function renderHBarChart(el, items) {
+    const max = Math.max(...items.map(i => i.value), 0.0001);
+    const ticks = niceTicks(max, 10);
+    const axisMax = ticks[ticks.length - 1];
+
+    const usable = 90; // leave a margin so the rightmost tick label doesn't clip past the card edge
+    const rows = items.map(item => {
+      const pct = (item.value / axisMax) * usable;
+      return `
+        <div class="hbar-row">
+          <div class="hbar-name">${item.label}</div>
+          <div class="hbar-track">
+            <div class="hbar-fill" style="width:${pct}%; background:${item.color}" title="${item.label}: ${fmtUSD(item.value)}">
+              <span>${fmtUSD(item.value)}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+
+    const gridlines = ticks.map(t => `<div class="gl" style="left:${(t / axisMax) * usable}%"></div>`).join("");
+    const tickLabels = ticks.map(t => `<div class="hbar-tick" style="left:${(t / axisMax) * usable}%">${fmtUSD(t)}</div>`).join("");
+
+    el.innerHTML = `
+      <div style="position:relative;">
+        <div class="hbar-gridlines">${gridlines}</div>
+        <div class="hbar-chart">${rows}</div>
+      </div>
+      <div class="hbar-axis">${tickLabels}</div>
+    `;
+  }
+
+  function renderPie(el, items, opts) {
+    opts = opts || {};
+    const total = sum(items, i => i.value);
+    if (total <= 0) {
+      el.innerHTML = `
+        <div class="pie-row">
+          <div class="pie-empty">No data</div>
+          <div class="legend"><div class="legend-title">${opts.legendTitle || ""}</div></div>
+        </div>`;
+      return;
+    }
+    let acc = 0;
+    const stops = items.map(i => {
+      const start = (acc / total) * 360;
+      acc += i.value;
+      const end = (acc / total) * 360;
+      return `${i.color} ${start}deg ${end}deg`;
+    }).join(", ");
+
+    const biggest = items.reduce((a, b) => (b.value > a.value ? b : a), items[0]);
+    const pct = Math.round((biggest.value / total) * 1000) / 10;
+
+    const legendItems = items.map(i => `
+      <div class="legend-item">
+        <span class="legend-dot" style="background:${i.color}"></span>
+        <span>${i.label}${i.count !== undefined ? " (" + i.count + ")" : ""}</span>
+      </div>`).join("");
+
+    el.innerHTML = `
+      <div class="pie-row">
+        <div class="pie-chart${opts.donut ? " donut" : ""}" style="background:conic-gradient(${stops})">
+          <div class="pie-pct">${pct}%</div>
+        </div>
+        <div class="legend">
+          <div class="legend-title">${opts.legendTitle || ""}</div>
+          ${legendItems}
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // 3. COMMISSION TRACKING
+  // ---------------------------------------------------------------------
+  function renderCommissionPage() {
+    const byCloser = groupBy(deals, d => d.closer);
+    const closerItems = Object.keys(byCloser).map(name => ({
+      label: name,
+      value: sum(byCloser[name], d => d.cashCollected * d.closerCommissionRate),
+      color: COLOR.closer
+    }));
+    renderHBarChart(document.getElementById("chart-closers"), closerItems);
+
+    const bySetter = groupBy(deals, d => d.setter);
+    const setterItems = Object.keys(bySetter).map(name => ({
+      label: name,
+      value: sum(bySetter[name], d => d.cashCollected * d.setterCommissionRate),
+      color: COLOR.setter
+    }));
+    renderHBarChart(document.getElementById("chart-setters"), setterItems);
+  }
+
+  // ---------------------------------------------------------------------
+  // 4. TEAM PERFORMANCE
+  // ---------------------------------------------------------------------
+  function renderPerformancePage() {
+    renderPie(
+      document.getElementById("chart-deals-closed"),
+      Object.entries(groupBy(deals, d => d.closer)).map(([name, arr]) => ({ label: name, value: arr.length, count: arr.length, color: COLOR.closer })),
+      { legendTitle: "Closer", donut: true }
+    );
+
+    renderPie(
+      document.getElementById("chart-deals-set"),
+      Object.entries(groupBy(deals, d => d.setter)).map(([name, arr]) => ({ label: name, value: arr.length, count: arr.length, color: COLOR.setter })),
+      { legendTitle: "Setter", donut: true }
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // 4b. CALL OUTCOMES DONUT + CASH COLLECTED BY DAY (chart-local dropdowns)
+  // ---------------------------------------------------------------------
+  const ALL_OPTION = "__all__";
+
+  function outcomeBucket(d) {
+    if (d.disqualified) return "Disqualified";
+    if (d.calendarStatus === "no-show") return "No-show";
+    if (d.callOutcome === "Closed/Won/Deposit") return "Closed";
+    return "Cancelled";
+  }
+  const OUTCOME_ORDER = ["Closed", "No-show", "Disqualified", "Cancelled"];
+  const OUTCOME_COLORS = { Closed: "var(--good)", "No-show": "var(--orange)", Disqualified: "var(--red)", Cancelled: "var(--blue)" };
+
+  function populateSelect(el, values, allLabel) {
+    el.innerHTML = `<option value="${ALL_OPTION}">${allLabel}</option>` +
+      values.map(v => `<option value="${v}">${v}</option>`).join("");
+  }
+
+  function renderOutcomeDonut(el, items, total) {
+    const legendHtml = items.map(i => `
+      <div class="legend-item"><span class="legend-dot" style="background:${i.color}"></span><span>${i.label} (${i.value})</span></div>
+    `).join("");
+
+    let bgStyle = "background:var(--grid)";
+    if (total > 0) {
+      let acc = 0;
+      const stops = items.filter(i => i.value > 0).map(i => {
+        const start = (acc / total) * 360;
+        acc += i.value;
+        const end = (acc / total) * 360;
+        return `${i.color} ${start}deg ${end}deg`;
+      }).join(", ");
+      bgStyle = `background:conic-gradient(${stops})`;
+    }
+
+    el.innerHTML = `
+      <div class="outcome-row">
+        <div class="pie-chart donut outcome-donut" style="${bgStyle}">
+          <div class="pie-pct outcome-total">${total}</div>
+        </div>
+        <div class="legend legend-grid-2">${legendHtml}</div>
+      </div>
+    `;
+  }
+
+  function renderCallOutcomes(setterFilter) {
+    const rows = setterFilter && setterFilter !== ALL_OPTION ? deals.filter(d => d.setter === setterFilter) : deals;
+    const items = OUTCOME_ORDER.map(name => ({
+      label: name,
+      value: rows.filter(d => outcomeBucket(d) === name).length,
+      color: OUTCOME_COLORS[name]
+    }));
+    renderOutcomeDonut(document.getElementById("chart-call-outcomes"), items, rows.length);
+  }
+
+  const fmtUSDShort = n => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(n);
+  const fmtDayLabel = iso => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  function buildDailySeries(rows) {
+    if (!rows.length) return [];
+    const byDay = groupBy(rows, d => d.closingDate);
+    const isoDates = Object.keys(byDay).sort();
+    const start = new Date(isoDates[0] + "T00:00:00");
+    const end = new Date(isoDates[isoDates.length - 1] + "T00:00:00");
+    const days = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const iso = d.toISOString().slice(0, 10);
+      days.push({ label: fmtDayLabel(iso), value: sum(byDay[iso] || [], x => x.cashCollected) });
+    }
+    return days;
+  }
+
+  function renderLineChart(el, points) {
+    if (!points.length) {
+      el.innerHTML = `<div class="pie-empty" style="border-radius:10px; width:100%; height:220px;">No data</div>`;
+      return;
+    }
+    const max = Math.max(...points.map(p => p.value), 1);
+    const ticks = niceTicks(max, 4);
+    const axisMax = ticks[ticks.length - 1] || 1;
+    const w = 640, h = 220, padL = 56, padR = 16, padT = 12, padB = 28;
+    const innerW = w - padL - padR, innerH = h - padT - padB;
+
+    const coords = points.map((p, i) => ({
+      x: points.length > 1 ? padL + (i * innerW) / (points.length - 1) : padL + innerW / 2,
+      y: padT + innerH - (p.value / axisMax) * innerH,
+      ...p
+    }));
+
+    const linePath = coords.map((c, i) => (i === 0 ? "M" : "L") + c.x.toFixed(1) + "," + c.y.toFixed(1)).join(" ");
+    const areaPath = `${linePath} L ${coords[coords.length - 1].x.toFixed(1)},${(padT + innerH).toFixed(1)} L ${coords[0].x.toFixed(1)},${(padT + innerH).toFixed(1)} Z`;
+
+    const gridlines = ticks.map(t => {
+      const y = padT + innerH - (t / axisMax) * innerH;
+      return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${w - padR}" y2="${y.toFixed(1)}" stroke="#e8e8ec" stroke-width="1"/>
+              <text x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="#9a9aa2">${fmtUSDShort(t)}</text>`;
+    }).join("");
+
+    const labelEvery = Math.max(1, Math.ceil(coords.length / 6));
+    const xLabels = coords.filter((c, i) => i % labelEvery === 0 || i === coords.length - 1)
+      .map(c => `<text x="${c.x.toFixed(1)}" y="${h - 8}" text-anchor="middle" font-size="10" fill="#9a9aa2">${c.label}</text>`).join("");
+
+    const dots = coords.map(c => `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.5" fill="#2a78d6" stroke="#fff" stroke-width="1.5"><title>${c.label}: ${fmtUSD(c.value)}</title></circle>`).join("");
+
+    el.innerHTML = `
+      <div class="line-chart">
+        <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#2a78d6" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#2a78d6" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          ${gridlines}
+          <path d="${areaPath}" fill="url(#lineFade)" stroke="none"/>
+          <path d="${linePath}" fill="none" stroke="#2a78d6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          ${dots}
+          ${xLabels}
+        </svg>
+      </div>
+    `;
+  }
+
+  function renderCashByDay() {
+    renderLineChart(document.getElementById("chart-cash-by-day"), buildDailySeries(deals));
+  }
+
+  function refreshChartLocalFilters() {
+    const setterSelect = document.getElementById("call-outcomes-filter");
+    const prevValue = setterSelect.value || ALL_OPTION;
+    populateSelect(setterSelect, [...new Set(deals.map(d => d.setter))], "All Setters");
+    setterSelect.value = [...setterSelect.options].some(o => o.value === prevValue) ? prevValue : ALL_OPTION;
+    renderCallOutcomes(setterSelect.value);
+    renderCashByDay();
+  }
+
+  function initChartLocalFilters() {
+    const setterSelect = document.getElementById("call-outcomes-filter");
+    setterSelect.addEventListener("change", () => renderCallOutcomes(setterSelect.value));
+    refreshChartLocalFilters();
+  }
+
+  // ---------------------------------------------------------------------
+  // 4c. DATA TABLE
+  // ---------------------------------------------------------------------
+  function formatDetails(d) {
+    const parts = [];
+    if (d.isCall === false) parts.push("No call");
+    if (d.paymentMethod) parts.push(d.paymentMethod);
+    if (d.revenueGenerated != null) parts.push("Revenue " + fmtUSD(d.revenueGenerated));
+    if (d.depositCollected) parts.push("Deposit collected: " + d.depositCollected);
+    if (d.dqType) parts.push(d.dqType);
+    return parts.join(" · ");
+  }
+
+  const dataFilterState = { callOutcome: new Set() };
+
+  function passesDataFilters(d) {
+    return dataFilterState.callOutcome.size === 0 || dataFilterState.callOutcome.has(d.callOutcome);
+  }
+
+  function renderDataFilters() {
+    const el = document.getElementById("data-filters");
+    const values = [...new Set(deals.map(d => d.callOutcome))];
+    const active = dataFilterState.callOutcome;
+    const optsHtml = values.map(v => {
+      const checked = active.has(v) ? "checked" : "";
+      return `<label><input type="checkbox" data-value="${v}" ${checked}> ${v}</label>`;
+    }).join("");
+    el.innerHTML = `
+      <details class="filter" data-field-panel="outcome">
+        <summary>Outcome ${active.size ? `<span class="badge">${active.size}</span>` : ""} ${CHEVRON}</summary>
+        <div class="filter-panel">${optsHtml}</div>
+      </details>
+      <button class="reset-btn" id="data-reset-filters">Reset</button>
+    `;
+    el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener("change", () => {
+        if (cb.checked) active.add(cb.dataset.value);
+        else active.delete(cb.dataset.value);
+        renderDataFilters();
+        renderDataTable();
+      });
+    });
+    document.getElementById("data-reset-filters").addEventListener("click", () => {
+      dataFilterState.callOutcome.clear();
+      renderDataFilters();
+      renderDataTable();
+    });
+  }
+
+  function renderDataTable() {
+    const table = document.getElementById("data-table");
+    const cols = 14;
+    const filtered = deals.filter(passesDataFilters);
+    if (!filtered.length) {
+      table.innerHTML = `<tr><td class="data-table-empty" colspan="${cols}">${deals.length ? "No calls match these filters." : "No calls logged yet."}</td></tr>`;
+      return;
+    }
+    const rows = [...filtered]
+      .sort((a, b) => (a.closingDate < b.closingDate ? 1 : -1))
+      .map(d => `
+        <tr>
+          <td>${d.closingDate}</td>
+          <td>${d.call || ""}</td>
+          <td>${d.closer}</td>
+          <td>${d.setter}</td>
+          <td>${d.clientName || ""}</td>
+          <td>${d.clientEmail || ""}</td>
+          <td>${d.clientPhone || ""}</td>
+          <td>${d.fathomUrl ? `<a href="${d.fathomUrl}" target="_blank" rel="noopener">Open</a>` : ""}</td>
+          <td>${d.callOutcome}</td>
+          <td class="data-table-notes" title="${formatDetails(d).replace(/"/g, "&quot;")}">${formatDetails(d)}</td>
+          <td class="data-table-notes" title="${(d.callNotes || "").replace(/"/g, "&quot;")}">${d.callNotes || ""}</td>
+          <td>${fmtUSD(d.cashCollected)}</td>
+          <td>${d.cashType}</td>
+          <td>
+            <div class="row-actions">
+              <button class="row-edit" data-id="${d.id}">Edit</button>
+              <button class="row-delete" data-id="${d.id}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th><th>Call</th><th>Closer</th><th>Setter</th><th>Client</th><th>Email</th><th>Phone</th>
+          <th>Fathom</th><th>Outcome</th><th>Details</th><th>Why / Notes</th><th>Cash</th><th>Cash Type</th><th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    `;
+    table.querySelectorAll(".row-delete").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const idx = deals.findIndex(d => d.id === id);
+        if (idx !== -1) deals.splice(idx, 1);
+        refreshAll();
+      });
+    });
+    table.querySelectorAll(".row-edit").forEach(btn => {
+      btn.addEventListener("click", () => openEditModal(Number(btn.dataset.id)));
+    });
+  }
+
+  // Pure re-render from whatever's currently in `deals`/CLOSERS/SETTERS —
+  // no save, no network. Used after both local edits and server polls.
+  function renderAll() {
+    renderCommissionPage();
+    renderPerformancePage();
+    refreshChartLocalFilters();
+    renderFilters();
+    renderBasePage();
+    renderDataFilters();
+    renderDataTable();
+  }
+
+  function refreshAll() {
+    saveDeals();
+    renderAll();
+  }
+
+  // ---------------------------------------------------------------------
+  // 5. BASE DASHBOARD — filters + KPI tiles
+  // ---------------------------------------------------------------------
+  const KPI_ROWS = [
+    { cols: 3, tiles: [
+      { id: "kpi-total-cash", label: "Total Cash Collected", icon: "dollar", sub: "Sum of payments this period", highlight: true },
+      { id: "kpi-new-cash", label: "New Cash Collected (from closes)", icon: "dollar", sub: "Cash from newly closed deals" },
+      { id: "kpi-remainder-cash", label: "Remainder Cash Collected", icon: "dollar", sub: "Remaining balance payments" }
+    ]},
+    { cols: 3, tiles: [
+      { id: "kpi-deposit-cash", label: "Cash Collected from Deposits", icon: "dollar", sub: "Deposit payments collected" },
+      { id: "kpi-cash-per-call", label: "Cash per Live Call", icon: "phone", sub: "Cash ÷ calls attended" },
+      { id: "kpi-cash-per-booking", label: "Cash per Booking", icon: "phone", sub: "Cash ÷ calls booked" }
+    ]},
+    { cols: 3, tiles: [
+      { id: "kpi-aov", label: "AOV", icon: "dollar", sub: "Average deal size", highlight: true },
+      { id: "kpi-calls", label: "Calls", icon: "phone", sub: "Live calls this period" },
+      { id: "kpi-revenue", label: "Total Revenue", icon: "dollar", sub: "Total contract value" }
+    ]},
+    { cols: 1, tiles: [
+      { id: "kpi-close-rate", label: "Close Rate", icon: "percent", sub: "Closed ÷ live calls", highlight: true }
+    ]},
+    { cols: 2, tiles: [
+      { id: "kpi-total-show-rate", label: "Total Show Rate", icon: "percent", sub: "All calls booked even DQ's" },
+      { id: "kpi-show-rate", label: "Show Rate", icon: "percent", sub: "Live calls vs. total booked", highlight: true }
+    ]},
+    { cols: 3, tiles: [
+      { id: "kpi-deals", label: "Deals", icon: "hash", sub: "Closed-won deals" },
+      { id: "kpi-calls-on-calendar", label: "Calls On Calendar", icon: "phone", sub: "Calls booked this period" },
+      { id: "kpi-calls-showed", label: "Calls Showed", icon: "phone", sub: "Calls that were live" }
+    ]},
+    { cols: 3, tiles: [
+      { id: "kpi-calls-cancelled", label: "Calls Cancelled", icon: "phone", sub: "Booked calls that were cancelled" },
+      { id: "kpi-calls-rescheduled", label: "Calls Rescheduled", icon: "phone", sub: "Booked calls that were moved" },
+      { id: "kpi-calls-noshowed", label: "Calls No-Showed", icon: "phone", sub: "Booked but didn't show" }
+    ]},
+    { cols: 2, tiles: [
+      { id: "kpi-dq-calls", label: "Disqualified Calls", icon: "hash", sub: "Disqualified on the call" },
+      { id: "kpi-dq-rate", label: "DQ Rate (per live call)", icon: "percent", sub: "Disqualified ÷ live calls" }
+    ]}
+  ];
+
+  function renderKpiGrid() {
+    const container = document.getElementById("kpi-grid");
+    container.innerHTML = KPI_ROWS.map(row => `
+      <div class="kpi-row cols-${row.cols}">
+        ${row.tiles.map(t => `
+          <div class="kpi-tile${t.highlight ? " highlight" : ""}">
+            <div class="kpi-icon-badge">${ICONS[t.icon]}</div>
+            <div class="kpi-label">${t.label}</div>
+            <div class="kpi-value" id="${t.id}">—</div>
+            <div class="kpi-sub">${t.sub}</div>
+            <div class="kpi-grip">${ICONS.grip}</div>
+          </div>
+        `).join("")}
+      </div>
+    `).join("");
+  }
+
+  const FILTER_FIELDS = [
+    { key: "callOutcome", label: "Call Outcome" },
+    { key: "closer", label: "Closer" },
+    { key: "setter", label: "Setter" }
+  ];
+
+  const DATE_PRESETS = [
+    { key: "today", label: "Today" },
+    { key: "3d", label: "Past 3 days" },
+    { key: "7d", label: "Past 7 days" },
+    { key: "month", label: "This month so far" },
+    { key: "year", label: "This year so far" }
+  ];
+
+  const filterState = { datePreset: "year" };
+  FILTER_FIELDS.forEach(f => (filterState[f.key] = new Set()));
+
+  function passesDatePreset(d) {
+    const now = new Date();
+    const closing = new Date(d.closingDate + "T00:00:00");
+    if (closing > now) return false;
+    switch (filterState.datePreset) {
+      case "today": {
+        return closing.toDateString() === now.toDateString();
+      }
+      case "3d": {
+        const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 3);
+        return closing >= cutoff;
+      }
+      case "7d": {
+        const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
+        return closing >= cutoff;
+      }
+      case "month": {
+        return closing.getFullYear() === now.getFullYear() && closing.getMonth() === now.getMonth();
+      }
+      case "year": {
+        return closing.getFullYear() === now.getFullYear();
+      }
+      default:
+        return true;
+    }
+  }
+
+  function passesFilters(d) {
+    if (!passesDatePreset(d)) return false;
+    return FILTER_FIELDS.every(f => {
+      const set = filterState[f.key];
+      return set.size === 0 || set.has(d[f.key]);
+    });
+  }
+
+  const CHEVRON = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+  function renderFilters() {
+    const el = document.getElementById("filters");
+    const activePreset = DATE_PRESETS.find(p => p.key === filterState.datePreset);
+    const dateOptsHtml = DATE_PRESETS.map(p => `
+      <label><input type="radio" name="date-preset" data-value="${p.key}" ${p.key === filterState.datePreset ? "checked" : ""}> ${p.label}</label>
+    `).join("");
+    let html = `
+      <details class="filter" id="filter-date">
+        <summary>${activePreset.label} ${CHEVRON}</summary>
+        <div class="filter-panel">${dateOptsHtml}</div>
+      </details>
+    `;
+    FILTER_FIELDS.forEach(f => {
+      const values = [...new Set(deals.map(d => d[f.key]))];
+      const active = filterState[f.key];
+      const optsHtml = values.map(v => {
+        const display = f.format ? f.format(v) : v;
+        const checked = active.has(v) ? "checked" : "";
+        return `<label><input type="checkbox" data-field="${f.key}" data-value="${v}" ${checked}> ${display}</label>`;
+      }).join("");
+      html += `
+        <details class="filter" data-field-panel="${f.key}">
+          <summary>${f.label} ${active.size ? `<span class="badge">${active.size}</span>` : ""} ${CHEVRON}</summary>
+          <div class="filter-panel">${optsHtml}</div>
+        </details>
+      `;
+    });
+    html += `<button class="reset-btn" id="reset-filters">Reset</button>`;
+    el.innerHTML = html;
+
+    el.querySelectorAll('input[name="date-preset"]').forEach(radio => {
+      radio.addEventListener("change", () => {
+        filterState.datePreset = radio.dataset.value;
+        renderFilters();
+        renderBasePage();
+      });
+    });
+
+    el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener("change", () => {
+        const field = cb.dataset.field;
+        const value = cb.dataset.value === "true" ? true : cb.dataset.value === "false" ? false : cb.dataset.value;
+        if (cb.checked) filterState[field].add(value);
+        else filterState[field].delete(value);
+        renderFilters();
+        renderBasePage();
+      });
+    });
+
+    document.getElementById("reset-filters").addEventListener("click", () => {
+      filterState.datePreset = "year";
+      FILTER_FIELDS.forEach(f => filterState[f.key].clear());
+      renderFilters();
+      renderBasePage();
+    });
+  }
+
+  function renderBasePage() {
+    const rows = deals.filter(passesFilters);
+    const callRows = rows.filter(d => d.isCall !== false);
+
+    const totalCash = sum(rows, d => d.cashCollected);
+    const newCash = sum(rows.filter(d => d.cashType === "new"), d => d.cashCollected);
+    const remainderCash = sum(rows.filter(d => d.cashType === "remainder"), d => d.cashCollected);
+    const depositCash = sum(rows.filter(d => d.cashType === "deposit"), d => d.cashCollected);
+    const totalRevenue = sum(rows, d => (d.revenueGenerated != null ? d.revenueGenerated : d.cashCollected));
+
+    const callsShowed = callRows.filter(d => d.calendarStatus === "showed").length;
+    const callsCancelled = callRows.filter(d => d.calendarStatus === "cancelled").length;
+    const callsRescheduled = callRows.filter(d => d.calendarStatus === "rescheduled").length;
+    const callsNoShowed = callRows.filter(d => d.calendarStatus === "no-show").length;
+    const callsOnCalendar = callRows.length;
+    const dqCalls = rows.filter(d => d.disqualified).length;
+    const dealsClosed = rows.filter(d => d.callOutcome === "Closed/Won/Deposit").length;
+
+    const closeRate = callsOnCalendar ? (dealsClosed / callsOnCalendar) * 100 : 0;
+    const totalShowRate = callsOnCalendar ? (callsShowed / callsOnCalendar) * 100 : 0;
+    const showRate = callsOnCalendar ? (callsShowed / callsOnCalendar) * 100 : 0;
+    const cashPerLiveCall = callsShowed ? newCash / callsShowed : 0;
+    const cashPerBooking = callsOnCalendar ? totalCash / callsOnCalendar : 0;
+    const aov = dealsClosed ? newCash / dealsClosed : 0;
+    const dqRate = callsShowed ? (dqCalls / callsShowed) * 100 : 0;
+
+    document.getElementById("kpi-total-cash").textContent = fmtUSD(totalCash);
+    document.getElementById("kpi-new-cash").textContent = fmtUSD(newCash);
+    document.getElementById("kpi-remainder-cash").textContent = fmtUSD(remainderCash);
+    document.getElementById("kpi-deposit-cash").textContent = fmtUSD(depositCash);
+    document.getElementById("kpi-cash-per-call").textContent = fmtUSD(cashPerLiveCall);
+    document.getElementById("kpi-cash-per-booking").textContent = fmtUSD(cashPerBooking);
+    document.getElementById("kpi-aov").textContent = fmtUSD(aov);
+    document.getElementById("kpi-calls").textContent = callsOnCalendar;
+    document.getElementById("kpi-revenue").textContent = fmtUSD(totalRevenue);
+    document.getElementById("kpi-close-rate").textContent = fmtPct(closeRate);
+    document.getElementById("kpi-total-show-rate").textContent = fmtPct(totalShowRate);
+    document.getElementById("kpi-show-rate").textContent = fmtPct(showRate);
+    document.getElementById("kpi-deals").textContent = dealsClosed;
+    document.getElementById("kpi-calls-on-calendar").textContent = callsOnCalendar;
+    document.getElementById("kpi-calls-showed").textContent = callsShowed;
+    document.getElementById("kpi-calls-cancelled").textContent = callsCancelled;
+    document.getElementById("kpi-calls-rescheduled").textContent = callsRescheduled;
+    document.getElementById("kpi-calls-noshowed").textContent = callsNoShowed;
+    document.getElementById("kpi-dq-calls").textContent = dqCalls;
+    document.getElementById("kpi-dq-rate").textContent = fmtPct(dqRate);
+  }
+
+  // close open filter dropdowns when clicking outside
+  document.addEventListener("click", e => {
+    document.querySelectorAll(".filter[open]").forEach(d => {
+      if (!d.contains(e.target)) d.removeAttribute("open");
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // 8. VIEW SWITCHER (Dashboard / Post Call Form / Data — separate pages)
+  // ---------------------------------------------------------------------
+  document.querySelectorAll(".view-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".view-tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("view-" + btn.dataset.view).classList.add("active");
+      if (btn.dataset.view === "data") renderDataTable();
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // 9. POST CALL FORM — outcome picker reveals the rest of the form, and
+  //    each outcome swaps in its own extra fields + "why" question.
+  // ---------------------------------------------------------------------
+  const OUTCOME_FORM_CONFIG = {
+    "Closed/Won/Deposit": {
+      fields: [
+        { key: "paymentMethod", type: "select", label: "Payment Method", options: ["Financing", "Paid in Full", "Deposit"] },
+        { key: "cashCollected", type: "number", label: "Cash Collected ($)" },
+        { key: "revenueGenerated", type: "number", label: "Revenue Generated ($)" }
+      ],
+      whyLabel: "Why did this close?"
+    },
+    "No Close": {
+      fields: [],
+      whyLabel: "Why did you not close this?"
+    },
+    "Disqualified": {
+      fields: [
+        { key: "wasCall", type: "yesno", label: "Was this a call?", hint: "Select No if this person was disqualified before a call took place." },
+        { key: "dqType", type: "select", label: "Disqualification Type", options: ["Financial Disqualification", "ICP Disqualification"] }
+      ],
+      whyLabel: "Why was this person disqualified?"
+    },
+    "No-Show": {
+      fields: [],
+      whyLabel: "What was the reason this call no-showed?"
+    },
+    "Cancelled": {
+      fields: [],
+      whyLabel: "What was the reason this was cancelled?"
+    },
+    "Rescheduled": {
+      fields: [],
+      whyLabel: "What was the reason for this reschedule?"
+    },
+    "Remainder Collection (no call)": {
+      fields: [
+        { key: "cashCollected", type: "number", label: "Remainder Cash Paid Today ($)" }
+      ],
+      whyLabel: null
+    },
+    "2nd CC Call Booked": {
+      fields: [],
+      whyLabel: "Why couldn't you close on this call, and why was a second call booked instead?"
+    }
+  };
+
+  function renderPcfField(f) {
+    if (f.type === "yesno") {
+      return `
+        <label class="form-field">
+          <span>${f.label}</span>
+          ${f.hint ? `<span class="field-hint">${f.hint}</span>` : ""}
+          <select name="${f.key}" required>
+            <option value="">Select...</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>`;
+    }
+    if (f.type === "select") {
+      return `
+        <label class="form-field">
+          <span>${f.label}</span>
+          <select name="${f.key}" required>
+            <option value="">Select...</option>
+            ${f.options.map(o => `<option value="${o}">${o}</option>`).join("")}
+          </select>
+        </label>`;
+    }
+    return `
+      <label class="form-field">
+        <span>${f.label}</span>
+        <input type="number" name="${f.key}" min="0" step="1" value="0">
+      </label>`;
+  }
+
+  const pcfForm = document.getElementById("pcf-form");
+  const pcfOutcomeValue = document.getElementById("pcf-outcome-value");
+  const pcfFormRest = document.getElementById("pcf-form-rest");
+  const pcfOutcomeError = document.getElementById("pcf-outcome-error");
+  const pcfDynamicFields = document.getElementById("pcf-dynamic-fields");
+  const pcfWhyWrap = document.getElementById("pcf-why-wrap");
+  const pcfWhyLabel = document.getElementById("pcf-why-label");
+  pcfForm.querySelector('[name="closingDate"]').valueAsDate = new Date();
+
+  // Closer/Setter picklists — start empty and grow as names are added from the form.
+  // Reloaded/saved per logged-in user via /api, same as `deals`.
+  let CLOSERS = [];
+  let SETTERS = [];
+
+  function populateNameSelect(selectEl, list, selected) {
+    const current = selected !== undefined ? selected : selectEl.value;
+    selectEl.innerHTML = `<option value="">Select...</option>` + list.map(n => `<option value="${n}">${n}</option>`).join("");
+    if (current) selectEl.value = current;
+  }
+
+  const pcfCloserSelect = document.getElementById("pcf-closer");
+  const pcfSetterSelect = document.getElementById("pcf-setter");
+  populateNameSelect(pcfCloserSelect, CLOSERS);
+  populateNameSelect(pcfSetterSelect, SETTERS);
+
+  document.getElementById("pcf-add-closer").addEventListener("click", () => {
+    const name = (prompt("Add a new closer name:") || "").trim();
+    if (!name) return;
+    if (!CLOSERS.includes(name)) CLOSERS.push(name);
+    populateNameSelect(pcfCloserSelect, CLOSERS, name);
+    saveNames();
+  });
+
+  document.getElementById("pcf-add-setter").addEventListener("click", () => {
+    const name = (prompt("Add a new setter name:") || "").trim();
+    if (!name) return;
+    if (!SETTERS.includes(name)) SETTERS.push(name);
+    populateNameSelect(pcfSetterSelect, SETTERS, name);
+    saveNames();
+  });
+
+  // Generic so the edit modal's outcome picker can reuse the same field config
+  // logic against its own dynamic-fields/why-note elements.
+  function applyOutcomeFormConfigTo(outcome, dynamicFieldsEl, whyWrapEl, whyLabelEl) {
+    const config = OUTCOME_FORM_CONFIG[outcome] || { fields: [], whyLabel: "Any more call notes" };
+    dynamicFieldsEl.innerHTML = config.fields.map(renderPcfField).join("");
+    if (config.whyLabel) {
+      whyWrapEl.hidden = false;
+      whyLabelEl.textContent = config.whyLabel;
+    } else {
+      whyWrapEl.hidden = true;
+    }
+    return config;
+  }
+
+  function applyOutcomeFormConfig(outcome) {
+    applyOutcomeFormConfigTo(outcome, pcfDynamicFields, pcfWhyWrap, pcfWhyLabel);
+  }
+
+  function resetOutcomePicker() {
+    document.querySelectorAll("#outcome-buttons .outcome-btn").forEach(b => b.classList.remove("selected"));
+    pcfOutcomeValue.value = "";
+    pcfFormRest.hidden = true;
+    pcfOutcomeError.hidden = true;
+    pcfDynamicFields.innerHTML = "";
+    pcfWhyWrap.hidden = false;
+  }
+
+  document.querySelectorAll("#outcome-buttons .outcome-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#outcome-buttons .outcome-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      pcfOutcomeValue.value = btn.dataset.outcome;
+      pcfOutcomeError.hidden = true;
+      pcfFormRest.hidden = false;
+      applyOutcomeFormConfig(btn.dataset.outcome);
+    });
+  });
+
+  // Reads a field's value only if that field exists in the currently-rendered form
+  function fieldValue(form, name) {
+    const el = form.elements[name];
+    return el ? el.value.trim() : "";
+  }
+
+  // Shared by the post call form (new deal) and the edit modal (existing deal) —
+  // reads every field that both forms have in common off whichever form element
+  // is passed in.
+  function dealFieldsFromForm(form, outcome) {
+    const disqualified = outcome === "Disqualified";
+    const calendarStatus =
+      outcome === "No-Show" ? "no-show" :
+      outcome === "Cancelled" ? "cancelled" :
+      outcome === "Rescheduled" ? "rescheduled" : "showed";
+    const cashType =
+      outcome === "Closed/Won/Deposit" ? "new" :
+      outcome === "No Close" ? "none" :
+      outcome === "Remainder Collection (no call)" ? "remainder" : "new";
+
+    // Cancelled/Rescheduled/No-Show happen before the closing call ever takes place,
+    // and Remainder Collection is a payment log with no call by definition — so none
+    // of those need to ask. Disqualified is the one outcome that's genuinely ambiguous
+    // (it can happen pre-call or on the call), so it's the only one with the toggle.
+    const NO_CALL_OUTCOMES = new Set(["Remainder Collection (no call)", "Cancelled", "Rescheduled", "No-Show"]);
+    const isCall = NO_CALL_OUTCOMES.has(outcome) ? false : fieldValue(form, "wasCall") !== "no";
+
+    return {
+      call: form.call.value.trim(),
+      closer: form.closer.value.trim(),
+      setter: form.setter.value.trim(),
+      clientName: form.clientName.value.trim(),
+      clientEmail: form.clientEmail.value.trim(),
+      clientPhone: form.clientPhone.value.trim(),
+      fathomUrl: form.fathomUrl.value.trim(),
+      callNotes: fieldValue(form, "callNotes"),
+      callOutcome: outcome,
+      closingDate: form.closingDate.value,
+      cashCollected: Number(fieldValue(form, "cashCollected")) || 0,
+      revenueGenerated: fieldValue(form, "revenueGenerated") ? Number(fieldValue(form, "revenueGenerated")) : null,
+      paymentMethod: fieldValue(form, "paymentMethod") || null,
+      depositCollected: fieldValue(form, "depositCollected") || null,
+      dqType: fieldValue(form, "dqType") || null,
+      isCall,
+      cashType,
+      calendarStatus,
+      disqualified
+    };
+  }
+
+  pcfForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const form = e.target;
+    const outcome = pcfOutcomeValue.value;
+    if (!outcome) {
+      pcfOutcomeError.hidden = false;
+      return;
+    }
+
+    deals.push({
+      id: Date.now(),
+      ...dealFieldsFromForm(form, outcome),
+      closerCommissionRate: 0.10,
+      setterCommissionRate: 0.05
+    });
+
+    refreshAll();
+
+    const status = document.getElementById("pcf-status");
+    status.textContent = "Logged — dashboard updated.";
+    form.reset();
+    resetOutcomePicker();
+    form.querySelector('[name="closingDate"]').valueAsDate = new Date();
+    setTimeout(() => { status.textContent = ""; }, 3000);
+  });
+
+  // ---------------------------------------------------------------------
+  // 9b. EDIT CALL MODAL — same outcome picker + field config as the post
+  //     call form above, pre-filled from the row being edited. Saving
+  //     merges the changes back into that deal in place.
+  // ---------------------------------------------------------------------
+  const editModalOverlay = document.getElementById("edit-modal-overlay");
+  const editForm = document.getElementById("edit-form");
+  const editDealId = document.getElementById("edit-deal-id");
+  const editOutcomeValue = document.getElementById("edit-outcome-value");
+  const editDynamicFields = document.getElementById("edit-dynamic-fields");
+  const editWhyWrap = document.getElementById("edit-why-wrap");
+  const editWhyLabel = document.getElementById("edit-why-label");
+  const editCloserSelect = document.getElementById("edit-closer");
+  const editSetterSelect = document.getElementById("edit-setter");
+
+  function closeEditModal() {
+    editModalOverlay.hidden = true;
+    editForm.reset();
+  }
+
+  function openEditModal(id) {
+    const deal = deals.find(d => d.id === id);
+    if (!deal) return;
+
+    editDealId.value = deal.id;
+    editForm.call.value = deal.call || "";
+    editForm.closingDate.value = deal.closingDate || "";
+    populateNameSelect(editCloserSelect, CLOSERS, deal.closer);
+    populateNameSelect(editSetterSelect, SETTERS, deal.setter);
+    editForm.clientName.value = deal.clientName || "";
+    editForm.clientEmail.value = deal.clientEmail || "";
+    editForm.clientPhone.value = deal.clientPhone || "";
+    editForm.fathomUrl.value = deal.fathomUrl || "";
+
+    document.querySelectorAll("#edit-outcome-buttons .outcome-btn").forEach(b => {
+      b.classList.toggle("selected", b.dataset.outcome === deal.callOutcome);
+    });
+    editOutcomeValue.value = deal.callOutcome;
+    applyOutcomeFormConfigTo(deal.callOutcome, editDynamicFields, editWhyWrap, editWhyLabel);
+
+    // The outcome-specific fields now exist in the DOM — fill in whichever
+    // of them this deal actually has values for.
+    ["paymentMethod", "cashCollected", "revenueGenerated", "dqType", "depositCollected"].forEach(key => {
+      const el = editForm.elements[key];
+      if (el && deal[key] != null) el.value = deal[key];
+    });
+    if (editForm.elements.wasCall) editForm.elements.wasCall.value = deal.isCall === false ? "no" : "yes";
+    editForm.elements.callNotes.value = deal.callNotes || "";
+
+    editModalOverlay.hidden = false;
+  }
+
+  document.querySelectorAll("#edit-outcome-buttons .outcome-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#edit-outcome-buttons .outcome-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      editOutcomeValue.value = btn.dataset.outcome;
+      applyOutcomeFormConfigTo(btn.dataset.outcome, editDynamicFields, editWhyWrap, editWhyLabel);
+    });
+  });
+
+  document.getElementById("edit-modal-close").addEventListener("click", closeEditModal);
+  document.getElementById("edit-cancel-btn").addEventListener("click", closeEditModal);
+  editModalOverlay.addEventListener("click", e => {
+    if (e.target === editModalOverlay) closeEditModal();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !editModalOverlay.hidden) closeEditModal();
+  });
+
+  editForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const form = e.target;
+    const outcome = editOutcomeValue.value;
+    const idx = deals.findIndex(d => d.id === Number(editDealId.value));
+    if (idx === -1) return;
+
+    deals[idx] = { ...deals[idx], ...dealFieldsFromForm(form, outcome) };
+    refreshAll();
+    closeEditModal();
+  });
+
+  // ---------------------------------------------------------------------
+  // 10. LOGIN — still a lightweight gate (fixed accounts, no user
+  //     management), but credentials are now checked server-side in /api,
+  //     since /api/session and /api/save are real network endpoints that
+  //     read/write each account's live data — the check has to be more
+  //     than decorative once there's real remote data behind it.
+  //     Each account's `deals` array and closer/setter picklist live in
+  //     Upstash, namespaced by account (see api/session.js, api/save.js),
+  //     so they sync across every device logged into that account.
+  // ---------------------------------------------------------------------
+  const SESSION_KEY = "salesboard_session_v1";
+  let currentUser = null;
+  let currentPassword = null;
+  let pollTimer = null;
+  let pollInFlight = false;
+
+  async function apiCall(path, body) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.error || "Request failed");
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  // Throws on failure (including bad credentials) — callers decide how to react.
+  async function loadUserData(offer, password) {
+    const data = await apiCall("/api/sales-board/session", { offer, password });
+    deals = data.deals || [];
+    CLOSERS = data.closers || [];
+    SETTERS = data.setters || [];
+  }
+
+  async function saveDeals() {
+    if (!currentUser) return;
+    try {
+      await apiCall("/api/sales-board/save", { offer: currentUser, password: currentPassword, deals });
+    } catch (e) {
+      console.error("Failed to save deals to server:", e);
+    }
+  }
+
+  async function saveNames() {
+    if (!currentUser) return;
+    try {
+      await apiCall("/api/sales-board/save", { offer: currentUser, password: currentPassword, closers: CLOSERS, setters: SETTERS });
+    } catch (e) {
+      console.error("Failed to save names to server:", e);
+    }
+  }
+
+  function initApp() {
+    populateNameSelect(pcfCloserSelect, CLOSERS);
+    populateNameSelect(pcfSetterSelect, SETTERS);
+    renderKpiGrid();
+    renderAll();
+  }
+
+  // Re-fetches this account's data from the server and re-renders in place —
+  // does NOT save, so it can't clobber a save that's still in flight. Used
+  // for the periodic poll and the window-focus refresh so other devices'
+  // changes show up here without a manual reload.
+  async function pollForUpdates() {
+    if (!currentUser || pollInFlight) return;
+    pollInFlight = true;
+    try {
+      await loadUserData(currentUser, currentPassword);
+      populateNameSelect(pcfCloserSelect, CLOSERS);
+      populateNameSelect(pcfSetterSelect, SETTERS);
+      renderAll();
+    } catch (e) {
+      if (e.status === 401) {
+        // Credentials no longer valid (e.g. account data was reset) — bounce to login.
+        showLogin();
+      } else {
+        console.error("Poll for updates failed:", e);
+      }
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(pollForUpdates, 8000);
+  }
+
+  function stopPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  window.addEventListener("focus", () => { if (currentUser) pollForUpdates(); });
+
+  async function showApp(offer, password) {
+    currentUser = offer;
+    currentPassword = password;
+    await loadUserData(offer, password);
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ offer, password }));
+    document.getElementById("current-user-label").textContent = offer;
+    document.getElementById("view-login").hidden = true;
+    document.getElementById("app-shell").hidden = false;
+    initApp();
+    startPolling();
+  }
+
+  function showLogin() {
+    currentUser = null;
+    currentPassword = null;
+    stopPolling();
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById("app-shell").hidden = true;
+    document.getElementById("view-login").hidden = false;
+    loginForm.reset();
+    document.getElementById("login-error").hidden = true;
+  }
+
+  const loginForm = document.getElementById("login-form");
+  loginForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const offerInput = loginForm.offer.value.trim();
+    const passwordInput = loginForm.password.value;
+    const loginError = document.getElementById("login-error");
+    try {
+      await showApp(offerInput, passwordInput);
+      loginError.hidden = true;
+    } catch (err) {
+      loginError.textContent = err.status === 401
+        ? "Incorrect offer or password."
+        : "Could not reach the server — try again.";
+      loginError.hidden = false;
+    }
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", showLogin);
+
+  initChartLocalFilters();
+
+  (async function autoLogin() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { saved = null; }
+    if (saved && saved.offer && saved.password) {
+      try {
+        await showApp(saved.offer, saved.password);
+        return;
+      } catch (e) {
+        // Saved session no longer valid — fall through to the login screen.
+      }
+    }
+    showLogin();
+  })();
+})();
+</script>
+</body>
+</html>

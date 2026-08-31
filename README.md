@@ -32,6 +32,8 @@ Router) and Supabase Auth.
    backlog + Yearly Goals. `0005_content_hub_state.sql` sets up the
    per-user table behind the Weekly Content Hub, plus the two
    `SECURITY DEFINER` functions its `/team-access` secret-key flow calls.
+   `0006_sales_board_state.sql` sets up the shared table (one row per
+   Sales Board account) behind the Sales Team Board.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -369,6 +371,48 @@ in and you'll land on `/dashboard`.
   status as an undiagnosable generic "Sync error" (the same gap already
   fixed on Daily Kill List earlier, missed here) — now the actual message
   is included in the status text for both paths.
+- `public/sales-board-app/` + `src/app/dashboard/sales-board` — the Sales
+  Team Board, ported from `acqtom/salesboard`: a sales & commissions
+  dashboard (KPI tiles, call-outcome/cash charts, a Post Call Form,
+  commission tracking by closer/setter, and a raw data table with an edit
+  modal) — a single self-contained `index.html`, no external
+  dependencies, embedded via iframe as usual. Unlike every prior port,
+  its own login screen was **kept, not stripped** — it isn't a redundant
+  gate duplicating the portal's Supabase Auth like the others were,
+  it's how the app picks *which* of its 3 fixed accounts (Alex/Adriel/Des,
+  hardcoded in the original `api/_lib/auth.js`, ported as-is into
+  `src/lib/sales-board-auth.ts`) you're viewing — each has entirely
+  separate deals/closers/setters data, so removing it would break the
+  tool rather than simplify it.
+
+  Backend swapped from Upstash Redis (three keys per account —
+  `deals:<offer>`, `closers:<offer>`, `setters:<offer>`) to a
+  `sales_board_state` table (`supabase/migrations/0006_...sql`), one row
+  per account (`account` as the primary key, not tied to any portal-user
+  id) holding all three as one jsonb object — RLS just gates "authenticated
+  portal user" the same as the other shared-team-wide tables, since the
+  real per-account check is the offer/password pair validated server-side
+  in `/api/sales-board/session` and `/api/sales-board/save`
+  (`src/app/api/sales-board/`), mirroring the original app's own security
+  model exactly. `save/route.ts` reads the existing row and merges over it
+  before upserting, since the original API let a save touch just one of
+  deals/closers/setters at a time (one Redis key each) while Supabase
+  holds all three in a single jsonb column that a naive upsert would
+  otherwise blow away.
+
+  Verified via Puppeteer (fetch mocked against both endpoints, matching
+  their exact contracts, since a real login session isn't available
+  headlessly): confirmed a wrong password shows the login error, logged
+  in correctly with a seeded account and confirmed the dashboard renders
+  the seeded deal's closer/setter correctly in the Deals Closed/Deals Set
+  breakdowns and in the Data view, confirmed the Post Call Form's outcome
+  buttons correctly reveal the rest of the form, and confirmed logout
+  returns to the login screen. One check (a KPI dollar figure) initially
+  came back wrong — traced to the test's own seed data using the field
+  name `outcome` instead of the app's actual `callOutcome`, not a defect
+  in the port (the closer/setter breakdowns, which read different fields,
+  matched correctly, confirming the real data path works) — all other
+  checks passed with zero console errors.
 
 ## Deploying
 
