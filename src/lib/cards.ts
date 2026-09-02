@@ -7,6 +7,7 @@ import {
   ListChecks,
   MessagesSquare,
   Rocket,
+  Sparkles,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -77,6 +78,13 @@ export const CARDS: Card[] = [
     description: "Pipeline, deals, and sales team updates.",
     icon: TrendingUp,
     href: "/dashboard/sales-board",
+  },
+  {
+    slug: "headline-generator",
+    title: "Winning Headline Generator",
+    description: "Generate scroll-stopping headlines for your content and offers.",
+    icon: Sparkles,
+    href: "/headlinegenerator",
   },
   {
     slug: "communications",
