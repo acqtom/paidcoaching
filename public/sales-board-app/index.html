@@ -317,18 +317,23 @@
   /* --- onboarding SOPs --- */
   .sop-section + .sop-section { margin-top: 20px; }
   .sop-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; }
-  .sop-tab-wrap { display: flex; align-items: center; }
-  .sop-tab-btn {
-    border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
-    border-radius: 16px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  .sop-tab-wrap {
+    display: flex; align-items: center; border: 1px solid var(--pill-border); background: #fff;
+    border-radius: 16px; overflow: hidden;
   }
-  .sop-tab-btn.active { background: var(--black); color: #fff; border-color: var(--black); }
+  .sop-tab-wrap.active { background: var(--black); border-color: var(--black); }
+  .sop-tab-btn {
+    border: none; background: none; color: var(--text-secondary);
+    padding: 7px 6px 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .sop-tab-wrap.active .sop-tab-btn { color: #fff; }
   .sop-tab-remove {
     border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
-    padding: 2px 4px 2px 2px; margin-left: -6px; font-family: inherit;
+    padding: 7px 12px 7px 2px; font-family: inherit;
   }
-  .sop-tab-btn.active + .sop-tab-remove { color: rgba(255,255,255,0.6); }
-  .sop-tab-btn.active + .sop-tab-remove:hover { color: #fff; }
+  .sop-tab-remove-hidden { visibility: hidden; pointer-events: none; }
+  .sop-tab-wrap.active .sop-tab-remove { color: rgba(255,255,255,0.6); }
+  .sop-tab-wrap.active .sop-tab-remove:hover { color: #fff; }
   .sop-tab-remove:hover { color: var(--red); }
   .sop-add-btn {
     border: 1px dashed var(--pill-border); background: #fff; color: var(--text-secondary);
@@ -2068,7 +2073,7 @@
 
   const SOP_DEFAULTS = {
     mainBreakdown: ["Expectations", "Daily Huddles", "Prep", "CRM", "Airtable Forms", "Leaderboard", "SOD"],
-    closerSops: ["Daily Process", "Responsibilities", "Script", "Onboarding", "Deck", "Closer Tracking", "Financing"],
+    closerSops: ["Daily Process", "Responsibilities", "Script", "Onboarding", "Deck", "Closer Tracking", "Financing", "Payment Links"],
     setterSops: ["Daily Process", "Responsibilities", "Script", "Handoff Form"],
   };
 
@@ -2098,9 +2103,9 @@
     const activeTab = section.tabs.find(t => t.id === section.activeId) || section.tabs[0];
 
     const tabsHtml = section.tabs.map(t => `
-      <span class="sop-tab-wrap">
-        <button type="button" class="sop-tab-btn${t.id === activeTab.id ? " active" : ""}" data-id="${t.id}">${t.label}</button>
-        ${section.tabs.length > 1 ? `<button type="button" class="sop-tab-remove" data-remove="${t.id}" title="Remove this SOP">&times;</button>` : ""}
+      <span class="sop-tab-wrap${t.id === activeTab.id ? " active" : ""}">
+        <button type="button" class="sop-tab-btn" data-id="${t.id}">${t.label}</button>
+        <button type="button" class="sop-tab-remove${section.tabs.length > 1 ? "" : " sop-tab-remove-hidden"}" data-remove="${t.id}" title="Remove this SOP">&times;</button>
       </span>
     `).join("");
 
@@ -2122,6 +2127,10 @@
     tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
+        // The CSS-hidden "last tab" remove button only blocks real pointer
+        // clicks -- guard here too so a section can never end up with zero
+        // tabs regardless of how the click was triggered.
+        if (section.tabs.length <= 1) return;
         const id = btn.dataset.remove;
         section.tabs = section.tabs.filter(t => t.id !== id);
         if (section.activeId === id) section.activeId = section.tabs[0].id;
