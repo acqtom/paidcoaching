@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X, Trash2 } from "lucide-react";
+import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X, Trash2, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Conversation = {
@@ -9,6 +9,7 @@ type Conversation = {
   type: "channel" | "dm";
   name: string | null;
   dm_user_id: string | null;
+  admin_only_posting: boolean;
   dmUsername?: string;
 };
 
@@ -130,7 +131,7 @@ export function CommunicationsApp({
     (async () => {
       const { data: channels } = await supabase
         .from("conversations")
-        .select("id, type, name, dm_user_id, created_at")
+        .select("id, type, name, dm_user_id, admin_only_posting, created_at")
         .eq("type", "channel")
         .order("created_at", { ascending: true });
 
@@ -144,7 +145,14 @@ export function CommunicationsApp({
         dms = (data ?? []).map((d) => {
           const joined = d.profiles as unknown as { username?: string } | null;
           if (joined?.username && d.dm_user_id) usernameCache.current[d.dm_user_id] = joined.username;
-          return { id: d.id, type: "dm" as const, name: d.name, dm_user_id: d.dm_user_id, dmUsername: joined?.username };
+          return {
+            id: d.id,
+            type: "dm" as const,
+            name: d.name,
+            dm_user_id: d.dm_user_id,
+            admin_only_posting: false,
+            dmUsername: joined?.username,
+          };
         });
       } else {
         const { data } = await supabase
@@ -153,7 +161,11 @@ export function CommunicationsApp({
           .eq("type", "dm")
           .eq("dm_user_id", userId)
           .maybeSingle();
-        if (data) dms = [{ id: data.id, type: "dm", name: data.name, dm_user_id: data.dm_user_id }];
+        if (data) {
+          dms = [
+            { id: data.id, type: "dm", name: data.name, dm_user_id: data.dm_user_id, admin_only_posting: false },
+          ];
+        }
       }
 
       if (cancelled) return;
@@ -192,6 +204,16 @@ export function CommunicationsApp({
         (payload) => {
           const row = payload.new as Conversation;
           setConversations((prev) => (prev.some((c) => c.id === row.id) ? prev : [...prev, row]));
+        }
+      )
+      .on(
+        // Covers a channel being locked/unlocked -- everyone viewing sees
+        // it change live, not just after a refresh.
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "conversations", filter: "type=eq.channel" },
+        (payload) => {
+          const row = payload.new as Conversation;
+          setConversations((prev) => prev.map((c) => (c.id === row.id ? { ...c, ...row } : c)));
         }
       )
       .subscribe();
@@ -349,7 +371,7 @@ export function CommunicationsApp({
     const { data, error: insertError } = await supabase
       .from("conversations")
       .insert({ type: "channel", name, created_by: userId })
-      .select("id, type, name, dm_user_id")
+      .select("id, type, name, dm_user_id, admin_only_posting")
       .single();
     if (insertError || !data) {
       // Channel names are unique (including the auto-created "general") --
@@ -362,6 +384,28 @@ export function CommunicationsApp({
     setActiveId(data.id);
     setNewChannelName("");
     setShowNewChannelForm(false);
+  }
+
+  async function handleToggleChannelLock(conversationId: string, currentlyRestricted: boolean) {
+    const next = !currentlyRestricted;
+    // Optimistic, same as message delete -- and for the same reason,
+    // confirm a row actually came back rather than trusting a lack of
+    // `error` alone.
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conversationId ? { ...c, admin_only_posting: next } : c))
+    );
+    const { data, error: updateError } = await supabase
+      .from("conversations")
+      .update({ admin_only_posting: next })
+      .eq("id", conversationId)
+      .select("id");
+    if (updateError || !data || data.length === 0) {
+      console.error("Failed to toggle channel lock:", updateError ?? "no row was updated (RLS?)");
+      setError("Couldn't change who can post here — try again.");
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, admin_only_posting: currentlyRestricted } : c))
+      );
+    }
   }
 
   function handleComposerChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -434,6 +478,7 @@ export function CommunicationsApp({
         ? `@${active.dmUsername ?? "unknown"}`
         : "Direct Messages"
     : "";
+  const canPost = !active || active.type === "dm" || !active.admin_only_posting || isAdmin;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -525,9 +570,34 @@ export function CommunicationsApp({
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2 border-b border-neutral-200 px-6 py-3 dark:border-neutral-800">
-              {active.type === "channel" ? <Hash size={15} className="opacity-60" /> : <MessageCircle size={15} className="opacity-60" />}
-              <h2 className="text-sm font-semibold">{activeLabel}</h2>
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-6 py-3 dark:border-neutral-800">
+              <div className="flex items-center gap-2">
+                {active.type === "channel" ? <Hash size={15} className="opacity-60" /> : <MessageCircle size={15} className="opacity-60" />}
+                <h2 className="text-sm font-semibold">{activeLabel}</h2>
+              </div>
+              {active.type === "channel" &&
+                (isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleChannelLock(active.id, active.admin_only_posting)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                      active.admin_only_posting
+                        ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
+                        : "border-neutral-300 text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    }`}
+                    title={active.admin_only_posting ? "Only admins can post — click to let everyone post" : "Anyone can post — click to restrict to admins"}
+                  >
+                    {active.admin_only_posting ? <Lock size={13} /> : <LockOpen size={13} />}
+                    {active.admin_only_posting ? "Admins only" : "Anyone can post"}
+                  </button>
+                ) : (
+                  active.admin_only_posting && (
+                    <span className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+                      <Lock size={13} />
+                      View only
+                    </span>
+                  )
+                ))}
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -598,6 +668,11 @@ export function CommunicationsApp({
               )}
             </div>
 
+            {!canPost ? (
+              <div className="border-t border-neutral-200 p-4 text-center text-sm text-neutral-400 dark:border-neutral-800">
+                Only admins can post in this channel right now.
+              </div>
+            ) : (
             <form onSubmit={handleSend} className="border-t border-neutral-200 p-4 dark:border-neutral-800">
               {pendingImage && (
                 <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500">
@@ -660,6 +735,7 @@ export function CommunicationsApp({
                 </button>
               </div>
             </form>
+            )}
           </>
         )}
       </div>

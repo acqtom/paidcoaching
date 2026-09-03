@@ -63,7 +63,10 @@ Router) and Supabase Auth.
    find-or-creates `#general` and posts a welcome message there every
    time someone new joins — it also re-defines
    `has_unread_communications()` to fix a real bug this introduces (see
-   below).
+   below). `0013_channel_lock.sql` adds an `admin_only_posting` toggle
+   per channel, the first UPDATE policy on `conversations` (only admins,
+   only channels), and replaces the messages INSERT policy so a locked
+   channel rejects a post from anyone but an admin.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -763,6 +766,42 @@ in and you'll land on `/dashboard`.
   silently never count as unread and the dashboard's green badge would
   never notice a welcome message. 0012 re-defines the function with
   `sender_id is null or sender_id <> auth.uid()`.
+
+  A real bug shipped with message delete and was fixed shortly after:
+  `handleDeleteMessage` only checked for an `error` from the `.update()`
+  call, but Supabase/Postgres don't treat "the UPDATE's RLS `USING`
+  clause matched zero rows" as an error — it's just a successful update
+  of nothing. Without `.select("id")` chained on afterward (so an empty
+  result is distinguishable from a real success), a silently-rejected
+  delete would still look like it worked in that one browser, courtesy
+  of the optimistic local update, while nothing was actually written —
+  a refresh, or any other session, would still show the message. The
+  delete button's hover-only visibility was removed at the same time as
+  a second, independent contributor (doesn't work on touch devices at
+  all, and hover-based reveal on a list item is a more failure-prone
+  pattern than it looks).
+
+  Per-channel **admin-only posting** (`0013_channel_lock.sql`) is a
+  toggle in the channel header, on the opposite side from the channel
+  name (`justify-between` on that row) — an interactive pill button for
+  admins ("Anyone can post" / "Admins only", with a lock icon), a
+  static read-only badge for everyone else ("View only", shown only
+  when actually restricted so it doesn't clutter every open channel).
+  This is the first UPDATE policy `conversations` has ever had (nothing
+  before this needed one), scoped to admins and channels only — DMs
+  aren't toggleable, the button and badge simply never render for
+  `type = 'dm'`. The messages INSERT policy from 0009 gets replaced
+  (not just added to) to fold in the check: a channel rejects a post
+  from anyone but an admin while `admin_only_posting` is true; DMs and
+  unlocked channels are unaffected either way. `handleToggleChannelLock`
+  follows the same optimistic-update-then-verify-a-row-came-back pattern
+  `handleDeleteMessage` was fixed to use, for the same reason. A second
+  realtime subscription (`UPDATE` on `conversations`, alongside the
+  existing `INSERT` one for new channels appearing) is what makes a
+  lock/unlock show up live for everyone already looking at that channel,
+  not just after a reload — and it's also what silently disables that
+  same user's composer, since `canPost` is derived from the live
+  `conversations` state on every render rather than checked only once.
 
 ## Deploying
 
