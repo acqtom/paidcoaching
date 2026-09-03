@@ -895,21 +895,28 @@ in and you'll land on `/dashboard`.
   handful of REST endpoints are.
 
 - **Profiles** (`0015_profiles.sql`, `src/components/ProfileModal.tsx`).
-  A "Profile" button sits next to "Submit a Bug" in the dashboard header
+  A button showing your own pfp (or a letter-placeholder, matching the
+  fallback used everywhere else avatars render) and `@username` sits
+  next to "Submit a Bug" in the dashboard header
   (`src/app/dashboard/page.tsx`) — `ProfileButton` is a self-contained
-  button+modal pair mirroring `BugReportButton`'s own shape. Clicking it
-  opens `ProfileModal` in edit mode for your own account: change your
-  avatar (uploads to the `avatars` Storage bucket under `<your user
-  id>/...`, best-effort deletes the previous file, writes the new
-  `avatar_path` onto `profiles`), username, bio, and Instagram/YouTube
-  links. The same `ProfileModal` component also renders read-only —
-  clicking any username or avatar next to a message in Communications
-  (`CommunicationsApp.tsx`) opens it in view mode for that sender instead
-  (`isOwn = userId === viewerId` switches which half of the JSX
-  renders, rather than duplicating the avatar/loading scaffolding across
-  two components). An admin's (one-letter username) name renders in the
-  same gold used elsewhere in Communications; bot messages (`sender_id
-  is null`) aren't clickable, since there's no profile to view.
+  button+modal pair mirroring `BugReportButton`'s own shape, seeded from
+  a server-fetched `username`/`avatar_path` so it renders correctly on
+  first paint, and kept in sync afterward via an `onProfileChange`
+  callback `ProfileModal` fires after every successful avatar/profile
+  save (no page reload needed to see your own edits reflected in the
+  button). Clicking it opens `ProfileModal` in edit mode for your own
+  account: change your avatar (uploads to the `avatars` Storage bucket
+  under `<your user id>/...`, best-effort deletes the previous file,
+  writes the new `avatar_path` onto `profiles`), username, bio, and
+  Instagram/YouTube links. The same `ProfileModal` component also
+  renders read-only — clicking any username or avatar next to a message
+  in Communications (`CommunicationsApp.tsx`) opens it in view mode for
+  that sender instead (`isOwn = userId === viewerId` switches which
+  half of the JSX renders, rather than duplicating the avatar/loading
+  scaffolding across two components). An admin's (one-letter username)
+  name renders in the same gold used elsewhere in Communications; bot
+  messages (`sender_id is null`) aren't clickable, since there's no
+  profile to view.
 
   Saving a username reuses the same 23505-unique-violation handling
   pattern as everywhere else usernames are set, surfaced as "That

@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("username")
+        .select("username, avatar_path")
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
@@ -67,11 +67,14 @@ export default async function DashboardPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Logo />
           <div className="flex items-center gap-4">
-            {user && <ProfileButton userId={user.id} />}
+            {user && (
+              <ProfileButton
+                userId={user.id}
+                initialUsername={profile?.username ?? user.email ?? "you"}
+                initialAvatarPath={profile?.avatar_path ?? null}
+              />
+            )}
             <BugReportButton />
-            <span className="text-sm text-neutral-500">
-              {profile?.username ? `@${profile.username}` : user?.email}
-            </span>
             <form action={signOut}>
               <button
                 type="submit"

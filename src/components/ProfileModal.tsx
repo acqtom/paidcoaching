@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { UserRound, X, AtSign, Video, Camera } from "lucide-react";
+import { X, AtSign, Video, Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isAdminUsername } from "@/lib/is-admin-username";
 
@@ -24,10 +24,12 @@ export function ProfileModal({
   userId,
   viewerId,
   onClose,
+  onProfileChange,
 }: {
   userId: string;
   viewerId: string;
   onClose: () => void;
+  onProfileChange?: (p: { username: string; avatar_path: string | null }) => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const isOwn = userId === viewerId;
@@ -96,7 +98,11 @@ export function ProfileModal({
         .select("avatar_path")
         .single();
       if (updateError || !data) throw updateError ?? new Error("No row updated");
-      setProfile((p) => (p ? { ...p, avatar_path: path } : p));
+      setProfile((p) => {
+        const next = p ? { ...p, avatar_path: path } : p;
+        if (next) onProfileChange?.({ username: next.username, avatar_path: next.avatar_path });
+        return next;
+      });
       if (previousPath) {
         // Best-effort cleanup -- not worth failing the upload over if it doesn't work.
         supabase.storage.from("avatars").remove([previousPath]).catch(() => {});
@@ -143,7 +149,11 @@ export function ProfileModal({
       }
       return;
     }
-    setProfile((p) => (p ? { ...p, ...data } : p));
+    setProfile((p) => {
+      const next = p ? { ...p, ...data } : p;
+      if (next) onProfileChange?.({ username: next.username, avatar_path: next.avatar_path });
+      return next;
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
@@ -319,20 +329,54 @@ export function ProfileModal({
 
 // The header button (next to Submit a Bug) — a self-contained
 // button+modal pair for viewing/editing your own profile, mirroring
-// BugReportButton's own button+modal shape.
-export function ProfileButton({ userId }: { userId: string }) {
+// BugReportButton's own button+modal shape. Shows the signed-in user's
+// own pfp (or a letter-placeholder, matching the fallback used
+// everywhere else in the app) and @username in place of a generic
+// "Profile" label, and stays in sync with edits made in the modal via
+// onProfileChange rather than needing a page reload to reflect them.
+export function ProfileButton({
+  userId,
+  initialUsername,
+  initialAvatarPath,
+}: {
+  userId: string;
+  initialUsername: string;
+  initialAvatarPath: string | null;
+}) {
+  const supabase = useMemo(() => createClient(), []);
   const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState(initialUsername);
+  const [avatarPath, setAvatarPath] = useState(initialAvatarPath);
+
+  const avatarUrl = avatarPath ? supabase.storage.from("avatars").getPublicUrl(avatarPath).data.publicUrl : null;
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        className="flex items-center gap-2 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
       >
-        <UserRound size={14} />
-        Profile
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-neutral-300 text-[10px] font-semibold text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+            {username[0]?.toUpperCase() ?? "?"}
+          </div>
+        )}
+        @{username}
       </button>
-      {open && <ProfileModal userId={userId} viewerId={userId} onClose={() => setOpen(false)} />}
+      {open && (
+        <ProfileModal
+          userId={userId}
+          viewerId={userId}
+          onClose={() => setOpen(false)}
+          onProfileChange={(p) => {
+            setUsername(p.username);
+            setAvatarPath(p.avatar_path);
+          }}
+        />
+      )}
     </>
   );
 }
