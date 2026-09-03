@@ -55,6 +55,11 @@ export default async function DashboardPage() {
   const allTasks = (backlogRow?.data?.tasks as BacklogTask[] | undefined) ?? [];
   const urgentTasks = allTasks.filter((t) => t.priority && !isTaskDoneToday(t, todayISO));
 
+  // Communications card goes green if any channel or this user's DM has a
+  // message they haven't read yet -- see has_unread_communications() in
+  // 0011_conversation_reads.sql.
+  const { data: hasUnread } = user ? await supabase.rpc("has_unread_communications") : { data: false };
+
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
@@ -95,7 +100,11 @@ export default async function DashboardPage() {
 
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((card) => (
-            <DashboardCard key={card.slug} card={card} />
+            <DashboardCard
+              key={card.slug}
+              card={card}
+              unread={card.slug === "communications" ? !!hasUnread : undefined}
+            />
           ))}
         </div>
       </main>

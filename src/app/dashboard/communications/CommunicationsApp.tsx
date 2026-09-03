@@ -102,6 +102,20 @@ export function CommunicationsApp({
     return name;
   }
 
+  // Marks a conversation read as of right now -- called both when its
+  // messages first load and whenever a new one arrives while it's the
+  // open conversation, so the dashboard's unread badge clears for
+  // whatever the user is actually looking at. Fire-and-forget: nothing
+  // in the UI needs to wait on this.
+  function markRead(conversationId: string) {
+    supabase
+      .from("conversation_reads")
+      .upsert({ user_id: userId, conversation_id: conversationId, last_read_at: new Date().toISOString() })
+      .then(({ error: readError }) => {
+        if (readError) console.error("Failed to mark conversation read:", readError);
+      });
+  }
+
   // ---- Load the conversation list once on mount ----
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +224,7 @@ export function CommunicationsApp({
       });
       setMessages(rows);
       setMessagesConversationId(activeId);
+      markRead(activeId);
     })();
 
     const channel = supabase
@@ -221,6 +236,7 @@ export function CommunicationsApp({
           const row = payload.new as Omit<Message, "senderUsername">;
           const senderUsername = await resolveUsername(row.sender_id);
           setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, { ...row, senderUsername }]));
+          if (row.sender_id !== userId) markRead(activeId);
         }
       )
       .on(

@@ -54,7 +54,10 @@ Router) and Supabase Auth.
    columns, an UPDATE policy letting a sender delete their own message or
    an admin delete any message, and a trigger that rejects any UPDATE that
    isn't just those two columns changing, so this can never become a way
-   to edit message content).
+   to edit message content). `0011_conversation_reads.sql` adds
+   per-conversation read tracking (`conversation_reads`) and
+   `has_unread_communications()`, which is what turns the dashboard's
+   Communications card green.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -710,6 +713,27 @@ in and you'll land on `/dashboard`.
   fires after the textarea has already blurred, which would make
   `selectionStart` unreliable for splicing the mention into the right
   spot in the text.
+
+  Last, the dashboard's Communications card (`src/components/
+  DashboardCard.tsx`, given a new `unread` prop alongside its existing
+  `gold` accent, both mutually exclusive — a card is at most one of gold/
+  green) turns green with a "NEW MESSAGES" label when
+  `has_unread_communications()` (`0011_conversation_reads.sql`) says so.
+  This needed *per-conversation* read tracking, not one "last opened
+  Communications" timestamp for the whole user — someone who read channel
+  A today but has never opened channel B, which has an older unread
+  message, must still see the badge; a single global timestamp would
+  have cleared it incorrectly. `conversation_reads` (`user_id,
+  conversation_id, last_read_at`) is written by `CommunicationsApp.tsx`'s
+  new `markRead()`, called both when a conversation's messages first load
+  and whenever a new message (not the viewer's own) arrives live while
+  that conversation is the open one — so staying in a channel while
+  messages come in keeps it marked current, not just the moment it was
+  opened. The unread check itself excludes the viewer's own messages and
+  anything soft-deleted, and deliberately isn't `SECURITY DEFINER`: it
+  runs with the caller's own RLS applied to `messages` directly, so it
+  can only ever see what that user could already see through the normal
+  policies, with no separate visibility logic to keep in sync.
 
 ## Deploying
 
