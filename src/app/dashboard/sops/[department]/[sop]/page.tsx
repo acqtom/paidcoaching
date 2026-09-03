@@ -1,17 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { DEPARTMENTS } from "@/lib/sops";
+import { isAdminUsername } from "@/lib/is-admin-username";
+import { createClient } from "@/lib/supabase/server";
 import { SopDetail } from "./SopDetail";
-
-export function generateStaticParams() {
-  return DEPARTMENTS.flatMap((department) =>
-    department.sops.map((sop) => ({
-      department: department.slug,
-      sop: sop.slug,
-    })),
-  );
-}
+import type { SopDetailData, SopLesson, SopSubcategory } from "@/lib/sop-types";
 
 export default async function SopPage({
   params,
@@ -20,11 +14,50 @@ export default async function SopPage({
 }) {
   const { department: departmentSlug, sop: sopSlug } = await params;
   const department = DEPARTMENTS.find((d) => d.slug === departmentSlug);
-  const sop = department?.sops.find((s) => s.slug === sopSlug);
+  if (!department) notFound();
 
-  if (!department || !sop) {
-    notFound();
-  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = isAdminUsername(profile?.username ?? "");
+
+  const { data: sopRow } = await supabase
+    .from("sops")
+    .select(
+      "id, slug, title, description, sop_subcategories(id, name, position, sop_lessons(id, title, video_url, notes, position))"
+    )
+    .eq("department_slug", department.slug)
+    .eq("slug", sopSlug)
+    .maybeSingle();
+
+  if (!sopRow) notFound();
+
+  type RawSubcategory = { id: string; name: string; position: number; sop_lessons: SopLesson[] };
+  const subcategories: SopSubcategory[] = (sopRow.sop_subcategories as RawSubcategory[])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      position: c.position,
+      lessons: c.sop_lessons.slice().sort((a, b) => a.position - b.position),
+    }));
+
+  const sop: SopDetailData = {
+    id: sopRow.id,
+    slug: sopRow.slug,
+    title: sopRow.title,
+    description: sopRow.description,
+    subcategories,
+  };
 
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
@@ -41,12 +74,7 @@ export default async function SopPage({
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-xl font-semibold">{sop.title}</h1>
-        <p className="mt-1 text-sm text-neutral-500">{sop.description}</p>
-
-        <div className="mt-6">
-          <SopDetail sop={sop} />
-        </div>
+        <SopDetail sop={sop} departmentSlug={department.slug} isAdmin={isAdmin} />
       </main>
     </div>
   );

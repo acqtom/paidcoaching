@@ -87,6 +87,11 @@ Router) and Supabase Auth.
    through RLS — a direct SQL Editor connection is unaffected, so
    provisioning a new admin still works exactly like the `t` seed in
    `0002_..._seed_tom.sql`).
+   `0016_sops.sql` creates `sops`/`sop_subcategories`/`sop_lessons`
+   (view open to any authenticated user, write gated to admins via
+   `is_admin()`) and seeds them with the SOPs that used to be hardcoded
+   in `src/lib/sops.ts`, so existing `/dashboard/sops/...` links keep
+   working after this ships.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -147,10 +152,40 @@ in and you'll land on `/dashboard`.
   mockup using the exact same Tailwind classes as the live components,
   to confirm the two-card row sits correctly above the existing grid at
   every breakpoint.
-- `src/app/dashboard/sops` — SOP hub, three levels deep (data in
-  `src/lib/sops.ts`): a department grid (Operations, Marketing, Sales,
-  Fulfilment) → each department's list of SOPs → each SOP's sub-category
-  sidebar with a Loom video placeholder and content per lesson.
+- `src/app/dashboard/sops` — SOP hub, three levels deep: a department
+  grid (Operations, Marketing, Sales, Fulfilment — hardcoded in
+  `src/lib/sops.ts`, a fixed set of 4 with their own icons) → each
+  department's list of SOPs → each SOP's sub-category sidebar with a
+  video player and notes per lesson. Everything below the department
+  level (SOPs, sub-categories, lessons) lives in the database
+  (`0016_sops.sql`: `sops`, `sop_subcategories`, `sop_lessons`) rather
+  than hardcoded, so admins (one-letter usernames — `is_admin()` from
+  `0009_communications.sql`) can add, edit, and delete them; everyone
+  else gets read-only access via the same RLS split used everywhere
+  else "admin" means anything in this app (select policies open to any
+  authenticated user, insert/update/delete policies gated on
+  `is_admin(auth.uid())`). Mutations go straight from the browser to
+  Supabase (`DepartmentSopsGrid.tsx`, `SopDetail.tsx`), the same direct-
+  client pattern Communications and Profiles use, following the same
+  optimistic-update-then-verify-a-row-came-back convention throughout.
+
+  A lesson stores a video link (Loom or YouTube) plus free-text notes —
+  no PDF/file upload in this pass. `getVideoEmbedUrl()`
+  (`src/lib/sop-types.ts`) turns a recognized Loom/YouTube URL into its
+  embeddable form, rendered in an `<iframe>` in place of the old fixed
+  "Loom video placeholder" box; an unrecognized host falls back to a
+  plain "Watch video ↗" link instead of embedding an arbitrary URL, and
+  no video link at all just shows "No video linked yet" (or "Select a
+  lesson" before anything's picked). Deleting a SOP or a sub-category
+  cascades to what's inside it (`on delete cascade` on both foreign
+  keys) and asks for confirmation first (`window.confirm`) since that's
+  not cheaply undoable, unlike a single message delete elsewhere in the
+  app which isn't guarded the same way.
+
+  The `[department]` and `[department]/[sop]` routes dropped their
+  `generateStaticParams` static generation (SOPs aren't known at build
+  time anymore) and now render dynamically per-request, same as
+  `/dashboard/communications`.
 - `supabase/migrations/` — SQL to run in the Supabase SQL Editor. Sets up a
   `profiles` table (one row per user, holding their public `username`,
   3–20 chars, letters/numbers/underscores) auto-populated from the username
