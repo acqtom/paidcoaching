@@ -308,11 +308,18 @@ export function CommunicationsApp({
     setMessages((prev) =>
       prev.map((m) => (m.id === id ? { ...m, deleted_at: new Date().toISOString() } : m))
     );
-    const { error: deleteError } = await supabase
+    // .select() after the update is what lets us tell "actually updated a
+    // row" apart from "RLS silently matched zero rows" -- Supabase/Postgres
+    // don't treat the latter as an error on its own, so without this the
+    // optimistic change above would look like it worked in this browser
+    // while never actually persisting.
+    const { data, error: deleteError } = await supabase
       .from("messages")
       .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-      .eq("id", id);
-    if (deleteError) {
+      .eq("id", id)
+      .select("id");
+    if (deleteError || !data || data.length === 0) {
+      console.error("Failed to delete message:", deleteError ?? "no row was updated (RLS?)");
       setError("Couldn't delete that message — try again.");
       setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, deleted_at: null } : m)));
     }
@@ -558,7 +565,7 @@ export function CommunicationsApp({
                             <button
                               type="button"
                               onClick={() => handleDeleteMessage(m.id)}
-                              className="ml-auto hidden text-neutral-300 hover:text-rose-500 group-hover:inline-flex dark:text-neutral-600"
+                              className="ml-auto inline-flex text-neutral-300 hover:text-rose-500 dark:text-neutral-600"
                               title="Delete message"
                             >
                               <Trash2 size={13} />
