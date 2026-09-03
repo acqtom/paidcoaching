@@ -4,6 +4,7 @@ import { CARDS } from "@/lib/cards";
 import { Logo } from "@/components/Logo";
 import { DashboardCard } from "@/components/DashboardCard";
 import { BugReportButton } from "@/components/BugReportButton";
+import { ProfileButton } from "@/components/ProfileModal";
 import { CashTargetCard } from "@/components/CashTargetCard";
 import { UrgentTasksCard } from "@/components/UrgentTasksCard";
 
@@ -66,6 +67,7 @@ export default async function DashboardPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Logo />
           <div className="flex items-center gap-4">
+            {user && <ProfileButton userId={user.id} />}
             <BugReportButton />
             <span className="text-sm text-neutral-500">
               {profile?.username ? `@${profile.username}` : user?.email}

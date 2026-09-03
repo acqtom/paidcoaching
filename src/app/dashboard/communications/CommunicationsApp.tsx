@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X, Trash2, Lock, LockOpen, SmilePlus, Pencil, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { EMOJI_CATEGORIES, EMOJI_KEYWORDS } from "./emoji-data";
+import { isAdminUsername } from "@/lib/is-admin-username";
+import { ProfileModal } from "@/components/ProfileModal";
 
 type Conversation = {
   id: string;
@@ -32,6 +34,7 @@ type MessageRow = {
 
 type Message = MessageRow & {
   senderUsername: string;
+  senderAvatarPath: string | null;
   reactions: Reaction[];
 };
 
@@ -59,12 +62,6 @@ function renderBodyWithMentions(body: string, knownUsernames: Set<string>) {
 }
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-
-// Matches is_admin() in 0009_communications.sql: admin status is just a
-// one-letter username, nothing else.
-function isAdminUsername(name: string) {
-  return name.length === 1;
-}
 
 // Rendered inline right under whichever message's react button was
 // clicked, rather than as a floating/portaled popover -- keeps this
@@ -160,6 +157,10 @@ export function CommunicationsApp({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const usernameCache = useRef<Record<string, string>>({ [userId]: username });
+  // Mirrors usernameCache -- avatar path per user id, filled in as
+  // messages/conversations load and topped up on demand for a realtime
+  // message from someone not seen yet this session.
+  const avatarCache = useRef<Record<string, string | null>>({});
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
@@ -201,6 +202,11 @@ export function CommunicationsApp({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
 
+  // Whose profile is currently open (view mode for anyone but yourself),
+  // set by clicking an avatar or username on a message. Bot messages have
+  // no sender_id, so there's never anything to view for those.
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -208,9 +214,10 @@ export function CommunicationsApp({
   async function resolveUsername(id: string | null): Promise<string> {
     if (id === null) return BOT_NAME;
     if (usernameCache.current[id]) return usernameCache.current[id];
-    const { data } = await supabase.from("profiles").select("username").eq("id", id).maybeSingle();
+    const { data } = await supabase.from("profiles").select("username, avatar_path").eq("id", id).maybeSingle();
     const name = data?.username ?? "unknown";
     usernameCache.current[id] = name;
+    avatarCache.current[id] = data?.avatar_path ?? null;
     return name;
   }
 
@@ -242,12 +249,17 @@ export function CommunicationsApp({
       if (isAdmin) {
         const { data } = await supabase
           .from("conversations")
-          .select("id, type, name, dm_user_id, created_at, profiles!conversations_dm_user_id_fkey(username)")
+          .select(
+            "id, type, name, dm_user_id, created_at, profiles!conversations_dm_user_id_fkey(username, avatar_path)"
+          )
           .eq("type", "dm")
           .order("created_at", { ascending: true });
         dms = (data ?? []).map((d) => {
-          const joined = d.profiles as unknown as { username?: string } | null;
-          if (joined?.username && d.dm_user_id) usernameCache.current[d.dm_user_id] = joined.username;
+          const joined = d.profiles as unknown as { username?: string; avatar_path?: string | null } | null;
+          if (joined?.username && d.dm_user_id) {
+            usernameCache.current[d.dm_user_id] = joined.username;
+            avatarCache.current[d.dm_user_id] = joined.avatar_path ?? null;
+          }
           return {
             id: d.id,
             type: "dm" as const,
@@ -335,15 +347,18 @@ export function CommunicationsApp({
       const { data } = await supabase
         .from("messages")
         .select(
-          "id, conversation_id, sender_id, body, image_path, created_at, deleted_at, edited_at, profiles!messages_sender_id_fkey(username), message_reactions(user_id, emoji)"
+          "id, conversation_id, sender_id, body, image_path, created_at, deleted_at, edited_at, profiles!messages_sender_id_fkey(username, avatar_path), message_reactions(user_id, emoji)"
         )
         .eq("conversation_id", activeId)
         .order("created_at", { ascending: true })
         .limit(200);
       if (cancelled) return;
       const rows: Message[] = (data ?? []).map((m) => {
-        const joined = m.profiles as unknown as { username?: string } | null;
-        if (joined?.username && m.sender_id) usernameCache.current[m.sender_id] = joined.username;
+        const joined = m.profiles as unknown as { username?: string; avatar_path?: string | null } | null;
+        if (joined?.username && m.sender_id) {
+          usernameCache.current[m.sender_id] = joined.username;
+          avatarCache.current[m.sender_id] = joined.avatar_path ?? null;
+        }
         const reactionRows = (m.message_reactions ?? []) as { user_id: string; emoji: string }[];
         return {
           id: m.id,
@@ -355,6 +370,7 @@ export function CommunicationsApp({
           deleted_at: m.deleted_at,
           edited_at: m.edited_at,
           senderUsername: m.sender_id === null ? BOT_NAME : (joined?.username ?? usernameCache.current[m.sender_id] ?? "unknown"),
+          senderAvatarPath: m.sender_id === null ? null : (avatarCache.current[m.sender_id] ?? null),
           reactions: reactionRows.map((r) => ({ emoji: r.emoji, userId: r.user_id })),
         };
       });
@@ -371,8 +387,11 @@ export function CommunicationsApp({
         async (payload) => {
           const row = payload.new as MessageRow;
           const senderUsername = await resolveUsername(row.sender_id);
+          const senderAvatarPath = row.sender_id === null ? null : (avatarCache.current[row.sender_id] ?? null);
           setMessages((prev) =>
-            prev.some((m) => m.id === row.id) ? prev : [...prev, { ...row, senderUsername, reactions: [] }]
+            prev.some((m) => m.id === row.id)
+              ? prev
+              : [...prev, { ...row, senderUsername, senderAvatarPath, reactions: [] }]
           );
           if (row.sender_id !== userId) markRead(activeId);
         }
@@ -841,10 +860,37 @@ export function CommunicationsApp({
                     }, {});
 
                     return (
-                      <li key={m.id} className="group">
+                      <li key={m.id} className="group flex gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => m.sender_id && setViewingProfileId(m.sender_id)}
+                          disabled={!m.sender_id}
+                          title={m.sender_id ? `View @${m.senderUsername}'s profile` : undefined}
+                          className="mt-0.5 shrink-0"
+                        >
+                          {m.sender_id === null ? (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm dark:bg-indigo-500/15">
+                              🤖
+                            </div>
+                          ) : m.senderAvatarPath ? (
+                            <img
+                              src={supabase.storage.from("avatars").getPublicUrl(m.senderAvatarPath).data.publicUrl}
+                              alt=""
+                              className="h-8 w-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                              {m.senderUsername[0]?.toUpperCase() ?? "?"}
+                            </div>
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-2">
-                          <span
-                            className={`text-sm font-semibold ${
+                          <button
+                            type="button"
+                            onClick={() => m.sender_id && setViewingProfileId(m.sender_id)}
+                            disabled={!m.sender_id}
+                            className={`text-sm font-semibold ${m.sender_id ? "hover:underline" : ""} ${
                               m.sender_id === null
                                 ? "text-indigo-600 dark:text-indigo-400"
                                 : isAdminUsername(m.senderUsername)
@@ -853,7 +899,7 @@ export function CommunicationsApp({
                             }`}
                           >
                             {m.sender_id === null ? `🤖 ${m.senderUsername}` : `@${m.senderUsername}`}
-                          </span>
+                          </button>
                           <span className="text-[11px] text-neutral-400">
                             {new Date(m.created_at).toLocaleString(undefined, {
                               month: "short",
@@ -983,6 +1029,7 @@ export function CommunicationsApp({
                             }}
                           />
                         )}
+                        </div>
                       </li>
                     );
                   })}
@@ -1062,6 +1109,10 @@ export function CommunicationsApp({
           </>
         )}
       </div>
+
+      {viewingProfileId && (
+        <ProfileModal userId={viewingProfileId} viewerId={userId} onClose={() => setViewingProfileId(null)} />
+      )}
     </div>
   );
 }

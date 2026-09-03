@@ -72,6 +72,21 @@ Router) and Supabase Auth.
    trigger that now allows `body` to change, but only by the original
    sender and never on a deleted message (replacing 0010's trigger, which
    flatly forbade any content change at all).
+   `0015_profiles.sql` adds `avatar_path`/`bio`/`instagram_url`/
+   `youtube_url` to `profiles` and creates the `avatars` Storage bucket
+   (public, one folder per user id, RLS'd the same way as
+   `chat-uploads`). It also lets users edit their own username for the
+   first time — closing the self-promotion hole that opens up as a
+   result: `profiles`' existing "Users can update their own profile"
+   policy only ever checked ownership, never length, so without a guard
+   anyone could rename themselves to a single character and grant
+   themselves admin (`is_admin()` is purely "username is one
+   character"). A new `profiles_username_length` trigger blocks any
+   *app-originated* username change under 3 characters (it checks
+   `auth.uid() is not null`, which is only true for a request going
+   through RLS — a direct SQL Editor connection is unaffected, so
+   provisioning a new admin still works exactly like the `t` seed in
+   `0002_..._seed_tom.sql`).
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -878,6 +893,41 @@ in and you'll land on `/dashboard`.
   Communications' data layer never has been — direct Supabase calls
   plus WebSocket subscriptions aren't practically mockable the way a
   handful of REST endpoints are.
+
+- **Profiles** (`0015_profiles.sql`, `src/components/ProfileModal.tsx`).
+  A "Profile" button sits next to "Submit a Bug" in the dashboard header
+  (`src/app/dashboard/page.tsx`) — `ProfileButton` is a self-contained
+  button+modal pair mirroring `BugReportButton`'s own shape. Clicking it
+  opens `ProfileModal` in edit mode for your own account: change your
+  avatar (uploads to the `avatars` Storage bucket under `<your user
+  id>/...`, best-effort deletes the previous file, writes the new
+  `avatar_path` onto `profiles`), username, bio, and Instagram/YouTube
+  links. The same `ProfileModal` component also renders read-only —
+  clicking any username or avatar next to a message in Communications
+  (`CommunicationsApp.tsx`) opens it in view mode for that sender instead
+  (`isOwn = userId === viewerId` switches which half of the JSX
+  renders, rather than duplicating the avatar/loading scaffolding across
+  two components). An admin's (one-letter username) name renders in the
+  same gold used elsewhere in Communications; bot messages (`sender_id
+  is null`) aren't clickable, since there's no profile to view.
+
+  Saving a username reuses the same 23505-unique-violation handling
+  pattern as everywhere else usernames are set, surfaced as "That
+  username is taken." rather than a raw Postgres error. Every write
+  (avatar upload, profile save) follows the same
+  optimistic-update-then-verify-a-row-came-back pattern used throughout
+  Communications, for the same reason.
+
+  Verified via `npx eslint .` and a clean `rm -rf .next && npm run
+  build` (the initial build caught a real issue: the installed
+  `lucide-react` version has dropped all brand icons, so `Instagram`/
+  `Youtube` don't exist as exports — swapped for the generic `AtSign`/
+  `Video` icons instead). A full Puppeteer pass against live data
+  wasn't possible in this session since it required running
+  `0015_profiles.sql` against Supabase first (the `profiles` table
+  doesn't have the new columns until then) — verified instead by code
+  review, ESLint, and the TypeScript build, same limitation as the rest
+  of Communications' direct-Supabase data flows.
 
 ## Deploying
 
