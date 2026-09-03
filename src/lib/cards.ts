@@ -91,6 +91,6 @@ export const CARDS: Card[] = [
     title: "Communications",
     description: "Private chat and community, all in one place.",
     icon: MessagesSquare,
-    href: "https://comms.paidcoaching.com",
+    href: "/dashboard/communications",
   },
 ];

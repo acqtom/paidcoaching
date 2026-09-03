@@ -39,6 +39,15 @@ Router) and Supabase Auth.
    `0008_metrics_tracking_state.sql` sets up the per-user table behind
    Metrics Tracking, plus the `get_sales_board_owner_id` function the
    Sales Team Board's secret-key save path needs to push into it.
+   `0009_communications.sql` sets up the Communications Hub's `conversations`
+   + `messages` tables, RLS, a trigger that gives every regular user a DM
+   conversation the moment their profile exists, enables Realtime on
+   `messages`, and creates the `chat-uploads` Storage bucket for photos.
+   Unlike every earlier migration, this one needs Realtime turned on for
+   the `messages` table to actually deliver live updates — if the Supabase
+   project has Realtime disabled at the project level, this migration's
+   `alter publication` line won't be enough on its own; check
+   **Database → Replication** in the dashboard.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -594,6 +603,83 @@ in and you'll land on `/dashboard`.
   actually submits (`callOutcome`, `closingDate`, plus per-deal
   commission rates), not a defect in the port. Zero console errors in
   every run.
+
+- `src/app/dashboard/communications` — the Communications Hub: open
+  channels (any user can post, only admins create new ones) plus a private
+  1-1 DM per regular user shared across every admin (a support-inbox
+  model — any admin can read/reply, not fixed to one specific admin), all
+  history kept forever, photo attachments, live delivery via Supabase
+  Realtime. Unlike every other feature in this app, "admin" isn't a role
+  column anywhere — it's simply having a **one-letter username**
+  (`is_admin()` in `0009_communications.sql`, checking
+  `length(username) = 1`), which is also why this needed no new setup: the
+  original owner account was already seeded with the username `t` back in
+  `0002_..._seed_tom.sql`, well before this feature existed.
+
+  Architecturally the biggest departure from the rest of this app: every
+  other feature reads/writes through its own `/api/*` Next.js route with
+  the browser only ever calling `fetch`, and refreshes via polling (5–8s
+  intervals). Communications instead has the browser talk to Supabase
+  **directly** — `src/lib/supabase/client.ts`'s browser client, used from
+  `CommunicationsApp.tsx` (a `"use client"` component) for every read,
+  write, and photo upload, with RLS as the only thing standing between a
+  user and someone else's data. This is a deliberate exception, not a
+  new default: `/api/*` routes exist elsewhere partly to keep business
+  logic (merges, pushes into other tables, access-code generation) off
+  the client, none of which applies here, and polling would add a
+  genuinely bad multi-second lag to something that's supposed to feel
+  like a live chat. Live updates come from `.channel().on("postgres_changes",
+  ...)` subscriptions (a WebSocket, not `fetch` — so unlike every other
+  feature's testing, this one's live-update path can't be verified by
+  mocking `window.fetch` in a headless run at all) — one for new
+  channels appearing globally, one for new messages in whichever
+  conversation is currently open, re-subscribed on every switch.
+
+  Schema: `conversations` (`type` is `'channel'` or `'dm'`; a channel has
+  a `name`, a dm has a `dm_user_id` pointing at the regular user it
+  belongs to, enforced one-per-user by a partial unique index) and
+  `messages` (`conversation_id`, `sender_id`, `body` and/or `image_path`
+  — at least one required). Every DM row is created automatically by an
+  `AFTER INSERT` trigger on `profiles` the moment a regular (non-admin)
+  user's profile exists — including a one-time backfill for accounts that
+  predate this migration — so an admin sees every team member listed
+  immediately, not only after that person opens Communications for the
+  first time. RLS: anyone authenticated reads/posts in any channel;
+  a DM's own user or any admin reads/posts in that DM; only admins insert
+  new channel rows, and only as themselves (`created_by = auth.uid()`,
+  closing a gap the first draft's RLS left open); DM rows are never
+  inserted by any client at all, only by the trigger. Photos live in a
+  public `chat-uploads` Storage bucket (not signed URLs — a deliberate
+  simplicity trade-off given this is low-sensitivity internal team chat
+  and paths are random UUIDs) with `file_size_limit`/`allowed_mime_types`
+  enforced by Storage itself (8MB, image types only), not just the
+  client-side checks in `CommunicationsApp.tsx` — those exist purely for
+  a fast, friendly error rather than a failed upload.
+
+  The dashboard's existing **Communications** card used to link out to
+  `comms.paidcoaching.com`; its `href` in `src/lib/cards.ts` now points at
+  `/dashboard/communications` instead. Pointing the external subdomain
+  at this route (if that's still wanted) is a DNS/hosting change outside
+  this repo.
+
+  Verified via `next build`'s type-check (catching most of the query/prop
+  shape issues a feature this Supabase-query-heavy is prone to) and a
+  careful manual re-read rather than the Puppeteer fetch-mocking used for
+  every earlier feature — direct Supabase calls plus a WebSocket
+  subscription aren't practically mockable the way a handful of REST
+  endpoints are, and there's no seeded database yet to test against for
+  real. Confirmed the route itself builds cleanly and correctly redirects
+  an unauthenticated request to `/login`. One real bug was caught and
+  fixed before this reached that point: an initial version called
+  `setMessagesLoading(true)` synchronously at the top of the message-load
+  effect, which `react-hooks/set-state-in-effect` flags for the same
+  reason it did in `TeamTab.tsx` earlier — fixed by deriving the loading
+  state (`activeId !== messagesConversationId`) instead of tracking it as
+  separate state set inside the effect. This is a first draft awaiting a
+  real end-to-end pass once the migration is actually run: sending a
+  message, uploading a photo, confirming it arrives live in a second
+  session, and admin vs. regular-user visibility of channels and DMs all
+  still need to be checked by hand against the live project.
 
 ## Deploying
 
