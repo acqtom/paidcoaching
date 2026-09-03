@@ -9,6 +9,7 @@ export interface MonthData {
   revenue: number;
   editorAmount: number;
   adSpendAmount: number;
+  processingFeesAmount: number;
   expenses: LineItem[];
 }
 

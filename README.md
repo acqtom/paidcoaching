@@ -230,11 +230,19 @@ in and you'll land on `/dashboard`.
 
   The PnL statement was simplified from the original's per-client
   revenue/equity/bonus model down to: one Revenue number; expenses as
-  Editor (manual), Ad Spend (manual), Setter (fixed 5% of revenue), and
-  Closer (fixed 10% of revenue), plus any number of free-form name/amount
-  expenses; Net Profit = Revenue − Total Expenses. NZD was dropped
-  entirely (USD only). `lib/storage.ts` migrates months saved under the
-  old per-client shape into the new one on load.
+  Editor (manual), Ad Spend (manual), Processing Fees (manual), Setter
+  (fixed 5% of revenue), and Closer (fixed 10% of revenue), plus any
+  number of free-form name/amount expenses; Net Profit = Revenue − Total
+  Expenses. NZD was dropped entirely (USD only). `lib/storage.ts`
+  migrates months saved under the old per-client shape into the new one
+  on load — and, notably, expenses here were never a fixed category enum
+  to begin with (they're free-form `{id, name, amount}` line items), so
+  Processing Fees becoming a real field (rather than something someone
+  could already type into "+ Add expense") is specifically because it's
+  meant to behave like Editor/Ad Spend: a dedicated row, present every
+  month, that **carries its dollar amount forward** month to month
+  (`createDefaultMonth` in `lib/storage.ts`) rather than resetting to 0
+  the way Revenue does.
 
   Capital Allocation is no longer fixed dollar caps — it's a
   fully-editable list of categories (`AppData.capitalCategories`, global
@@ -248,6 +256,9 @@ in and you'll land on `/dashboard`.
   hand): revenue → expenses (including Ad Spend) → net profit → editing,
   adding, and removing capital allocation categories, with dollar amounts
   and the allocated-% indicator all matching the formulas exactly.
+  Processing Fees specifically: confirmed the row renders between Ad
+  Spend and Setter, and that entering an amount flows straight through
+  to Total Expenses and Net Profit.
 - `public/daily-kill-list-app/` + `src/app/dashboard/daily-kill-list` — the
   Daily Kill List. Originally two separate ports (Daily Kill List, from
   `acqtom/todo` "Focus Engine", and the standalone Prioritization Task

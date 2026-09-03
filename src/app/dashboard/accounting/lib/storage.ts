@@ -34,6 +34,7 @@ export function createDefaultMonth(key: string, previousMonth?: MonthData | null
     // revenue does not, since that's different every month.
     editorAmount: previousMonth ? previousMonth.editorAmount : 0,
     adSpendAmount: previousMonth ? previousMonth.adSpendAmount : 0,
+    processingFeesAmount: previousMonth ? previousMonth.processingFeesAmount : 0,
     expenses: previousMonth ? previousMonth.expenses.map((e) => ({ ...e })) : [],
   };
 }
@@ -56,6 +57,9 @@ function normalizeMonth(key: string, raw: Record<string, unknown> | undefined): 
 
   const editorAmount = typeof raw.editorAmount === 'number' ? raw.editorAmount : 0;
   const adSpendAmount = typeof raw.adSpendAmount === 'number' ? raw.adSpendAmount : 0;
+  // Missing on any month saved before this field existed -- defaults to 0,
+  // same as editor/ad spend did when they were first added.
+  const processingFeesAmount = typeof raw.processingFeesAmount === 'number' ? raw.processingFeesAmount : 0;
 
   let expenses: MonthData['expenses'] = [];
   if (Array.isArray(raw.expenses)) {
@@ -73,7 +77,7 @@ function normalizeMonth(key: string, raw: Record<string, unknown> | undefined): 
     }));
   }
 
-  return { key, revenue, editorAmount, adSpendAmount, expenses };
+  return { key, revenue, editorAmount, adSpendAmount, processingFeesAmount, expenses };
 }
 
 function normalizeCapitalCategories(raw: unknown): CapitalAllocationCategory[] {

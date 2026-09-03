@@ -8,7 +8,12 @@ export function calcTotals(month: MonthData) {
   const closerExpense = month.revenue * CLOSER_RATE;
   const otherExpensesTotal = month.expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
   const totalExpenses =
-    month.editorAmount + month.adSpendAmount + setterExpense + closerExpense + otherExpensesTotal;
+    month.editorAmount +
+    month.adSpendAmount +
+    month.processingFeesAmount +
+    setterExpense +
+    closerExpense +
+    otherExpensesTotal;
   const netProfit = month.revenue - totalExpenses;
 
   return {
