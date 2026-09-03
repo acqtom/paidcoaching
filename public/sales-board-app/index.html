@@ -313,6 +313,43 @@
     border-radius: 8px; padding: 9px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
   .key-copy-btn:hover { background: var(--surface-1); }
+
+  /* --- onboarding SOPs --- */
+  .sop-section + .sop-section { margin-top: 20px; }
+  .sop-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .sop-tab-wrap { display: flex; align-items: center; }
+  .sop-tab-btn {
+    border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
+    border-radius: 16px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .sop-tab-btn.active { background: var(--black); color: #fff; border-color: var(--black); }
+  .sop-tab-remove {
+    border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
+    padding: 2px 4px 2px 2px; margin-left: -6px; font-family: inherit;
+  }
+  .sop-tab-btn.active + .sop-tab-remove { color: rgba(255,255,255,0.6); }
+  .sop-tab-btn.active + .sop-tab-remove:hover { color: #fff; }
+  .sop-tab-remove:hover { color: var(--red); }
+  .sop-add-btn {
+    border: 1px dashed var(--pill-border); background: #fff; color: var(--text-secondary);
+    border-radius: 16px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .sop-add-btn:hover { background: var(--surface-1); }
+  .sop-add-form { display: flex; align-items: center; gap: 6px; }
+  .sop-add-form input {
+    font-family: inherit; font-size: 12px; color: var(--text-primary);
+    border: 1px solid var(--pill-border); border-radius: 16px; padding: 6px 12px; width: 160px; background: #fff;
+  }
+  .sop-add-form input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .sop-add-form button {
+    border: none; background: var(--black); color: #fff; border-radius: 16px;
+    padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .sop-content {
+    width: 100%; min-height: 220px; font-family: inherit; font-size: 13px; color: var(--text-primary);
+    border: 1px solid var(--pill-border); border-radius: 10px; padding: 14px; resize: vertical; background: #fff;
+  }
+  .sop-content:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
     padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -370,6 +407,7 @@
     <button class="view-tab" data-view="pcf">Post Call Form</button>
     <button class="view-tab" data-view="data">Data</button>
     <button class="view-tab" data-view="team">Add Team</button>
+    <button class="view-tab" data-view="onboarding">Onboarding</button>
   </nav>
 
   <div id="sync-banner" class="sync-banner" hidden></div>
@@ -605,6 +643,42 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ONBOARDING ================= -->
+  <div class="view" id="view-onboarding">
+    <div class="card sop-section">
+      <div class="card-header">
+        <h2>Main Breakdown</h2>
+        <p>Expectations, systems, and non-negotiables every new rep needs before their first day.</p>
+      </div>
+      <div class="card-body">
+        <div class="sop-tabs" id="onb-main-tabs"></div>
+        <textarea class="sop-content" id="onb-main-content" placeholder="Write or paste this SOP's content here…"></textarea>
+      </div>
+    </div>
+
+    <div class="card sop-section">
+      <div class="card-header">
+        <h2>Closer SOPs</h2>
+        <p>Daily process, responsibilities, script, and everything else a closer needs.</p>
+      </div>
+      <div class="card-body">
+        <div class="sop-tabs" id="onb-closer-tabs"></div>
+        <textarea class="sop-content" id="onb-closer-content" placeholder="Write or paste this SOP's content here…"></textarea>
+      </div>
+    </div>
+
+    <div class="card sop-section">
+      <div class="card-header">
+        <h2>Setter SOPs</h2>
+        <p>Daily process, responsibilities, script, and everything else a setter needs.</p>
+      </div>
+      <div class="card-body">
+        <div class="sop-tabs" id="onb-setter-tabs"></div>
+        <textarea class="sop-content" id="onb-setter-content" placeholder="Write or paste this SOP's content here…"></textarea>
       </div>
     </div>
   </div>
@@ -1780,6 +1854,7 @@
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
+    onboarding = normalizeOnboarding(data.onboarding);
     if (data.accessCode) accessCode = data.accessCode;
   }
 
@@ -1819,12 +1894,34 @@
     }
   }
 
+  let onboardingSaveTimer = null;
+  function queueSaveOnboarding() {
+    clearTimeout(onboardingSaveTimer);
+    onboardingSaveTimer = setTimeout(saveOnboarding, 600);
+  }
+  async function saveOnboarding() {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      return false;
+    }
+    try {
+      await apiPost(savePath(), { onboarding });
+      clearSyncError();
+      return true;
+    } catch (e) {
+      console.error("Failed to save onboarding to server:", e);
+      showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
+      return false;
+    }
+  }
+
   function initApp() {
     populateNameSelect(pcfCloserSelect, CLOSERS);
     populateNameSelect(pcfSetterSelect, SETTERS);
     renderKpiGrid();
     renderAll();
     renderTeamTab();
+    renderOnboarding();
   }
 
   // Re-fetches this account's data from the server and re-renders in place —
@@ -1842,6 +1939,7 @@
       populateNameSelect(pcfSetterSelect, SETTERS);
       renderAll();
       renderTeamTab();
+      renderOnboarding(true);
     } catch (e) {
       console.error("Poll for updates failed:", e);
       // Only surface this to the user if we've never successfully loaded --
@@ -1950,6 +2048,138 @@
 
   document.getElementById("team-domain-copy").addEventListener("click", e => copyToClipboard(salesAccessUrl, e.currentTarget));
   document.getElementById("team-code-copy").addEventListener("click", e => copyToClipboard(accessCode, e.currentTarget));
+
+  // ---------------------------------------------------------------------
+  // 10c. ONBOARDING — a reference doc for bringing on new reps, split into
+  //      three sections (Main Breakdown / Closer SOPs / Setter SOPs), each
+  //      its own set of sub-tabs. The tab *labels* below are seeded
+  //      defaults so there's a starting structure -- every tab's content
+  //      starts blank, and more tabs can be added or removed freely.
+  //      Saved the same way as everything else here (private per account,
+  //      or shared via the secret key).
+  // ---------------------------------------------------------------------
+  function makeId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function makeTabs(labels) {
+    return labels.map(label => ({ id: makeId(), label, content: "" }));
+  }
+
+  const SOP_DEFAULTS = {
+    mainBreakdown: ["Expectations", "Daily Huddles", "Prep", "CRM", "Airtable Forms", "Leaderboard", "SOD"],
+    closerSops: ["Daily Process", "Responsibilities", "Script", "Onboarding", "Deck", "Closer Tracking", "Financing"],
+    setterSops: ["Daily Process", "Responsibilities", "Script", "Handoff Form"],
+  };
+
+  // A section with no tabs at all (never saved, or the user removed every
+  // one) falls back to that section's default set -- otherwise whatever's
+  // saved wins, including any tabs the user added or removed.
+  function normalizeSopSection(section, defaultLabels) {
+    const tabs = section && Array.isArray(section.tabs) && section.tabs.length ? section.tabs : makeTabs(defaultLabels);
+    const activeId = section && section.activeId && tabs.some(t => t.id === section.activeId) ? section.activeId : tabs[0].id;
+    return { tabs, activeId };
+  }
+
+  function normalizeOnboarding(raw) {
+    return {
+      mainBreakdown: normalizeSopSection(raw && raw.mainBreakdown, SOP_DEFAULTS.mainBreakdown),
+      closerSops: normalizeSopSection(raw && raw.closerSops, SOP_DEFAULTS.closerSops),
+      setterSops: normalizeSopSection(raw && raw.setterSops, SOP_DEFAULTS.setterSops),
+    };
+  }
+
+  let onboarding = normalizeOnboarding(null);
+
+  function renderSopSection(key, tabsId, contentId, preserveFocused) {
+    const section = onboarding[key];
+    const tabsEl = document.getElementById(tabsId);
+    const contentEl = document.getElementById(contentId);
+    const activeTab = section.tabs.find(t => t.id === section.activeId) || section.tabs[0];
+
+    const tabsHtml = section.tabs.map(t => `
+      <span class="sop-tab-wrap">
+        <button type="button" class="sop-tab-btn${t.id === activeTab.id ? " active" : ""}" data-id="${t.id}">${t.label}</button>
+        ${section.tabs.length > 1 ? `<button type="button" class="sop-tab-remove" data-remove="${t.id}" title="Remove this SOP">&times;</button>` : ""}
+      </span>
+    `).join("");
+
+    const addHtml = section.adding
+      ? `<form class="sop-add-form" id="${tabsId}-add-form">
+           <input type="text" id="${tabsId}-add-input" placeholder="SOP name…" required>
+           <button type="submit">Add</button>
+         </form>`
+      : `<button type="button" class="sop-add-btn" data-add="1">+ Add SOP</button>`;
+
+    tabsEl.innerHTML = tabsHtml + addHtml;
+
+    tabsEl.querySelectorAll(".sop-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        section.activeId = btn.dataset.id;
+        renderSopSection(key, tabsId, contentId);
+      });
+    });
+    tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        const id = btn.dataset.remove;
+        section.tabs = section.tabs.filter(t => t.id !== id);
+        if (section.activeId === id) section.activeId = section.tabs[0].id;
+        renderSopSection(key, tabsId, contentId);
+        queueSaveOnboarding();
+      });
+    });
+
+    if (section.adding) {
+      const form = document.getElementById(`${tabsId}-add-form`);
+      const input = document.getElementById(`${tabsId}-add-input`);
+      input.focus();
+      form.addEventListener("submit", e => {
+        e.preventDefault();
+        const label = input.value.trim();
+        if (!label) return;
+        const tab = { id: makeId(), label, content: "" };
+        section.tabs.push(tab);
+        section.activeId = tab.id;
+        section.adding = false;
+        renderSopSection(key, tabsId, contentId);
+        queueSaveOnboarding();
+      });
+      input.addEventListener("blur", () => {
+        // Deferred so a click on the form's own "Add" button still lands first.
+        setTimeout(() => {
+          if (section.adding) {
+            section.adding = false;
+            renderSopSection(key, tabsId, contentId);
+          }
+        }, 150);
+      });
+    } else {
+      tabsEl.querySelector(".sop-add-btn").addEventListener("click", () => {
+        section.adding = true;
+        renderSopSection(key, tabsId, contentId);
+      });
+    }
+
+    // Only a background poll re-render (preserveFocused) should ever skip
+    // resetting the textarea while it's focused, so a fetch landing
+    // mid-keystroke can't yank text out from under active typing. A direct
+    // user action -- switching tabs, adding, removing -- always updates it,
+    // since that's the whole point of the click.
+    if (!preserveFocused || document.activeElement !== contentEl) {
+      contentEl.value = activeTab.content || "";
+    }
+    contentEl.oninput = () => {
+      activeTab.content = contentEl.value;
+      queueSaveOnboarding();
+    };
+  }
+
+  function renderOnboarding(preserveFocused) {
+    renderSopSection("mainBreakdown", "onb-main-tabs", "onb-main-content", preserveFocused);
+    renderSopSection("closerSops", "onb-closer-tabs", "onb-closer-content", preserveFocused);
+    renderSopSection("setterSops", "onb-setter-tabs", "onb-setter-content", preserveFocused);
+  }
 
   (async function boot() {
     try {

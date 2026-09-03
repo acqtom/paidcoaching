@@ -29,6 +29,7 @@ const DEFAULT_STATE = {
   deals: [] as unknown[],
   closers: [] as unknown[],
   setters: [] as unknown[],
+  onboarding: null as unknown,
 };
 
 function normalizeCode(raw: string | null) {
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
   if (Array.isArray(body.deals)) patch.deals = body.deals;
   if (Array.isArray(body.closers)) patch.closers = body.closers;
   if (Array.isArray(body.setters)) patch.setters = body.setters;
+  if (typeof body.onboarding === "object" && body.onboarding !== null) patch.onboarding = body.onboarding;
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("save_sales_board_by_code", {

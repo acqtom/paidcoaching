@@ -9,6 +9,11 @@ export type SalesBoardData = {
   // rather than a new table since it's a Sales Board concept through and
   // through, and this row is already private per portal user.
   dailyCashTarget?: number | null;
+  // Onboarding tab's three SOP sections (Main Breakdown/Closer/Setter) --
+  // shape is { [section]: { tabs: [{id,label,content}], activeId } },
+  // opaque here since only the client (public/sales-board-app/index.html)
+  // needs to know its structure or seed default tab labels.
+  onboarding?: unknown;
 };
 
 export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
@@ -16,6 +21,7 @@ export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
   closers: [],
   setters: [],
   dailyCashTarget: null,
+  onboarding: null,
 };
 
 const UNIQUE_VIOLATION = "23505";

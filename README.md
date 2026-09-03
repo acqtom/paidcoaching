@@ -540,6 +540,36 @@ in and you'll land on `/dashboard`.
   endpoints — the only branch point in the whole file; every other view,
   including Add Team itself, behaves identically in both modes.
 
+  An **Onboarding** tab (`view-onboarding`) followed — a reference doc
+  for bringing on new reps, split into three cards (Main Breakdown /
+  Closer SOPs / Setter SOPs), each its own row of sub-tabs (e.g. Closer
+  SOPs ships with Daily Process/Responsibilities/Script/Onboarding/
+  Deck/Closer Tracking/Financing already there) with a single shared
+  textarea beneath showing whichever tab is selected. Every tab's
+  `content` starts blank — only the *labels* are seeded defaults, per
+  explicit instruction — and more tabs can be added (an inline form, not
+  a `prompt()`, matching the precedent Add Team already set) or removed
+  freely; removing the last tab in a section is blocked so a section can
+  never end up with zero tabs. Saved as a new opaque `onboarding` field
+  on `SalesBoardData` (`src/lib/sales-board-state.ts` — the shape is
+  only ever interpreted client-side, so no migration was needed; the
+  existing `save_sales_board_by_code` function's generic `data ||
+  p_patch` jsonb merge already supported an arbitrary new top-level key
+  with zero SQL changes), threaded through `/api/sales-board/save`,
+  `/session`, and `/by-code` the same way `dailyCashTarget` was.
+
+  A poll landing while a rep is mid-typing in an SOP's textarea must
+  never overwrite it (the same class of bug fixed earlier for the sync
+  banner), but a *user clicking a different tab* must always update that
+  same textarea immediately — two different callers of the same render
+  function needing opposite behavior around "is this textarea focused
+  right now." Solved with an explicit `preserveFocused` flag passed only
+  by the periodic/focus poll, not by tab-click/add/remove handlers: a
+  Puppeteer run initially caught this exact bug (switching tabs silently
+  kept showing the *previous* tab's content, because the poll's
+  "don't-clobber-active-typing" guard was firing on every render
+  regardless of what triggered it) before the flag was added.
+
   Verified via Puppeteer across all of the above (fetch mocked against
   each endpoint in turn, matching its exact contract, since a real login
   session isn't available headlessly): confirmed the no-login dashboard
@@ -550,13 +580,20 @@ in and you'll land on `/dashboard`.
   right domain/secret-key values, that adding or removing a closer/setter
   updates the Post Call Form's dropdowns and fires a save with the
   correct partial payload, and that the "+" buttons are gone from the
-  Post Call Form; and confirmed a `?code=` session never once calls the
-  session-cookie endpoints, only `/api/sales-board/by-code`. Two KPI
-  figures ($ sums, commission amounts) read wrong in earlier passes —
-  traced to the test's own synthetic seed data using field names
-  (`outcome`, `date`) that don't match what the real form actually
-  submits (`callOutcome`, `closingDate`, plus per-deal commission rates),
-  not a defect in the port. Zero console errors in every run.
+  Post Call Form; confirmed a `?code=` session never once calls the
+  session-cookie endpoints, only `/api/sales-board/by-code`; and for
+  Onboarding, confirmed all three sections' default tab labels and blank
+  content, that typing debounce-saves the full `onboarding` object,
+  that switching tabs correctly shows each tab's own (initially blank)
+  content and preserves what was typed when switching back, that adding
+  and removing a custom SOP tab both work and persist, and that a
+  background poll firing mid-keystroke never clobbers the textarea while
+  it's focused. Two KPI figures ($ sums, commission amounts) read wrong
+  in earlier passes — traced to the test's own synthetic seed data using
+  field names (`outcome`, `date`) that don't match what the real form
+  actually submits (`callOutcome`, `closingDate`, plus per-deal
+  commission rates), not a defect in the port. Zero console errors in
+  every run.
 
 ## Deploying
 

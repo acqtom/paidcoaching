@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureSalesBoardRow, SalesBoardData } from "@/lib/sales-board-state";
 import { pushSalesBoardMetrics } from "@/lib/metrics-tracking-state";
 
-// POST { deals?, closers?, setters?, dailyCashTarget? } -> writes
-// whichever fields are present for the logged-in portal user, leaving
+// POST { deals?, closers?, setters?, dailyCashTarget?, onboarding? } ->
+// writes whichever fields are present for the logged-in portal user, leaving
 // the rest untouched. Private per account -- identified from the
 // Supabase Auth session cookie, no offer/password anymore. Also used by
 // the dashboard's "Today's Cash Collected" card to save its target.
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       setters: body.setters !== undefined ? body.setters : (existing.setters ?? []),
       dailyCashTarget:
         body.dailyCashTarget !== undefined ? body.dailyCashTarget : (existing.dailyCashTarget ?? null),
+      onboarding: body.onboarding !== undefined ? body.onboarding : (existing.onboarding ?? null),
     };
 
     const { error } = await supabase

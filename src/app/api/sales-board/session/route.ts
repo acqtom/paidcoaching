@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureSalesBoardRow } from "@/lib/sales-board-state";
 
-// POST (no body needed) -> { deals, closers, setters, accessCode } for the
-// logged-in portal user. Used both to load data on open and to poll for
-// updates from other devices. Private per account (see
+// POST (no body needed) -> { deals, closers, setters, onboarding,
+// accessCode } for the logged-in portal user. Used both to load data on
+// open and to poll for updates from other devices. Private per account (see
 // supabase/migrations/0006_sales_board_state.sql) -- there's no
 // offer/password concept anymore, the portal's own Supabase Auth session
 // cookie identifies the caller. Also ensures the row (and its secret
@@ -27,6 +27,7 @@ export async function POST() {
       deals: data.deals ?? [],
       closers: data.closers ?? [],
       setters: data.setters ?? [],
+      onboarding: data.onboarding ?? null,
       accessCode: row.access_code,
     });
   } catch (e) {
