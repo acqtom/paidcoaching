@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X, Trash2, Lock, LockOpen } from "lucide-react";
+import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X, Trash2, Lock, LockOpen, SmilePlus, Pencil, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { EMOJI_CATEGORIES, EMOJI_KEYWORDS } from "./emoji-data";
 
 type Conversation = {
   id: string;
@@ -13,7 +14,12 @@ type Conversation = {
   dmUsername?: string;
 };
 
-type Message = {
+type Reaction = { emoji: string; userId: string };
+
+// The raw shape a `messages` row realtime payload carries -- deliberately
+// missing `senderUsername` (resolved separately) and `reactions` (lives
+// in a different table entirely, never present on a messages row/payload).
+type MessageRow = {
   id: string;
   conversation_id: string;
   sender_id: string | null;
@@ -21,7 +27,12 @@ type Message = {
   image_path: string | null;
   created_at: string;
   deleted_at: string | null;
+  edited_at: string | null;
+};
+
+type Message = MessageRow & {
   senderUsername: string;
+  reactions: Reaction[];
 };
 
 // A message with no sender_id is a bot/system post -- e.g. the automatic
@@ -53,6 +64,89 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 // one-letter username, nothing else.
 function isAdminUsername(name: string) {
   return name.length === 1;
+}
+
+// Rendered inline right under whichever message's react button was
+// clicked, rather than as a floating/portaled popover -- keeps this
+// simple with no viewport-aware positioning logic, at the cost of
+// pushing later messages down while it's open (an acceptable trade-off
+// for a picker that's only open briefly).
+function EmojiPicker({
+  search,
+  onSearchChange,
+  onPick,
+  onClose,
+}: {
+  search: string;
+  onSearchChange: (value: string) => void;
+  onPick: (emoji: string) => void;
+  onClose: () => void;
+}) {
+  const [activeCategory, setActiveCategory] = useState(0);
+
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+    return Object.entries(EMOJI_KEYWORDS)
+      .filter(([, keywords]) => keywords.some((k) => k.includes(q)))
+      .map(([emoji]) => emoji);
+  }, [search]);
+
+  return (
+    <div className="mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2 py-1 dark:border-neutral-700">
+        <Search size={13} className="shrink-0 text-neutral-400" />
+        <input
+          autoFocus
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Search emoji…"
+          className="w-full bg-transparent text-xs outline-none dark:text-neutral-100"
+        />
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+        >
+          <X size={13} />
+        </button>
+      </div>
+
+      {searchResults === null && (
+        <div className="mb-1.5 flex gap-1 overflow-x-auto pb-1">
+          {EMOJI_CATEGORIES.map((cat, i) => (
+            <button
+              key={cat.name}
+              type="button"
+              onClick={() => setActiveCategory(i)}
+              title={cat.name}
+              className={`shrink-0 rounded-md px-1.5 py-0.5 text-sm ${
+                i === activeCategory ? "bg-neutral-200 dark:bg-neutral-600" : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              }`}
+            >
+              {cat.emojis[0]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="grid max-h-48 grid-cols-8 gap-0.5 overflow-y-auto">
+        {(searchResults ?? EMOJI_CATEGORIES[activeCategory].emojis).map((emoji, i) => (
+          <button
+            key={`${emoji}-${i}`}
+            type="button"
+            onClick={() => onPick(emoji)}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-base hover:bg-neutral-100 dark:hover:bg-neutral-700"
+          >
+            {emoji}
+          </button>
+        ))}
+        {searchResults !== null && searchResults.length === 0 && (
+          <p className="col-span-8 py-2 text-center text-xs text-neutral-400">No matches.</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function CommunicationsApp({
@@ -97,6 +191,15 @@ export function CommunicationsApp({
     if (mentionQuery === null) return [];
     return allUsernames.filter((u) => u.toLowerCase().startsWith(mentionQuery.toLowerCase())).slice(0, 6);
   }, [mentionQuery, allUsernames]);
+
+  // Which message's emoji picker is open, if any -- rendered inline right
+  // under that message rather than as a floating/portaled popover, so no
+  // viewport-aware positioning logic is needed.
+  const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
+  const [emojiSearch, setEmojiSearch] = useState("");
+
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -232,7 +335,7 @@ export function CommunicationsApp({
       const { data } = await supabase
         .from("messages")
         .select(
-          "id, conversation_id, sender_id, body, image_path, created_at, deleted_at, profiles!messages_sender_id_fkey(username)"
+          "id, conversation_id, sender_id, body, image_path, created_at, deleted_at, edited_at, profiles!messages_sender_id_fkey(username), message_reactions(user_id, emoji)"
         )
         .eq("conversation_id", activeId)
         .order("created_at", { ascending: true })
@@ -241,6 +344,7 @@ export function CommunicationsApp({
       const rows: Message[] = (data ?? []).map((m) => {
         const joined = m.profiles as unknown as { username?: string } | null;
         if (joined?.username && m.sender_id) usernameCache.current[m.sender_id] = joined.username;
+        const reactionRows = (m.message_reactions ?? []) as { user_id: string; emoji: string }[];
         return {
           id: m.id,
           conversation_id: m.conversation_id,
@@ -249,7 +353,9 @@ export function CommunicationsApp({
           image_path: m.image_path,
           created_at: m.created_at,
           deleted_at: m.deleted_at,
+          edited_at: m.edited_at,
           senderUsername: m.sender_id === null ? BOT_NAME : (joined?.username ?? usernameCache.current[m.sender_id] ?? "unknown"),
+          reactions: reactionRows.map((r) => ({ emoji: r.emoji, userId: r.user_id })),
         };
       });
       setMessages(rows);
@@ -263,9 +369,11 @@ export function CommunicationsApp({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${activeId}` },
         async (payload) => {
-          const row = payload.new as Omit<Message, "senderUsername">;
+          const row = payload.new as MessageRow;
           const senderUsername = await resolveUsername(row.sender_id);
-          setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, { ...row, senderUsername }]));
+          setMessages((prev) =>
+            prev.some((m) => m.id === row.id) ? prev : [...prev, { ...row, senderUsername, reactions: [] }]
+          );
           if (row.sender_id !== userId) markRead(activeId);
         }
       )
@@ -273,8 +381,36 @@ export function CommunicationsApp({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${activeId}` },
         (payload) => {
-          const row = payload.new as Omit<Message, "senderUsername">;
+          const row = payload.new as MessageRow;
           setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, ...row } : m)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "message_reactions", filter: `conversation_id=eq.${activeId}` },
+        (payload) => {
+          const row = payload.new as { message_id: string; user_id: string; emoji: string };
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === row.message_id && !m.reactions.some((r) => r.userId === row.user_id && r.emoji === row.emoji)
+                ? { ...m, reactions: [...m.reactions, { emoji: row.emoji, userId: row.user_id }] }
+                : m
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "message_reactions", filter: `conversation_id=eq.${activeId}` },
+        (payload) => {
+          const row = payload.old as { message_id: string; user_id: string; emoji: string };
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === row.message_id
+                ? { ...m, reactions: m.reactions.filter((r) => !(r.userId === row.user_id && r.emoji === row.emoji)) }
+                : m
+            )
+          );
         }
       )
       .subscribe();
@@ -344,6 +480,88 @@ export function CommunicationsApp({
       console.error("Failed to delete message:", deleteError ?? "no row was updated (RLS?)");
       setError("Couldn't delete that message — try again.");
       setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, deleted_at: null } : m)));
+    }
+  }
+
+  // Toggle: adding a reaction you've already left removes it instead.
+  // Same optimistic-then-verify shape as delete/lock -- a row-not-found on
+  // the DELETE path (already-removed-elsewhere) is treated as success,
+  // not an error, since the end state either way is "no longer reacted".
+  async function handleToggleReaction(message: Message, emoji: string) {
+    const already = message.reactions.some((r) => r.userId === userId && r.emoji === emoji);
+    setReactingMessageId(null);
+    setEmojiSearch("");
+
+    if (already) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? { ...m, reactions: m.reactions.filter((r) => !(r.userId === userId && r.emoji === emoji)) }
+            : m
+        )
+      );
+      const { error: removeError } = await supabase
+        .from("message_reactions")
+        .delete()
+        .eq("message_id", message.id)
+        .eq("user_id", userId)
+        .eq("emoji", emoji);
+      if (removeError) {
+        console.error("Failed to remove reaction:", removeError);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === message.id ? { ...m, reactions: [...m.reactions, { emoji, userId }] } : m))
+        );
+      }
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) => (m.id === message.id ? { ...m, reactions: [...m.reactions, { emoji, userId }] } : m))
+    );
+    const { data, error: addError } = await supabase
+      .from("message_reactions")
+      .insert({ message_id: message.id, conversation_id: message.conversation_id, user_id: userId, emoji })
+      .select("id");
+    if (addError || !data || data.length === 0) {
+      console.error("Failed to add reaction:", addError ?? "no row was inserted (RLS?)");
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? { ...m, reactions: m.reactions.filter((r) => !(r.userId === userId && r.emoji === emoji)) }
+            : m
+        )
+      );
+    }
+  }
+
+  function handleStartEdit(message: Message) {
+    setEditingMessageId(message.id);
+    setEditingText(message.body ?? "");
+  }
+
+  function handleCancelEdit() {
+    setEditingMessageId(null);
+    setEditingText("");
+  }
+
+  async function handleSaveEdit(messageId: string) {
+    const text = editingText.trim();
+    if (!text) return;
+    const previous = messages.find((m) => m.id === messageId);
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, body: text, edited_at: new Date().toISOString() } : m))
+    );
+    setEditingMessageId(null);
+    setEditingText("");
+    const { data, error: editError } = await supabase
+      .from("messages")
+      .update({ body: text })
+      .eq("id", messageId)
+      .select("id");
+    if (editError || !data || data.length === 0) {
+      console.error("Failed to edit message:", editError ?? "no row was updated (RLS?)");
+      setError("Couldn't save that edit — try again.");
+      if (previous) setMessages((prev) => prev.map((m) => (m.id === messageId ? previous : m)));
     }
   }
 
@@ -609,6 +827,19 @@ export function CommunicationsApp({
                 <ul className="space-y-3">
                   {messages.map((m) => {
                     const canDelete = !m.deleted_at && (m.sender_id === userId || isAdmin);
+                    // Editing is sender-only, never admin (see
+                    // enforce_message_update_rules in 0014_...sql) --
+                    // rewriting someone else's words is a different
+                    // capability than removing them.
+                    const canEdit = !m.deleted_at && m.sender_id === userId && m.body !== null;
+                    const canReact = !m.deleted_at;
+                    const isEditing = editingMessageId === m.id;
+                    const isReacting = reactingMessageId === m.id;
+                    const reactionGroups = m.reactions.reduce<Record<string, string[]>>((acc, r) => {
+                      (acc[r.emoji] ??= []).push(r.userId);
+                      return acc;
+                    }, {});
+
                     return (
                       <li key={m.id} className="group">
                         <div className="flex items-baseline gap-2">
@@ -630,20 +861,79 @@ export function CommunicationsApp({
                               hour: "numeric",
                               minute: "2-digit",
                             })}
+                            {m.edited_at && !m.deleted_at ? " (edited)" : ""}
                           </span>
-                          {canDelete && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMessage(m.id)}
-                              className="ml-auto inline-flex text-neutral-300 hover:text-rose-500 dark:text-neutral-600"
-                              title="Delete message"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
+                          <div className="ml-auto flex items-center gap-2">
+                            {canReact && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReactingMessageId(isReacting ? null : m.id);
+                                  setEmojiSearch("");
+                                }}
+                                className="inline-flex text-neutral-300 hover:text-amber-500 dark:text-neutral-600"
+                                title="Add a reaction"
+                              >
+                                <SmilePlus size={14} />
+                              </button>
+                            )}
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(m)}
+                                className="inline-flex text-neutral-300 hover:text-indigo-500 dark:text-neutral-600"
+                                title="Edit message"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMessage(m.id)}
+                                className="inline-flex text-neutral-300 hover:text-rose-500 dark:text-neutral-600"
+                                title="Delete message"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         {m.deleted_at ? (
                           <p className="mt-0.5 text-sm italic text-neutral-400">This message was deleted.</p>
+                        ) : isEditing ? (
+                          <div className="mt-1">
+                            <textarea
+                              autoFocus
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSaveEdit(m.id);
+                                }
+                                if (e.key === "Escape") handleCancelEdit();
+                              }}
+                              rows={2}
+                              className="w-full resize-none rounded-lg border border-indigo-300 px-3 py-2 text-sm outline-none dark:border-indigo-500/50 dark:bg-neutral-800"
+                            />
+                            <div className="mt-1 flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEdit(m.id)}
+                                className="rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
                         ) : (
                           <>
                             {m.body && (
@@ -659,6 +949,39 @@ export function CommunicationsApp({
                               />
                             )}
                           </>
+                        )}
+
+                        {Object.keys(reactionGroups).length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {Object.entries(reactionGroups).map(([emoji, userIds]) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => handleToggleReaction(m, emoji)}
+                                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
+                                  userIds.includes(userId)
+                                    ? "border-indigo-300 bg-indigo-50 dark:border-indigo-500/40 dark:bg-indigo-500/10"
+                                    : "border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+                                }`}
+                                title={`${userIds.length} reaction${userIds.length === 1 ? "" : "s"}${userIds.includes(userId) ? " (including yours)" : ""}`}
+                              >
+                                <span>{emoji}</span>
+                                <span className="text-neutral-500 dark:text-neutral-400">{userIds.length}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {isReacting && (
+                          <EmojiPicker
+                            search={emojiSearch}
+                            onSearchChange={setEmojiSearch}
+                            onPick={(emoji) => handleToggleReaction(m, emoji)}
+                            onClose={() => {
+                              setReactingMessageId(null);
+                              setEmojiSearch("");
+                            }}
+                          />
                         )}
                       </li>
                     );

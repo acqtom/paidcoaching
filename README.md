@@ -67,6 +67,11 @@ Router) and Supabase Auth.
    per channel, the first UPDATE policy on `conversations` (only admins,
    only channels), and replaces the messages INSERT policy so a locked
    channel rejects a post from anyone but an admin.
+   `0014_reactions_and_edit.sql` adds `message_reactions` (RLS + Realtime)
+   and message editing — `messages.edited_at`, and a rewritten update
+   trigger that now allows `body` to change, but only by the original
+   sender and never on a deleted message (replacing 0010's trigger, which
+   flatly forbade any content change at all).
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -802,6 +807,66 @@ in and you'll land on `/dashboard`.
   not just after a reload — and it's also what silently disables that
   same user's composer, since `canPost` is derived from the live
   `conversations` state on every render rather than checked only once.
+
+  **Reactions and message editing** (`0014_reactions_and_edit.sql`) both
+  render as small icon buttons next to the trash icon on the right of
+  each message. A react button (always visible on any non-deleted
+  message) opens an inline emoji picker — `EmojiPicker`, a self-contained
+  component in `CommunicationsApp.tsx` reading from a new
+  `src/app/dashboard/communications/emoji-data.ts` (nine category tabs,
+  several hundred hand-picked standard Unicode emoji, plus a search box
+  matching against a hand-curated keyword map for the couple hundred
+  most commonly reached-for ones — not literally the entire Unicode
+  emoji registry, which runs to thousands of skin-tone/gender/hair
+  variants and isn't practical to hand-maintain, but broad enough to
+  cover real usage). It renders inline directly under the message
+  rather than as a floating/portaled popover, trading "pushes later
+  messages down while open" for not needing any viewport-aware
+  positioning logic. Picking an emoji toggles it (reacting again with
+  the same emoji removes it) via `message_reactions`, a table that
+  denormalizes `conversation_id` off `messages` purely so its own
+  realtime subscription can filter by conversation the same way
+  `messages`' own subscription already does, rather than every client
+  receiving every reaction change anywhere. Existing reactions render as
+  small pill buttons (emoji + count, highlighted if the viewer is among
+  the reactors) below the message body.
+
+  Message editing (a pencil icon, sender-only — never an admin, since
+  rewriting someone else's words is a fundamentally different capability
+  than removing them, unlike delete) turns the body into an inline
+  textarea with Save/Cancel. This meant partially undoing the delete
+  feature's own safety trigger from 0010, which flatly forbade `body`
+  from ever changing at all (that constraint is exactly what made soft
+  delete "safe" to add in the first place) — 0014 replaces it with a
+  trigger that allows `body` to change, but only when `old.sender_id =
+  auth.uid()` and the message isn't already deleted, auto-stamping
+  `edited_at` when it does. This has to be a trigger rather than an RLS
+  check because the rule depends on comparing old vs. new values
+  together (specifically: did `body` change, and if so is the *toggling
+  user* the *original sender*) — RLS alone still only gates "can this
+  user touch this row at all" (sender or admin, unchanged from 0010),
+  while the trigger enforces the finer "what exactly are they allowed to
+  change and under what conditions". An edited message shows "(edited)"
+  next to its timestamp.
+
+  Both features follow the same optimistic-update-then-verify-a-row-
+  came-back pattern established for delete and the channel lock, for the
+  same reason (Supabase doesn't treat an RLS-filtered zero-row write as
+  an error).
+
+  Verified via a standalone Puppeteer check of just `EmojiPicker` in
+  isolation (temporarily exported, rendered on a throwaway route added
+  to `PUBLIC_PATHS` for the run and fully reverted after — the same
+  pattern used for local-only testing throughout this app's build):
+  confirmed all nine categories render and are clickable without
+  errors, confirmed search narrows correctly (typing "fire" returns
+  exactly 🔥) and shows "No matches." for a query with none, and
+  confirmed picking an emoji fires the callback with the right
+  character. The reactions/edit data flow itself (inserts, updates,
+  realtime) wasn't separately fetch-mocked, for the same reason
+  Communications' data layer never has been — direct Supabase calls
+  plus WebSocket subscriptions aren't practically mockable the way a
+  handful of REST endpoints are.
 
 ## Deploying
 
