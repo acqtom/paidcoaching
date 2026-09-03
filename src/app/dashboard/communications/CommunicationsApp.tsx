@@ -24,6 +24,12 @@ type Message = {
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
+// Matches is_admin() in 0009_communications.sql: admin status is just a
+// one-letter username, nothing else.
+function isAdminUsername(name: string) {
+  return name.length === 1;
+}
+
 export function CommunicationsApp({
   userId,
   username,
@@ -361,7 +367,13 @@ export function CommunicationsApp({
                   {messages.map((m) => (
                     <li key={m.id}>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        <span
+                          className={`text-sm font-semibold ${
+                            isAdminUsername(m.senderUsername)
+                              ? "text-amber-700 dark:text-amber-400"
+                              : "text-neutral-900 dark:text-neutral-100"
+                          }`}
+                        >
                           @{m.senderUsername}
                         </span>
                         <span className="text-[11px] text-neutral-400">
