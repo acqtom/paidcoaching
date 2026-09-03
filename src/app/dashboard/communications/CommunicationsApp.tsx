@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X } from "lucide-react";
+import { Hash, MessageCircle, Plus, Send, Image as ImageIcon, X, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Conversation = {
@@ -19,8 +19,26 @@ type Message = {
   body: string | null;
   image_path: string | null;
   created_at: string;
+  deleted_at: string | null;
   senderUsername: string;
 };
+
+// Renders a message body with any @username tokens (that match a real
+// user) highlighted -- plain text otherwise, so "someone@example.com" or
+// an @mention of a name nobody has doesn't get styled.
+function renderBodyWithMentions(body: string, knownUsernames: Set<string>) {
+  const parts = body.split(/(@[a-zA-Z0-9_]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("@") && knownUsernames.has(part.slice(1))) {
+      return (
+        <span key={i} className="font-semibold text-indigo-600 dark:text-indigo-400">
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
@@ -61,8 +79,20 @@ export function CommunicationsApp({
   const [showNewChannelForm, setShowNewChannelForm] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
 
+  const [allUsernames, setAllUsernames] = useState<string[]>([]);
+  const knownUsernames = useMemo(() => new Set(allUsernames), [allUsernames]);
+  // The @-mention currently being typed (text after the "@", no space yet)
+  // -- null means the composer isn't mid-mention right now.
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionSuggestions = useMemo(() => {
+    if (mentionQuery === null) return [];
+    return allUsernames.filter((u) => u.toLowerCase().startsWith(mentionQuery.toLowerCase())).slice(0, 6);
+  }, [mentionQuery, allUsernames]);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function resolveUsername(id: string): Promise<string> {
     if (usernameCache.current[id]) return usernameCache.current[id];
@@ -116,6 +146,20 @@ export function CommunicationsApp({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ---- Load every username once, for @mention autocomplete + highlighting ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("profiles").select("username");
+      if (cancelled || !data) return;
+      setAllUsernames(data.map((d) => d.username as string));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ---- Live: new channels appearing for everyone as they're created ----
   useEffect(() => {
     const channel = supabase
@@ -143,7 +187,9 @@ export function CommunicationsApp({
     (async () => {
       const { data } = await supabase
         .from("messages")
-        .select("id, conversation_id, sender_id, body, image_path, created_at, profiles!messages_sender_id_fkey(username)")
+        .select(
+          "id, conversation_id, sender_id, body, image_path, created_at, deleted_at, profiles!messages_sender_id_fkey(username)"
+        )
         .eq("conversation_id", activeId)
         .order("created_at", { ascending: true })
         .limit(200);
@@ -158,6 +204,7 @@ export function CommunicationsApp({
           body: m.body,
           image_path: m.image_path,
           created_at: m.created_at,
+          deleted_at: m.deleted_at,
           senderUsername: joined?.username ?? usernameCache.current[m.sender_id] ?? "unknown",
         };
       });
@@ -174,6 +221,14 @@ export function CommunicationsApp({
           const row = payload.new as Omit<Message, "senderUsername">;
           const senderUsername = await resolveUsername(row.sender_id);
           setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, { ...row, senderUsername }]));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${activeId}` },
+        (payload) => {
+          const row = payload.new as Omit<Message, "senderUsername">;
+          setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, ...row } : m)));
         }
       )
       .subscribe();
@@ -223,6 +278,22 @@ export function CommunicationsApp({
     }
   }
 
+  async function handleDeleteMessage(id: string) {
+    // Optimistic: the realtime UPDATE will confirm this, but no need to
+    // wait on it for something this simple.
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, deleted_at: new Date().toISOString() } : m))
+    );
+    const { error: deleteError } = await supabase
+      .from("messages")
+      .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+      .eq("id", id);
+    if (deleteError) {
+      setError("Couldn't delete that message — try again.");
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, deleted_at: null } : m)));
+    }
+  }
+
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -255,6 +326,66 @@ export function CommunicationsApp({
     }
     setNewChannelName("");
     setShowNewChannelForm(false);
+  }
+
+  function handleComposerChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const text = e.target.value;
+    setComposerText(text);
+    const cursor = e.target.selectionStart;
+    const match = text.slice(0, cursor).match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
+    if (match) {
+      setMentionQuery(match[1]);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  }
+
+  function selectMention(pickedUsername: string) {
+    const el = composerRef.current;
+    if (!el || mentionQuery === null) return;
+    const cursor = el.selectionStart;
+    const atIndex = cursor - mentionQuery.length - 1;
+    const before = composerText.slice(0, atIndex);
+    const after = composerText.slice(cursor);
+    const insert = `@${pickedUsername} `;
+    const newText = `${before}${insert}${after}`;
+    setComposerText(newText);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      el.focus();
+      const newCursor = before.length + insert.length;
+      el.setSelectionRange(newCursor, newCursor);
+    });
+  }
+
+  function handleComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (mentionSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((i) => (i + 1) % mentionSuggestions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((i) => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        selectMention(mentionSuggestions[mentionIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMentionQuery(null);
+        return;
+      }
+    }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(e);
+    }
   }
 
   const channels = conversations.filter((c) => c.type === "channel");
@@ -364,37 +495,60 @@ export function CommunicationsApp({
                 <p className="text-sm text-neutral-400">No messages yet — say hello.</p>
               ) : (
                 <ul className="space-y-3">
-                  {messages.map((m) => (
-                    <li key={m.id}>
-                      <div className="flex items-baseline gap-2">
-                        <span
-                          className={`text-sm font-semibold ${
-                            isAdminUsername(m.senderUsername)
-                              ? "text-amber-700 dark:text-amber-400"
-                              : "text-neutral-900 dark:text-neutral-100"
-                          }`}
-                        >
-                          @{m.senderUsername}
-                        </span>
-                        <span className="text-[11px] text-neutral-400">
-                          {new Date(m.created_at).toLocaleString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      {m.body && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-neutral-700 dark:text-neutral-300">{m.body}</p>}
-                      {m.image_path && (
-                        <img
-                          src={supabase.storage.from("chat-uploads").getPublicUrl(m.image_path).data.publicUrl}
-                          alt=""
-                          className="mt-1.5 max-h-72 max-w-sm rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
-                        />
-                      )}
-                    </li>
-                  ))}
+                  {messages.map((m) => {
+                    const canDelete = !m.deleted_at && (m.sender_id === userId || isAdmin);
+                    return (
+                      <li key={m.id} className="group">
+                        <div className="flex items-baseline gap-2">
+                          <span
+                            className={`text-sm font-semibold ${
+                              isAdminUsername(m.senderUsername)
+                                ? "text-amber-700 dark:text-amber-400"
+                                : "text-neutral-900 dark:text-neutral-100"
+                            }`}
+                          >
+                            @{m.senderUsername}
+                          </span>
+                          <span className="text-[11px] text-neutral-400">
+                            {new Date(m.created_at).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(m.id)}
+                              className="ml-auto hidden text-neutral-300 hover:text-rose-500 group-hover:inline-flex dark:text-neutral-600"
+                              title="Delete message"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                        {m.deleted_at ? (
+                          <p className="mt-0.5 text-sm italic text-neutral-400">This message was deleted.</p>
+                        ) : (
+                          <>
+                            {m.body && (
+                              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-neutral-700 dark:text-neutral-300">
+                                {renderBodyWithMentions(m.body, knownUsernames)}
+                              </p>
+                            )}
+                            {m.image_path && (
+                              <img
+                                src={supabase.storage.from("chat-uploads").getPublicUrl(m.image_path).data.publicUrl}
+                                alt=""
+                                className="mt-1.5 max-h-72 max-w-sm rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
+                              />
+                            )}
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
                   <div ref={messagesEndRef} />
                 </ul>
               )}
@@ -411,6 +565,28 @@ export function CommunicationsApp({
                 </div>
               )}
               {error && <p className="mb-2 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+              {mentionSuggestions.length > 0 && (
+                <ul className="mb-2 flex flex-wrap gap-1 rounded-lg border border-neutral-200 bg-white p-1.5 dark:border-neutral-700 dark:bg-neutral-800">
+                  {mentionSuggestions.map((u, i) => (
+                    <li key={u}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectMention(u);
+                        }}
+                        className={`rounded-md px-2 py-1 text-xs font-medium ${
+                          i === mentionIndex
+                            ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                            : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                        }`}
+                      >
+                        @{u}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="flex items-end gap-2">
                 <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleFilePick} />
                 <button
@@ -422,15 +598,11 @@ export function CommunicationsApp({
                   <ImageIcon size={16} />
                 </button>
                 <textarea
+                  ref={composerRef}
                   value={composerText}
-                  onChange={(e) => setComposerText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend(e);
-                    }
-                  }}
-                  placeholder={`Message ${active.type === "channel" ? "#" + active.name : activeLabel}`}
+                  onChange={handleComposerChange}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder={`Message ${active.type === "channel" ? "#" + active.name : activeLabel} (@ to mention someone)`}
                   rows={1}
                   className="flex-1 resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
                 />

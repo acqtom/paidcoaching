@@ -44,10 +44,17 @@ Router) and Supabase Auth.
    conversation the moment their profile exists, enables Realtime on
    `messages`, and creates the `chat-uploads` Storage bucket for photos.
    Unlike every earlier migration, this one needs Realtime turned on for
-   the `messages` table to actually deliver live updates — if the Supabase
-   project has Realtime disabled at the project level, this migration's
-   `alter publication` line won't be enough on its own; check
-   **Database → Replication** in the dashboard.
+   the `messages` table to actually deliver live updates — the migration's
+   `alter publication` line handles this via SQL directly, but it's worth
+   confirming under **Database → Publications** in the dashboard (not
+   **Replication**, which in current Supabase is an unrelated feature for
+   streaming to external destinations like BigQuery — the `messages` table
+   should show up under the `supabase_realtime` publication's table count).
+   `0010_message_delete.sql` adds soft-delete (`deleted_at`/`deleted_by`
+   columns, an UPDATE policy letting a sender delete their own message or
+   an admin delete any message, and a trigger that rejects any UPDATE that
+   isn't just those two columns changing, so this can never become a way
+   to edit message content).
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -680,6 +687,29 @@ in and you'll land on `/dashboard`.
   message, uploading a photo, confirming it arrives live in a second
   session, and admin vs. regular-user visibility of channels and DMs all
   still need to be checked by hand against the live project.
+
+  Once the migration ran and Realtime was confirmed working live, three
+  more pieces landed: **soft-delete** (`0010_message_delete.sql`) — a
+  trash icon appears on hover for a message's own sender or any admin,
+  optimistically hides it locally, then confirms via a `deleted_at`
+  UPDATE (RLS-gated, and a trigger blocks any UPDATE that touches
+  `body`/`image_path`/`sender_id`/`conversation_id`, so this route can
+  never become message *editing*); the realtime subscription now listens
+  for `UPDATE` as well as `INSERT` so a delete from another tab/session
+  shows up live too. **@mentions** — typing `@` in the composer opens an
+  autocomplete (arrow keys + Enter/Tab to pick, Escape to dismiss,
+  built on every known username fetched once from `profiles`) that
+  inserts `@username `; rendered messages highlight any `@word` token
+  that matches a real username (gold for an admin's own `@t`-style
+  mention name is unrelated — that's the sender label, not a mention —
+  regular mentions render in indigo). This only highlights and
+  autocompletes; there's no notification system yet, so a mention
+  doesn't alert anyone who isn't already looking at that conversation.
+  The mention dropdown's option buttons use `onMouseDown` +
+  `preventDefault()` rather than `onClick`, deliberately — a `click`
+  fires after the textarea has already blurred, which would make
+  `selectionStart` unreliable for splicing the mention into the right
+  spot in the text.
 
 ## Deploying
 
