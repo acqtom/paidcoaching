@@ -15,13 +15,19 @@ type Conversation = {
 type Message = {
   id: string;
   conversation_id: string;
-  sender_id: string;
+  sender_id: string | null;
   body: string | null;
   image_path: string | null;
   created_at: string;
   deleted_at: string | null;
   senderUsername: string;
 };
+
+// A message with no sender_id is a bot/system post -- e.g. the automatic
+// #general welcome when someone new joins (see handle_new_profile_welcome
+// in 0012_welcome_bot.sql) -- not a real account, so there's no profile
+// to look up.
+const BOT_NAME = "paidcoaching.com BOT";
 
 // Renders a message body with any @username tokens (that match a real
 // user) highlighted -- plain text otherwise, so "someone@example.com" or
@@ -78,6 +84,7 @@ export function CommunicationsApp({
 
   const [showNewChannelForm, setShowNewChannelForm] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
+  const [channelError, setChannelError] = useState<string | null>(null);
 
   const [allUsernames, setAllUsernames] = useState<string[]>([]);
   const knownUsernames = useMemo(() => new Set(allUsernames), [allUsernames]);
@@ -94,7 +101,8 @@ export function CommunicationsApp({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  async function resolveUsername(id: string): Promise<string> {
+  async function resolveUsername(id: string | null): Promise<string> {
+    if (id === null) return BOT_NAME;
     if (usernameCache.current[id]) return usernameCache.current[id];
     const { data } = await supabase.from("profiles").select("username").eq("id", id).maybeSingle();
     const name = data?.username ?? "unknown";
@@ -210,7 +218,7 @@ export function CommunicationsApp({
       if (cancelled) return;
       const rows: Message[] = (data ?? []).map((m) => {
         const joined = m.profiles as unknown as { username?: string } | null;
-        if (joined?.username) usernameCache.current[m.sender_id] = joined.username;
+        if (joined?.username && m.sender_id) usernameCache.current[m.sender_id] = joined.username;
         return {
           id: m.id,
           conversation_id: m.conversation_id,
@@ -219,7 +227,7 @@ export function CommunicationsApp({
           image_path: m.image_path,
           created_at: m.created_at,
           deleted_at: m.deleted_at,
-          senderUsername: joined?.username ?? usernameCache.current[m.sender_id] ?? "unknown",
+          senderUsername: m.sender_id === null ? BOT_NAME : (joined?.username ?? usernameCache.current[m.sender_id] ?? "unknown"),
         };
       });
       setMessages(rows);
@@ -336,10 +344,15 @@ export function CommunicationsApp({
       .insert({ type: "channel", name, created_by: userId })
       .select("id, type, name, dm_user_id")
       .single();
-    if (!insertError && data) {
-      setConversations((prev) => (prev.some((c) => c.id === data.id) ? prev : [...prev, data]));
-      setActiveId(data.id);
+    if (insertError || !data) {
+      // Channel names are unique (including the auto-created "general") --
+      // this is the one realistic way this insert fails.
+      setChannelError(`A channel named "${name}" already exists.`);
+      return;
     }
+    setChannelError(null);
+    setConversations((prev) => (prev.some((c) => c.id === data.id) ? prev : [...prev, data]));
+    setActiveId(data.id);
     setNewChannelName("");
     setShowNewChannelForm(false);
   }
@@ -433,18 +446,24 @@ export function CommunicationsApp({
             )}
           </div>
           {isAdmin && showNewChannelForm && (
-            <form onSubmit={handleCreateChannel} className="mb-2 flex items-center gap-1 px-2">
-              <input
-                autoFocus
-                value={newChannelName}
-                onChange={(e) => setNewChannelName(e.target.value)}
-                placeholder="channel-name"
-                className="w-full rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
-              />
-              <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900">
-                Add
-              </button>
-            </form>
+            <div className="mb-2 px-2">
+              <form onSubmit={handleCreateChannel} className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={newChannelName}
+                  onChange={(e) => {
+                    setNewChannelName(e.target.value);
+                    setChannelError(null);
+                  }}
+                  placeholder="channel-name"
+                  className="w-full rounded-md border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-800"
+                />
+                <button type="submit" className="shrink-0 rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900">
+                  Add
+                </button>
+              </form>
+              {channelError && <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">{channelError}</p>}
+            </div>
           )}
           <ul className="space-y-0.5">
             {channels.map((c) => (
@@ -518,12 +537,14 @@ export function CommunicationsApp({
                         <div className="flex items-baseline gap-2">
                           <span
                             className={`text-sm font-semibold ${
-                              isAdminUsername(m.senderUsername)
-                                ? "text-amber-700 dark:text-amber-400"
-                                : "text-neutral-900 dark:text-neutral-100"
+                              m.sender_id === null
+                                ? "text-indigo-600 dark:text-indigo-400"
+                                : isAdminUsername(m.senderUsername)
+                                  ? "text-amber-700 dark:text-amber-400"
+                                  : "text-neutral-900 dark:text-neutral-100"
                             }`}
                           >
-                            @{m.senderUsername}
+                            {m.sender_id === null ? `🤖 ${m.senderUsername}` : `@${m.senderUsername}`}
                           </span>
                           <span className="text-[11px] text-neutral-400">
                             {new Date(m.created_at).toLocaleString(undefined, {

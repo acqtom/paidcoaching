@@ -57,7 +57,13 @@ Router) and Supabase Auth.
    to edit message content). `0011_conversation_reads.sql` adds
    per-conversation read tracking (`conversation_reads`) and
    `has_unread_communications()`, which is what turns the dashboard's
-   Communications card green.
+   Communications card green. `0012_welcome_bot.sql` makes `sender_id`
+   nullable (null = a bot/system post, not a real account), adds a
+   uniqueness constraint on channel names, and adds a trigger that
+   find-or-creates `#general` and posts a welcome message there every
+   time someone new joins — it also re-defines
+   `has_unread_communications()` to fix a real bug this introduces (see
+   below).
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -734,6 +740,29 @@ in and you'll land on `/dashboard`.
   runs with the caller's own RLS applied to `messages` directly, so it
   can only ever see what that user could already see through the normal
   policies, with no separate visibility logic to keep in sync.
+
+  New signups get auto-welcomed into `#general` by a bot (`0012_welcome_bot.sql`).
+  Rather than create a fake `auth.users` row just to have something to
+  post as, `messages.sender_id` became nullable — `null` means a
+  system/bot post, handled throughout `CommunicationsApp.tsx` (a `BOT_NAME`
+  constant, "🤖 paidcoaching.com BOT" instead of an `@username`, no
+  profile lookup attempted) rather than treated as a missing/unknown
+  sender. The `handle_new_profile_welcome` trigger (`AFTER INSERT on
+  profiles`, alongside the existing DM-creation one from 0009) finds or
+  creates `#general` and posts "👋 Everyone, please welcome
+  @&lt;username&gt; to the team!" — find-or-create is race-safe because
+  channel names are now unique (a new `conversations_channel_name_unique`
+  partial index), which also means the admin's own "+ New Channel" form
+  needed a duplicate-name error message it never had before (a
+  `channelError` state shown right by that form, not reusing the
+  composer's `error` state, since a mistake in the sidebar showing up
+  down in the message composer would be a confusing place to look for
+  it). This surfaced a real bug in `has_unread_communications()`
+  (0011): it checked `sender_id <> auth.uid()`, and in SQL `NULL <>`
+  anything evaluates to `NULL`, not true — so a bot message would
+  silently never count as unread and the dashboard's green badge would
+  never notice a welcome message. 0012 re-defines the function with
+  `sender_id is null or sender_id <> auth.uid()`.
 
 ## Deploying
 
