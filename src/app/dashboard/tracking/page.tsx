@@ -40,10 +40,8 @@ export default async function TrackingPage() {
 
       {isAdmin ? (
         <BoardSwitcher
+          mode="tracking"
           iframeTitle="Metrics Tracking"
-          buildIframeSrc={(b) =>
-            `/tracking-app/index.html?board=${encodeURIComponent(b.id)}&board_name=${encodeURIComponent(b.name)}`
-          }
           emptyMessage="No boards yet — add one from the Sales Team Board or here to start tracking its metrics."
         />
       ) : (

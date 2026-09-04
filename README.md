@@ -1019,15 +1019,32 @@ in and you'll land on `/dashboard`.
   React component, `src/components/BoardSwitcher.tsx`, rendered above
   the iframe on both `/dashboard/sales-board` and `/dashboard/tracking`
   (each page branches on `isAdminUsername()`: admins get the switcher,
-  everyone else gets the exact same plain iframe as before). Both pages
-  hand it a `buildIframeSrc(board)` function — the only thing that
-  differs between the two — and it handles fetching the shared board
-  list, an inline "Add board" name form, and remembering the last-
-  selected board in `localStorage` under one shared key (so switching
-  boards on one page carries over as the default on the other, since
-  they're views onto the same underlying rows). Selecting a board
-  remounts the iframe (`key={selectedBoard.id}`) rather than relying on
-  a bare `src` change to force a real reload.
+  everyone else gets the exact same plain iframe as before). It handles
+  fetching the shared board list, an inline "Add board" name form, and
+  remembering the last-selected board in `localStorage` under one shared
+  key (so switching boards on one page carries over as the default on
+  the other, since they're views onto the same underlying rows).
+  Selecting a board remounts the iframe (`key={selectedBoard.id}`)
+  rather than relying on a bare `src` change to force a real reload.
+
+  Both pages originally passed it a `buildIframeSrc(board)` *function*
+  prop — which crashed the page with a generic server error the moment
+  it was actually requested, since a Server Component (both page files)
+  can't pass a function to a Client Component (`BoardSwitcher`) at all;
+  functions aren't serializable across that boundary, and Next.js
+  rejects the render outright rather than silently dropping it. Neither
+  ESLint nor `next build` catches this — it's a runtime-only failure
+  that only surfaces once the page is actually rendered for a real
+  request, which a build step never does for a dynamic route. Fixed by
+  replacing the function with a plain `mode: "sales-board" | "tracking"`
+  string prop (fully serializable) and moving the two URL-building
+  branches inside `BoardSwitcher` itself, keyed on that string. Confirmed
+  fixed with a temporary test route rendering the exact same Server
+  Component → `<BoardSwitcher mode="..." .../>` pattern with no auth
+  dependency (added to `PUBLIC_PATHS` for the run, fully reverted after)
+  — inspecting the actual RSC payload in the response showed only plain
+  strings being passed (`{"mode":"sales-board","iframeTitle":"Test",...}`),
+  confirming no function ever crosses the boundary anymore.
 
   The dashboard's "Today's Cash Collected" card now sums today's closed-
   deal cash across *all* of an admin's boards, combined with their
@@ -1036,18 +1053,18 @@ in and you'll land on `/dashboard`.
   (skipped entirely for non-admins) and folds their deals in with the
   existing calculation via a small shared `sumTodayCash()` helper.
 
-  Verified via `npx eslint .` and a clean `rm -rf .next && npm run
+  Also verified via `npx eslint .` and a clean `rm -rf .next && npm run
   build` (all new routes/pages registered correctly, `/dashboard/sales-
   board` and `/dashboard/tracking` correctly became dynamic now that
-  both do a real admin check), confirmed `/board-access` and
-  `/board-access/[code]` both serve successfully, confirmed both ported
+  both do a real admin check), and confirmed `/board-access` and
+  `/board-access/[code]` both serve successfully, and that both ported
   apps still serve their static HTML correctly with the new `board`/
-  `board_code` params present. A live end-to-end pass (creating a real
-  board, switching between boards, a rep using a `board_code` link)
-  wasn't possible without both `0023_multi_sales_boards.sql` run against
-  Supabase and a real logged-in admin session — verified instead by
-  code review and a static HTML/Tailwind mockup of `BoardSwitcher`'s
-  populated, add-form, and empty states.
+  `board_code` params present. A full live end-to-end pass (creating a
+  real board, switching between boards, a rep using a `board_code`
+  link) wasn't possible without `0023_multi_sales_boards.sql` run
+  against Supabase — verified instead by code review and a static
+  HTML/Tailwind mockup of `BoardSwitcher`'s populated, add-form, and
+  empty states.
 
 - `src/app/dashboard/communications` — the Communications Hub: open
   channels (any user can post, only admins create new ones) plus a private

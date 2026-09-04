@@ -31,8 +31,8 @@ export default async function SalesBoardPage() {
 
       {isAdmin ? (
         <BoardSwitcher
+          mode="sales-board"
           iframeTitle="Sales Team Board"
-          buildIframeSrc={(b) => `/sales-board-app/index.html?board=${encodeURIComponent(b.id)}`}
           emptyMessage="No boards yet — running multiple offers at once? Add your first one above."
         />
       ) : (

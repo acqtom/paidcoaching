@@ -13,17 +13,29 @@ export type Board = { id: string; name: string; access_code: string | null; crea
 // ported apps.
 const LAST_BOARD_KEY = "student-hub:last-sales-board-id";
 
+// Which ported app to point the iframe at, and which query params it
+// expects -- kept as a plain string tag rather than a function prop,
+// since this component is rendered from a Server Component page and
+// functions can't cross that server/client boundary (passing one
+// crashes the page with a server error rather than a helpful message).
+type Mode = "sales-board" | "tracking";
+
+function buildIframeSrc(mode: Mode, board: Board): string {
+  return mode === "sales-board"
+    ? `/sales-board-app/index.html?board=${encodeURIComponent(board.id)}`
+    : `/tracking-app/index.html?board=${encodeURIComponent(board.id)}&board_name=${encodeURIComponent(board.name)}`;
+}
+
 // Admin-only multi-board picker + "Add board" flow, sitting above the
 // iframe on both /dashboard/sales-board and /dashboard/tracking.
-// `buildIframeSrc` is the only thing that differs between the two --
-// which ported app to point at and which query params it expects.
+// `mode` is the only thing that differs between the two.
 export function BoardSwitcher({
+  mode,
   iframeTitle,
-  buildIframeSrc,
   emptyMessage,
 }: {
+  mode: Mode;
   iframeTitle: string;
-  buildIframeSrc: (board: Board) => string;
   emptyMessage: string;
 }) {
   const [boards, setBoards] = useState<Board[] | null>(null);
@@ -143,7 +155,7 @@ export function BoardSwitcher({
       {selectedBoard ? (
         <iframe
           key={selectedBoard.id}
-          src={buildIframeSrc(selectedBoard)}
+          src={buildIframeSrc(mode, selectedBoard)}
           title={iframeTitle}
           className="flex-1 w-full border-0"
         />
