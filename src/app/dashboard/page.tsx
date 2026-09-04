@@ -7,6 +7,7 @@ import { BugReportButton } from "@/components/BugReportButton";
 import { ProfileButton } from "@/components/ProfileModal";
 import { CashTargetCard } from "@/components/CashTargetCard";
 import { UrgentTasksCard } from "@/components/UrgentTasksCard";
+import { isAdminUsername } from "@/lib/is-admin-username";
 
 type Deal = { closingDate?: string; callOutcome?: string; cashCollected?: number | string | null };
 type BacklogTask = {
@@ -63,6 +64,9 @@ export default async function DashboardPage() {
   // 0011_conversation_reads.sql.
   const { data: hasUnread } = user ? await supabase.rpc("has_unread_communications") : { data: false };
 
+  const isAdmin = isAdminUsername(profile?.username ?? "");
+  const visibleCards = CARDS.filter((card) => !card.adminOnly || isAdmin);
+
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
@@ -106,7 +110,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {CARDS.map((card) => (
+          {visibleCards.map((card) => (
             <DashboardCard
               key={card.slug}
               card={card}

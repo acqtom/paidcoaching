@@ -37,10 +37,14 @@ export async function signup(
   formData: FormData,
 ): Promise<ActionState> {
   const email = String(formData.get("email") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
+  if (!fullName) {
+    return { error: "Please enter your full name." };
+  }
   if (!USERNAME_PATTERN.test(username)) {
     return {
       error:
@@ -69,7 +73,7 @@ export async function signup(
     email,
     password,
     options: {
-      data: { username },
+      data: { username, full_name: fullName },
       // Lands on /login (not /dashboard) after confirming, per explicit
       // direction -- confirming does log them in, so /dashboard would
       // technically also work, but /login is the one clearly "correct"

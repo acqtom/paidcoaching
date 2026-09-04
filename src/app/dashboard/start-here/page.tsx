@@ -1,8 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Logo } from "@/components/Logo";
+import { createClient } from "@/lib/supabase/server";
 import { StartHereTabs } from "./StartHereTabs";
 
-export default function StartHerePage() {
+export default async function StartHerePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
@@ -24,7 +32,7 @@ export default function StartHerePage() {
         </p>
 
         <div className="mt-6">
-          <StartHereTabs />
+          <StartHereTabs userId={user.id} />
         </div>
       </main>
     </div>

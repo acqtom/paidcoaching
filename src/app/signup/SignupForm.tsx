@@ -17,6 +17,13 @@ export function SignupForm() {
     <form action={formAction} className="space-y-4">
       <FormError message={state.error} />
       <FormField
+        label="Full name"
+        type="text"
+        name="fullName"
+        autoComplete="name"
+        required
+      />
+      <FormField
         label="Email"
         type="email"
         name="email"

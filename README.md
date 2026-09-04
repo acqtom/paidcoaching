@@ -115,6 +115,12 @@ Router) and Supabase Auth.
    DMs can never be deleted. Messages, reactions, and read-tracking rows
    all already cascade-delete off `conversations.id`, so no extra
    cleanup is needed.
+   `0020_student_data.sql` adds `profiles.full_name` (updating
+   `handle_new_user()` to copy it out of signup metadata alongside
+   `username`), a new `intake_form_submissions` table (student-owned
+   read/write, admin read-all) for the two Typeform-style forms on Start
+   Here, and an `admin_list_students()` function backing the new
+   Student Data admin page.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -135,7 +141,14 @@ in and you'll land on `/dashboard`.
 ## Structure
 
 - `src/app/login`, `/signup`, `/forgot-password`, `/reset-password` — auth
-  pages, backed by server actions in `src/lib/auth-actions.ts`.
+  pages, backed by server actions in `src/lib/auth-actions.ts`. Signup
+  collects a required **Full name** alongside username/email/password
+  (`0020_student_data.sql` adds `profiles.full_name`; `handle_new_user()`
+  copies it out of signup metadata the same way it already did for
+  `username`) — needed for the Student Data admin page below, and also
+  editable afterward via the profile modal (`src/components/
+  ProfileModal.tsx`), shown to other viewers above their `@username`
+  when set.
 - `src/proxy.ts` + `src/lib/supabase/middleware.ts` — protects
   everything except the auth pages; redirects logged-in users away from
   login/signup.
@@ -201,6 +214,31 @@ in and you'll land on `/dashboard`.
   headless-Chrome screenshot (temporarily adding this route to
   `PUBLIC_PATHS` for the run, fully reverted after — the same pattern
   used throughout this app for auth-gated pages).
+
+  Underneath each tab's Calendly embed sits a **Typeform-style intake
+  form** — `src/components/TypeformFlow.tsx`, one question fills the
+  card at a time with a thin progress bar, a slide/fade transition
+  between questions, number-key or click-to-select for multiple choice
+  (auto-advances immediately, no separate "next" button), Enter ↵ to
+  advance a short-text answer, and a back arrow to revisit the previous
+  question — fully generic over a `questions: TypeformQuestion[]` array
+  (`src/lib/intake-forms.ts`) so the same component backs both the CMO
+  form (7 questions: offer status, niche, ad spend budget, ads
+  knowledge, traffic source, monthly revenue, data tracking — all given
+  verbatim) and the CEO form (no questions yet — `CEO_QUESTIONS` is
+  empty and the CEO tab hides `TypeformFlow` entirely until it isn't).
+  Submitting writes one row per (student, form) to
+  `intake_form_submissions` (`0020_student_data.sql`) as a flat
+  `{ [questionId]: answer }` jsonb blob — an `upsert` keyed on
+  `(user_id, form)`, so resubmitting (via the "Edit your answers" link
+  on the submitted state) overwrites rather than duplicating. RLS lets a
+  student read/write only their own rows; admins can read (never write)
+  anyone's, for the Student Data page below. The text-question's local
+  draft state resets between questions via React's own `key={question.id}`
+  remount (a small `ShortTextQuestion` subcomponent keyed by question id)
+  rather than a `useEffect` syncing it — the same
+  derive-instead-of-sync-in-an-effect fix applied elsewhere in this app,
+  caught here by the same React Compiler purity rule mid-build.
 - `src/app/dashboard/sops` — SOP hub, three levels deep: a department
   grid (Operations, Marketing, Sales, Fulfilment — hardcoded in
   `src/lib/sops.ts`, a fixed set of 4 with their own icons) → each
@@ -1174,6 +1212,43 @@ in and you'll land on `/dashboard`.
   doesn't have the new columns until then) — verified instead by code
   review, ESLint, and the TypeScript build, same limitation as the rest
   of Communications' direct-Supabase data flows.
+
+- `src/app/dashboard/student-data` — **Student Data**, an admin-only
+  dashboard card (`adminOnly: true` on its entry in `src/lib/cards.ts`;
+  `Card.adminOnly` is a new field, filtered out of `CARDS` for anyone
+  whose username isn't one letter in `dashboard/page.tsx`) listing every
+  student who's joined: avatar, full name, `@username`, email, join
+  date, a computed program end date (join date + 3 months, hardcoded via
+  `PROGRAM_MONTHS` in `page.tsx`), and a progress bar showing how far
+  into that window they are. A "View Form Submission" button per row
+  opens a modal with a CMO/CEO pill switcher showing that student's
+  intake answers next to each question's actual text (pulled from
+  `CMO_QUESTIONS`/`CEO_QUESTIONS`), or "Not submitted yet" if they
+  haven't filled it in.
+
+  The roster comes from `admin_list_students()` (`0020_student_data.sql`,
+  `SECURITY DEFINER`), which joins `profiles` with `auth.users` for
+  fields RLS could never otherwise expose across accounts (email, the
+  real signup timestamp) — `is_admin(auth.uid())` is checked *inside*
+  the function itself, so a non-admin caller gets zero rows back rather
+  than an error, and one-letter (admin) usernames are excluded from the
+  result since "students" means everyone else. The page also redirects
+  non-admins to `/dashboard` itself, same defense-in-depth as everywhere
+  else "admin" gates a whole page in this app, not just data access.
+
+  Verified via `npx eslint .` and a clean `rm -rf .next && npm run
+  build` — the build caught two real issues: a `Date.now()` call during
+  a Server Component's render body (flagged as an impure function by the
+  same React Compiler purity rule that gates client components; fixed by
+  switching to `new Date()`, matching the identical pattern
+  `dashboard/page.tsx` already used successfully for `todayISO`) and a
+  `.rpc()` call typed as implicit `any` (this project has no generated
+  Supabase types, so a local `StudentRow` type was added just to type
+  the `.map()` over it). A live Puppeteer pass wasn't possible without
+  both a run of `0020_student_data.sql` and a real admin session with
+  actual student accounts/submissions to list — verified instead via
+  code review and a static HTML/Tailwind mockup of `TypeformFlow`'s
+  question/done states for visual confirmation.
 
 ## Deploying
 

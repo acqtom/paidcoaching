@@ -7,6 +7,7 @@ import { isAdminUsername } from "@/lib/is-admin-username";
 
 type Profile = {
   username: string;
+  full_name: string | null;
   avatar_path: string | null;
   bio: string | null;
   instagram_url: string | null;
@@ -37,6 +38,7 @@ export function ProfileModal({
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [editFullName, setEditFullName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editInstagram, setEditInstagram] = useState("");
@@ -53,11 +55,12 @@ export function ProfileModal({
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("username, avatar_path, bio, instagram_url, youtube_url")
+        .select("username, full_name, avatar_path, bio, instagram_url, youtube_url")
         .eq("id", userId)
         .maybeSingle();
       if (cancelled || !data) return;
       setProfile(data);
+      setEditFullName(data.full_name ?? "");
       setEditUsername(data.username);
       setEditBio(data.bio ?? "");
       setEditInstagram(data.instagram_url ?? "");
@@ -132,13 +135,14 @@ export function ProfileModal({
     const { data, error: updateError } = await supabase
       .from("profiles")
       .update({
+        full_name: editFullName.trim() || null,
         username: trimmedUsername,
         bio: editBio.trim() || null,
         instagram_url: editInstagram.trim() || null,
         youtube_url: editYoutube.trim() || null,
       })
       .eq("id", userId)
-      .select("username, bio, instagram_url, youtube_url")
+      .select("full_name, username, bio, instagram_url, youtube_url")
       .single();
     setSaving(false);
     if (updateError || !data) {
@@ -214,20 +218,38 @@ export function ProfileModal({
               </div>
 
               {!isOwn && (
-                <p
-                  className={`mt-3 text-base font-semibold ${
-                    isAdminUsername(profile.username)
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-neutral-900 dark:text-neutral-100"
-                  }`}
-                >
-                  @{profile.username}
-                </p>
+                <>
+                  {profile.full_name && (
+                    <p className="mt-3 text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                      {profile.full_name}
+                    </p>
+                  )}
+                  <p
+                    className={`${profile.full_name ? "mt-0.5 text-sm" : "mt-3 text-base font-semibold"} ${
+                      isAdminUsername(profile.username)
+                        ? "text-amber-700 dark:text-amber-400"
+                        : profile.full_name
+                          ? "text-neutral-500"
+                          : "text-neutral-900 dark:text-neutral-100"
+                    }`}
+                  >
+                    @{profile.username}
+                  </p>
+                </>
               )}
             </div>
 
             {isOwn ? (
               <form onSubmit={handleSave} className="mt-5 space-y-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-neutral-500">Full name</span>
+                  <input
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+                  />
+                </label>
+
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-neutral-500">Username</span>
                   <input

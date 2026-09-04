@@ -9,6 +9,7 @@ import {
   Rocket,
   Sparkles,
   TrendingUp,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,6 +20,9 @@ export type Card = {
   icon: LucideIcon;
   href: string;
   accent?: "gold";
+  // Only shown to admins (one-letter usernames) -- filtered out of CARDS
+  // for everyone else in src/app/dashboard/page.tsx.
+  adminOnly?: boolean;
 };
 
 export const CARDS: Card[] = [
@@ -92,5 +96,13 @@ export const CARDS: Card[] = [
     description: "Private chat and community, all in one place.",
     icon: MessagesSquare,
     href: "/dashboard/communications",
+  },
+  {
+    slug: "student-data",
+    title: "Student Data",
+    description: "Every student who's joined, their program timeline, and form submissions.",
+    icon: Users,
+    href: "/dashboard/student-data",
+    adminOnly: true,
   },
 ];

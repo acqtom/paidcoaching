@@ -6,6 +6,8 @@ import { VideoPlaceholder } from "./VideoPlaceholder";
 import { CalendlyPlaceholder } from "./CalendlyPlaceholder";
 import { NewStudentForm } from "./NewStudentForm";
 import { NavigationTable } from "./NavigationTable";
+import { TypeformFlow } from "@/components/TypeformFlow";
+import { CEO_QUESTIONS, CMO_QUESTIONS } from "@/lib/intake-forms";
 
 const TABS = [
   { id: "CMO", label: "CMO", sub: "Marketing lead", icon: Megaphone },
@@ -13,7 +15,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
-export function StartHereTabs() {
+export function StartHereTabs({ userId }: { userId: string }) {
   const [tab, setTab] = useState<Tab>("CMO");
 
   return (
@@ -58,6 +60,7 @@ export function StartHereTabs() {
           <>
             <VideoPlaceholder label="CMO welcome video" />
             <CalendlyPlaceholder />
+            <TypeformFlow formId="cmo" title="Marketing intake" questions={CMO_QUESTIONS} userId={userId} />
             <div className="rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-lg shadow-neutral-300/40 dark:shadow-black/50">
               <h2 className="text-lg font-semibold">New student form</h2>
               <p className="mt-1 text-sm text-neutral-500">
@@ -72,6 +75,9 @@ export function StartHereTabs() {
           <>
             <VideoPlaceholder label="CEO welcome video" />
             <CalendlyPlaceholder />
+            {CEO_QUESTIONS.length > 0 && (
+              <TypeformFlow formId="ceo" title="Business intake" questions={CEO_QUESTIONS} userId={userId} />
+            )}
             <div>
               <h2 className="text-lg font-semibold">Where everything lives</h2>
               <p className="mt-1 text-sm text-neutral-500">
