@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Briefcase, Megaphone } from "lucide-react";
 import { VideoPlaceholder } from "./VideoPlaceholder";
 import { CalendlyPlaceholder } from "./CalendlyPlaceholder";
-import { NavigationTable } from "./NavigationTable";
 import { TypeformFlow } from "@/components/TypeformFlow";
 import { CEO_QUESTIONS, CMO_QUESTIONS } from "@/lib/intake-forms";
 
@@ -68,15 +67,6 @@ export function StartHereTabs({ userId }: { userId: string }) {
             {CEO_QUESTIONS.length > 0 && (
               <TypeformFlow formId="ceo" title="Business intake" questions={CEO_QUESTIONS} userId={userId} />
             )}
-            <div>
-              <h2 className="text-lg font-semibold">Where everything lives</h2>
-              <p className="mt-1 text-sm text-neutral-500">
-                What each card on the dashboard does and where it takes you.
-              </p>
-              <div className="mt-4">
-                <NavigationTable />
-              </div>
-            </div>
           </>
         )}
       </div>
