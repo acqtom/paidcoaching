@@ -10,9 +10,29 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function StudentTable({ students }: { students: Student[] }) {
+function fmtUSD(n: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+}
+
+// Overdue means there's a due date in the past (or today) that hasn't
+// been marked paid yet -- not just "amount_due > 0", since a due date
+// might be set for the future while a balance is still outstanding.
+function isOverdue(s: Student): boolean {
+  if (!s.due_date || s.paid) return false;
+  const todayISO = new Date().toISOString().slice(0, 10);
+  return s.due_date <= todayISO;
+}
+
+export function StudentTable({ students: initialStudents }: { students: Student[] }) {
   const supabase = useMemo(() => createClient(), []);
+  const [students, setStudents] = useState(initialStudents);
   const [viewing, setViewing] = useState<Student | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Student | null>(null);
+
+  function handlePaymentSaved(updated: Student) {
+    setStudents((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    setEditingPayment(null);
+  }
 
   return (
     <>
@@ -25,6 +45,7 @@ export function StudentTable({ students }: { students: Student[] }) {
               <th className="px-5 py-3 font-semibold text-neutral-700 dark:text-neutral-300">Joined</th>
               <th className="px-5 py-3 font-semibold text-neutral-700 dark:text-neutral-300">Ends</th>
               <th className="px-5 py-3 font-semibold text-neutral-700 dark:text-neutral-300">Progress</th>
+              <th className="px-5 py-3 font-semibold text-neutral-700 dark:text-neutral-300">Payment</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
@@ -33,6 +54,7 @@ export function StudentTable({ students }: { students: Student[] }) {
               const avatarUrl = s.avatar_path
                 ? supabase.storage.from("avatars").getPublicUrl(s.avatar_path).data.publicUrl
                 : null;
+              const overdue = isOverdue(s);
               return (
                 <tr key={s.id} className="border-b border-neutral-300/40 last:border-0 dark:border-neutral-700/60">
                   <td className="px-5 py-3">
@@ -66,6 +88,23 @@ export function StudentTable({ students }: { students: Student[] }) {
                       <span className="text-xs text-neutral-500">{Math.round(s.progress_pct)}%</span>
                     </div>
                   </td>
+                  <td className="px-5 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingPayment(s)}
+                      className={
+                        overdue
+                          ? "inline-flex items-center gap-1.5 rounded-lg border border-rose-400 bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-400 dark:hover:bg-rose-500/25"
+                          : "inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      }
+                    >
+                      {s.due_date
+                        ? `${fmtUSD(s.amount_due)} due ${fmtDate(s.due_date)}`
+                        : s.amount_paid_upfront > 0
+                          ? `${fmtUSD(s.amount_paid_upfront)} paid`
+                          : "Set payment"}
+                    </button>
+                  </td>
                   <td className="px-5 py-3 text-right">
                     <button
                       type="button"
@@ -81,7 +120,7 @@ export function StudentTable({ students }: { students: Student[] }) {
             })}
             {students.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-6 text-center text-neutral-400">
+                <td colSpan={7} className="px-5 py-6 text-center text-neutral-400">
                   No students yet.
                 </td>
               </tr>
@@ -91,7 +130,137 @@ export function StudentTable({ students }: { students: Student[] }) {
       </div>
 
       {viewing && <SubmissionModal student={viewing} onClose={() => setViewing(null)} />}
+      {editingPayment && (
+        <PaymentModal student={editingPayment} onClose={() => setEditingPayment(null)} onSaved={handlePaymentSaved} />
+      )}
     </>
+  );
+}
+
+function PaymentModal({
+  student,
+  onClose,
+  onSaved,
+}: {
+  student: Student;
+  onClose: () => void;
+  onSaved: (updated: Student) => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [amountPaidUpfront, setAmountPaidUpfront] = useState(String(student.amount_paid_upfront || ""));
+  const [amountDue, setAmountDue] = useState(String(student.amount_due || ""));
+  const [dueDate, setDueDate] = useState(student.due_date ?? "");
+  const [paid, setPaid] = useState(student.paid);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    const { data, error: upsertError } = await supabase
+      .from("student_payments")
+      .upsert(
+        {
+          user_id: student.id,
+          amount_paid_upfront: Number(amountPaidUpfront) || 0,
+          amount_due: Number(amountDue) || 0,
+          due_date: dueDate || null,
+          paid,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      )
+      .select("amount_paid_upfront, amount_due, due_date, paid")
+      .single();
+    setSaving(false);
+    if (upsertError || !data) {
+      setError("Couldn't save — try again.");
+      return;
+    }
+    onSaved({ ...student, ...data });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Payment</h2>
+            <p className="text-xs text-neutral-500">{student.full_name || `@${student.username}`}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="mt-4 space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Amount paid upfront ($)</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={amountPaidUpfront}
+              onChange={(e) => setAmountPaidUpfront(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Amount due ($)</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={amountDue}
+              onChange={(e) => setAmountDue(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-500">Due date</span>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+            />
+          </label>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={paid}
+              onChange={(e) => setPaid(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-700"
+            />
+            <span className="text-sm text-neutral-700 dark:text-neutral-300">
+              Paid — clears the overdue flag regardless of due date
+            </span>
+          </label>
+
+          {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 

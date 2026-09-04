@@ -16,6 +16,10 @@ export type Student = {
   created_at: string;
   end_date: string;
   progress_pct: number;
+  amount_paid_upfront: number;
+  amount_due: number;
+  due_date: string | null;
+  paid: boolean;
 };
 
 // Row shape returned by the admin_list_students() RPC
@@ -29,6 +33,14 @@ type StudentRow = {
   avatar_path: string | null;
   email: string;
   created_at: string;
+};
+
+type PaymentRow = {
+  user_id: string;
+  amount_paid_upfront: number;
+  amount_due: number;
+  due_date: string | null;
+  paid: boolean;
 };
 
 export default async function StudentDataPage() {
@@ -46,14 +58,30 @@ export default async function StudentDataPage() {
   if (!isAdminUsername(profile?.username ?? "")) redirect("/dashboard");
 
   const { data: rows } = await supabase.rpc("admin_list_students");
+  const studentRows = (rows ?? []) as StudentRow[];
+
+  const { data: paymentRows } =
+    studentRows.length > 0
+      ? await supabase
+          .from("student_payments")
+          .select("user_id, amount_paid_upfront, amount_due, due_date, paid")
+          .in(
+            "user_id",
+            studentRows.map((r) => r.id)
+          )
+      : { data: [] };
+  const paymentsByUser = new Map<string, PaymentRow>(
+    ((paymentRows ?? []) as PaymentRow[]).map((p) => [p.user_id, p])
+  );
 
   const now = new Date();
-  const students: Student[] = ((rows ?? []) as StudentRow[]).map((r) => {
+  const students: Student[] = studentRows.map((r) => {
     const createdAt = new Date(r.created_at);
     const endDate = new Date(createdAt);
     endDate.setMonth(endDate.getMonth() + PROGRAM_MONTHS);
     const totalMs = endDate.getTime() - createdAt.getTime();
     const progress = totalMs > 0 ? ((now.getTime() - createdAt.getTime()) / totalMs) * 100 : 0;
+    const payment = paymentsByUser.get(r.id);
     return {
       id: r.id,
       username: r.username,
@@ -63,6 +91,10 @@ export default async function StudentDataPage() {
       created_at: r.created_at,
       end_date: endDate.toISOString(),
       progress_pct: Math.max(0, Math.min(100, progress)),
+      amount_paid_upfront: payment?.amount_paid_upfront ?? 0,
+      amount_due: payment?.amount_due ?? 0,
+      due_date: payment?.due_date ?? null,
+      paid: payment?.paid ?? false,
     };
   });
 

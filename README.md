@@ -121,6 +121,10 @@ Router) and Supabase Auth.
    read/write, admin read-all) for the two Typeform-style forms on Start
    Here, and an `admin_list_students()` function backing the new
    Student Data admin page.
+   `0021_student_payments.sql` adds `student_payments` (one row per
+   student — amount paid upfront, amount due, due date, a `paid` flag),
+   admin-only in both directions, backing the Payment button on Student
+   Data.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -1228,6 +1232,26 @@ in and you'll land on `/dashboard`.
   intake answers next to each question's actual text (pulled from
   `CMO_QUESTIONS`/`CEO_QUESTIONS`), or "Not submitted yet" if they
   haven't filled it in.
+
+  A **Payment** button per row (`0021_student_payments.sql`) opens a
+  form for manually entering what a student paid upfront, what's still
+  owed, and when that's due — one row per student in a new
+  `student_payments` table, admin-write/admin-read-only (no student-
+  facing read policy at all; this is internal ops data, not something
+  shown anywhere in a student's own portal). The button itself doubles
+  as the status indicator: it turns red (`border-rose-400 bg-rose-100`,
+  the same rose/danger palette used for delete actions elsewhere in this
+  app) whenever there's a due date that's today or in the past and the
+  row hasn't been marked paid — `isOverdue()` in `StudentTable.tsx`,
+  compared against today's date client-side. `paid` is a separate
+  explicit boolean rather than inferring "resolved" from
+  `amount_due = 0`, since a partial payment might never bring the
+  balance to exactly zero and an admin should be able to clear the flag
+  in one action (a checkbox in the same form) regardless of the exact
+  amounts. Saving upserts by `user_id` (the table's primary key, so
+  every student has at most one payment record) and updates that row's
+  values in local state immediately — no full page reload needed to see
+  the button's color/label change.
 
   The roster comes from `admin_list_students()` (`0020_student_data.sql`,
   `SECURITY DEFINER`), which joins `profiles` with `auth.users` for
