@@ -175,6 +175,32 @@ in and you'll land on `/dashboard`.
   mockup using the exact same Tailwind classes as the live components,
   to confirm the two-card row sits correctly above the existing grid at
   every breakpoint.
+- `src/app/dashboard/start-here` — the Start Here card's own page: a
+  CMO/CEO role picker, then a welcome video, a Calendly slot, and a
+  role-specific block underneath (a new-student intake form for CMO, a
+  table of what every dashboard card does and where it goes for CEO).
+  Pre-dated most of this session's work and had stayed pure scaffolding
+  the whole time — a plain pill-style tab switcher, flat gray-gradient
+  "coming soon" boxes for the video and Calendly slots, and a bare
+  unwrapped form sitting directly on the page background, all visually
+  disconnected from the rest of the app. Restyled to match: the CMO/CEO
+  switcher (`StartHereTabs.tsx`) became two selectable role-cards using
+  the exact same visual language as `DashboardCard.tsx`'s own gold
+  variant — inactive cards are plain white/`neutral-900` with an indigo
+  icon badge, the active one gets the amber gradient border/background/
+  icon-badge treatment `accent: "gold"` cards use elsewhere, tying this
+  page back to its own gold "Start Here" card on the dashboard.
+  `VideoPlaceholder.tsx` and `CalendlyPlaceholder.tsx` were both
+  restyled to the black-box-with-a-white/10-circle-icon look SOPs'
+  lesson video area already established, rather than their own
+  one-off gray gradient. `NewStudentForm.tsx`'s fields now sit inside a
+  proper `rounded-2xl border ... shadow-lg` card (previously just bare
+  `<label>`s on the page background) — the form's own fields and submit
+  behavior are unchanged. `NavigationTable.tsx` already matched this
+  card language and didn't need touching. Verified visually via a
+  headless-Chrome screenshot (temporarily adding this route to
+  `PUBLIC_PATHS` for the run, fully reverted after — the same pattern
+  used throughout this app for auth-gated pages).
 - `src/app/dashboard/sops` — SOP hub, three levels deep: a department
   grid (Operations, Marketing, Sales, Fulfilment — hardcoded in
   `src/lib/sops.ts`, a fixed set of 4 with their own icons) → each
