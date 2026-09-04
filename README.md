@@ -206,14 +206,17 @@ in and you'll land on `/dashboard`.
   `VideoPlaceholder.tsx` and `CalendlyPlaceholder.tsx` were both
   restyled to the black-box-with-a-white/10-circle-icon look SOPs'
   lesson video area already established, rather than their own
-  one-off gray gradient. `NewStudentForm.tsx`'s fields now sit inside a
-  proper `rounded-2xl border ... shadow-lg` card (previously just bare
-  `<label>`s on the page background) — the form's own fields and submit
-  behavior are unchanged. `NavigationTable.tsx` already matched this
+  one-off gray gradient. `NavigationTable.tsx` already matched this
   card language and didn't need touching. Verified visually via a
   headless-Chrome screenshot (temporarily adding this route to
   `PUBLIC_PATHS` for the run, fully reverted after — the same pattern
   used throughout this app for auth-gated pages).
+
+  `NewStudentForm.tsx` (the CMO tab's original placeholder — a fake
+  name/email/phone/program form that never actually persisted anywhere)
+  was deleted outright once the real CMO Typeform below shipped, per
+  explicit direction — it was always a stand-in for exactly what that
+  form now does for real.
 
   Underneath each tab's Calendly embed sits a **Typeform-style intake
   form** — `src/components/TypeformFlow.tsx`, one question fills the

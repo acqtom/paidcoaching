@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Briefcase, Megaphone } from "lucide-react";
 import { VideoPlaceholder } from "./VideoPlaceholder";
 import { CalendlyPlaceholder } from "./CalendlyPlaceholder";
-import { NewStudentForm } from "./NewStudentForm";
 import { NavigationTable } from "./NavigationTable";
 import { TypeformFlow } from "@/components/TypeformFlow";
 import { CEO_QUESTIONS, CMO_QUESTIONS } from "@/lib/intake-forms";
@@ -61,15 +60,6 @@ export function StartHereTabs({ userId }: { userId: string }) {
             <VideoPlaceholder label="CMO welcome video" />
             <CalendlyPlaceholder />
             <TypeformFlow formId="cmo" title="Marketing intake" questions={CMO_QUESTIONS} userId={userId} />
-            <div className="rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-lg shadow-neutral-300/40 dark:shadow-black/50">
-              <h2 className="text-lg font-semibold">New student form</h2>
-              <p className="mt-1 text-sm text-neutral-500">
-                Fill this in for every new student joining the program.
-              </p>
-              <div className="mt-4 max-w-md">
-                <NewStudentForm />
-              </div>
-            </div>
           </>
         ) : (
           <>
