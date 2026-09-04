@@ -739,7 +739,12 @@ function studentUsername(){
   return new URLSearchParams(location.search).get('user')||'you';
 }
 function seedDefaultClient(){
-  return{id:'default',name:'@'+studentUsername(),data:{}};
+  // An admin viewing one of their multi-boards (see `urlBoard` below)
+  // gets that board's own name as the label instead of their own
+  // username, since the metrics being viewed belong to the board, not
+  // to them personally.
+  const boardName=new URLSearchParams(location.search).get('board_name');
+  return{id:'default',name: boardName || ('@'+studentUsername()),data:{}};
 }
 let CLIENTS=[seedDefaultClient()];
 let currentClientId='default', trendMode='week';
@@ -765,6 +770,11 @@ let dataReady=false;
 let serverSaveTimer=null;
 let pollTimer=null;
 let pollInFlight=false;
+// Set only by the React wrapper page's board switcher (see
+// src/app/dashboard/tracking/page.tsx) when an admin is viewing one of
+// their multi-boards' own Metrics Tracking data
+// (0023_multi_sales_boards.sql) instead of their single per-account one.
+const urlBoard=new URLSearchParams(location.search).get('board');
 
 const syncBanner=document.getElementById('sync-banner');
 function showSyncError(msg){syncBanner.textContent=msg;syncBanner.hidden=false;}
@@ -778,14 +788,16 @@ async function apiPost(path,body){
 }
 
 async function loadServerData(){
-  const res=await apiPost('/api/tracking/session');
+  const path=urlBoard?`/api/metrics-boards/session?board=${encodeURIComponent(urlBoard)}`:'/api/tracking/session';
+  const res=await apiPost(path);
   return res.data||{};
 }
 
 async function saveServerData(){
   if(!dataReady)return;
   try{
-    await apiPost('/api/tracking/save',{data:currentClient().data||{}});
+    const path=urlBoard?`/api/metrics-boards/save?board=${encodeURIComponent(urlBoard)}`:'/api/tracking/save';
+    await apiPost(path,{data:currentClient().data||{}});
     clearSyncError();
   }catch(e){
     console.error('Failed to save tracking data to server:',e);

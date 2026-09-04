@@ -1827,8 +1827,22 @@
   // once a load succeeds, `accessCode` backs the Add Team tab's "Secret
   // key" display in owner mode.
   const urlCode = new URLSearchParams(location.search).get("code");
-  let accessCode = urlCode || "";
-  const salesAccessUrl = `${location.origin}/sales-access`;
+  // Two more modes, both part of the multi-board system
+  // (0023_multi_sales_boards.sql) -- entirely separate from the
+  // single-board `code`/session modes above, never both present at
+  // once. `board` is an admin viewing one of their own boards while
+  // logged in (set by the React wrapper page's board switcher, see
+  // src/app/dashboard/sales-board/page.tsx); `board_code` is a rep
+  // reaching one specific board with no login, via that board's own
+  // secret key (see /board-access/[code]).
+  const urlBoard = new URLSearchParams(location.search).get("board");
+  const urlBoardCode = new URLSearchParams(location.search).get("board_code");
+  let accessCode = urlCode || urlBoardCode || "";
+  // Which domain the Add Team tab tells a rep to go enter their code at
+  // -- the board-scoped one only when this session is an admin viewing
+  // one of their own multi-boards, since /sales-access only ever
+  // recognizes the old singleton system's own codes.
+  const salesAccessUrl = urlBoard ? `${location.origin}/board-access` : `${location.origin}/sales-access`;
 
   const syncBanner = document.getElementById("sync-banner");
   function showSyncError(msg) {
@@ -1868,7 +1882,11 @@
   async function loadUserData() {
     const data = urlCode
       ? await apiGet(`/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}`)
-      : await apiPost("/api/sales-board/session");
+      : urlBoardCode
+        ? await apiGet(`/api/sales-boards/by-code?code=${encodeURIComponent(urlBoardCode)}`)
+        : urlBoard
+          ? await apiPost(`/api/sales-boards/session?board=${encodeURIComponent(urlBoard)}`)
+          : await apiPost("/api/sales-board/session");
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
@@ -1877,7 +1895,10 @@
   }
 
   function savePath() {
-    return urlCode ? `/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}` : "/api/sales-board/save";
+    if (urlCode) return `/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}`;
+    if (urlBoardCode) return `/api/sales-boards/by-code?code=${encodeURIComponent(urlBoardCode)}`;
+    if (urlBoard) return `/api/sales-boards/save?board=${encodeURIComponent(urlBoard)}`;
+    return "/api/sales-board/save";
   }
 
   async function saveDeals() {

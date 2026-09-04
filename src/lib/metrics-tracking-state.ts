@@ -207,17 +207,22 @@ export function mergeSalesBoardMetrics(
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-// Reads this user's current metrics_tracking_state row (if any), merges
-// the Sales Board's deals into it, and writes the result back. Never
-// throws -- a metrics-push failure shouldn't fail the sales board save
-// that triggered it, so callers just fire-and-forget this and let it log.
-export async function pushSalesBoardMetrics(supabase: Supabase, userId: string, deals: unknown) {
+// Shared by both variants below -- the only difference between the
+// single-board-per-account system and the multi-board one is which
+// table/key column holds the metrics row, not the merge logic itself.
+async function pushMetrics(
+  supabase: Supabase,
+  table: "metrics_tracking_state" | "metrics_tracking_boards",
+  keyColumn: "id" | "board_id",
+  keyValue: string,
+  deals: unknown
+) {
   if (!Array.isArray(deals)) return;
   try {
     const { data: row, error: readError } = await supabase
-      .from("metrics_tracking_state")
+      .from(table)
       .select("data, sales_board_dates")
-      .eq("id", userId)
+      .eq(keyColumn, keyValue)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
 
@@ -225,14 +230,30 @@ export async function pushSalesBoardMetrics(supabase: Supabase, userId: string, 
     const existingDates = (row?.sales_board_dates as SalesBoardPushedDates) ?? { vsl: [], webinar: [] };
     const next = mergeSalesBoardMetrics(existingData, existingDates, deals as Deal[]);
 
-    const { error: writeError } = await supabase.from("metrics_tracking_state").upsert({
-      id: userId,
+    const { error: writeError } = await supabase.from(table).upsert({
+      [keyColumn]: keyValue,
       data: next.data,
       sales_board_dates: next.pushedDates,
       updated_at: new Date().toISOString(),
     });
     if (writeError) throw new Error(writeError.message);
   } catch (e) {
-    console.error("Failed to push sales board metrics to tracking:", e);
+    console.error(`Failed to push sales board metrics to ${table}:`, e);
   }
+}
+
+// Reads this user's current metrics_tracking_state row (if any), merges
+// the Sales Board's deals into it, and writes the result back. Never
+// throws -- a metrics-push failure shouldn't fail the sales board save
+// that triggered it, so callers just fire-and-forget this and let it log.
+export async function pushSalesBoardMetrics(supabase: Supabase, userId: string, deals: unknown) {
+  await pushMetrics(supabase, "metrics_tracking_state", "id", userId, deals);
+}
+
+// Same as above, but for one board in the multi-board system
+// (0023_multi_sales_boards.sql) -- writes into that board's own
+// metrics_tracking_boards row instead of a user-wide one, so running
+// multiple offers at once never mixes their numbers together.
+export async function pushSalesBoardMetricsForBoard(supabase: Supabase, boardId: string, deals: unknown) {
+  await pushMetrics(supabase, "metrics_tracking_boards", "board_id", boardId, deals);
 }

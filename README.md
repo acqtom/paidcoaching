@@ -129,6 +129,14 @@ Router) and Supabase Auth.
    the same query `has_unread_communications()` runs but returned per
    conversation instead of collapsed to one boolean — backs the bold
    name + green dot per unread channel/DM in the Communications sidebar.
+   `0023_multi_sales_boards.sql` adds `sales_boards` and
+   `metrics_tracking_boards` (lets an admin run any number of Sales Team
+   Boards at once, one per offer, each auto-getting its own separate
+   Metrics Tracking data via an insert trigger) plus
+   `get_board_by_code`/`save_board_by_code`/`get_board_id_by_code` for
+   anonymous per-board team access — entirely new tables/functions,
+   parallel to the existing single-board-per-account system, which this
+   doesn't touch at all.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -940,6 +948,106 @@ in and you'll land on `/dashboard`.
   Metrics Tracking's `mergeSalesBoardMetrics` test, compiled with `tsc`
   and executed with plain `node`, no browser needed since this slice of
   logic has no DOM dependency.
+
+  **Multiple boards per admin** (`0023_multi_sales_boards.sql`) — for
+  running several offers at once, each with its own deals/closers/
+  setters, its own team access code, and its own separate Metrics
+  Tracking data. Entirely new and additive, parallel to the original
+  single-board-per-account system (`sales_board_state`,
+  `metrics_tracking_state`, `/api/sales-board/*`) — which stays
+  completely untouched and keeps working exactly as before for every
+  non-admin account. Per explicit direction, an admin's existing single-
+  board data is *not* migrated into this new system; every admin starts
+  with zero multi-boards, and their old board simply isn't one of these
+  rows (nothing is deleted — it's just unreferenced by anything new).
+  Admin-only in every direction, not just hidden in the UI: `sales_boards`
+  and `metrics_tracking_boards`' RLS policies both re-check
+  `is_admin(auth.uid())` themselves, so this can't be reached by a non-
+  admin even by calling the new API routes directly.
+
+  Schema: `sales_boards` (`id`, `owner_id`, `name`, `access_code`, `data`
+  — the same `SalesBoardData` shape as the singleton system) and
+  `metrics_tracking_boards` (`board_id` primary key referencing
+  `sales_boards`, `data`, `sales_board_dates` — same shape as
+  `metrics_tracking_state`). A new board's Metrics Tracking row is
+  created automatically by an `after insert on sales_boards` trigger
+  (`handle_new_sales_board()`) in the same transaction as the board
+  itself — the "auto syncs with a new metrics tracking it auto makes"
+  part — so application code never has to remember to create it
+  separately. `pushSalesBoardMetrics`/`pushSalesBoardMetricsForBoard`
+  (`src/lib/metrics-tracking-state.ts`) now share one `pushMetrics()`
+  helper parameterized by table/key-column, rather than duplicating the
+  merge-and-upsert logic for the board-scoped variant.
+
+  New API routes, each mirroring an existing singleton-system route's
+  exact request/response contract so the two ported apps
+  (`public/sales-board-app/index.html`, `public/tracking-app/index.html`)
+  need almost no new code, just a new branch for which endpoint to call:
+  `GET`/`POST /api/sales-boards` (list/create, admin-only —
+  `src/lib/sales-boards-state.ts`'s `createSalesBoard()` retries on an
+  access-code collision the same way `ensureSalesBoardRow()` already
+  does), `POST /api/sales-boards/session`/`save` (both `?board=<id>`,
+  admin + ownership checked), `GET`/`POST /api/sales-boards/by-code`
+  (anonymous, resolved through new `get_board_by_code`/
+  `save_board_by_code`/`get_board_id_by_code` functions against
+  `sales_boards` — entirely parallel to, and never interacting with,
+  `get_sales_board_by_code`/`save_sales_board_by_code`, so a code from
+  one system is never valid in the other), and
+  `POST /api/metrics-boards/session`/`save` (both `?board=<id>`,
+  ownership checked by joining through `sales_boards`, since
+  `metrics_tracking_boards` carries no `owner_id` of its own).
+  `src/lib/require-admin.ts`'s `requireAdmin()` is shared by every one
+  of the session/save/list/create routes, so a non-admin gets a clean
+  401/403 instead of falling through to an opaque RLS rejection further
+  down.
+
+  Both ported apps learned one new URL param apiece (kept deliberately
+  minimal rather than rebuilding either app's UI): `sales-board-app`
+  gained `board` (an admin viewing one of their own boards, set only by
+  the React switcher below) and `board_code` (a rep reaching one
+  specific board anonymously, via `/board-access/[code]` — a full mirror
+  of `/sales-access/[code]`, just pointed at the new by-code endpoints
+  and a `board_code` param instead of `code`); `tracking-app` gained
+  `board` (plus `board_name`, so the single implicit "client" shows the
+  board's name instead of `@username` when viewing one). Existing
+  `code`/`user` params and every other view — including the Add Team
+  tab, which already generically displays whatever `accessCode` the
+  session response carries — needed no changes at all to keep working
+  for both systems.
+
+  The actual "add board, switch between boards" UI is a single shared
+  React component, `src/components/BoardSwitcher.tsx`, rendered above
+  the iframe on both `/dashboard/sales-board` and `/dashboard/tracking`
+  (each page branches on `isAdminUsername()`: admins get the switcher,
+  everyone else gets the exact same plain iframe as before). Both pages
+  hand it a `buildIframeSrc(board)` function — the only thing that
+  differs between the two — and it handles fetching the shared board
+  list, an inline "Add board" name form, and remembering the last-
+  selected board in `localStorage` under one shared key (so switching
+  boards on one page carries over as the default on the other, since
+  they're views onto the same underlying rows). Selecting a board
+  remounts the iframe (`key={selectedBoard.id}`) rather than relying on
+  a bare `src` change to force a real reload.
+
+  The dashboard's "Today's Cash Collected" card now sums today's closed-
+  deal cash across *all* of an admin's boards, combined with their
+  original single board's own number, rather than showing just one —
+  `dashboard/page.tsx` fetches every `sales_boards` row the admin owns
+  (skipped entirely for non-admins) and folds their deals in with the
+  existing calculation via a small shared `sumTodayCash()` helper.
+
+  Verified via `npx eslint .` and a clean `rm -rf .next && npm run
+  build` (all new routes/pages registered correctly, `/dashboard/sales-
+  board` and `/dashboard/tracking` correctly became dynamic now that
+  both do a real admin check), confirmed `/board-access` and
+  `/board-access/[code]` both serve successfully, confirmed both ported
+  apps still serve their static HTML correctly with the new `board`/
+  `board_code` params present. A live end-to-end pass (creating a real
+  board, switching between boards, a rep using a `board_code` link)
+  wasn't possible without both `0023_multi_sales_boards.sql` run against
+  Supabase and a real logged-in admin session — verified instead by
+  code review and a static HTML/Tailwind mockup of `BoardSwitcher`'s
+  populated, add-form, and empty states.
 
 - `src/app/dashboard/communications` — the Communications Hub: open
   channels (any user can post, only admins create new ones) plus a private

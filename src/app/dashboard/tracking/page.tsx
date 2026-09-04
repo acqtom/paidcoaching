@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { createClient } from "@/lib/supabase/server";
+import { isAdminUsername } from "@/lib/is-admin-username";
+import { BoardSwitcher } from "@/components/BoardSwitcher";
 
 export default async function TrackingPage() {
   const supabase = await createClient();
@@ -15,6 +17,8 @@ export default async function TrackingPage() {
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
+
+  const isAdmin = isAdminUsername(profile?.username ?? "");
 
   const iframeSrc = profile?.username
     ? `/tracking-app/index.html?user=${encodeURIComponent(profile.username)}`
@@ -34,11 +38,21 @@ export default async function TrackingPage() {
         </div>
       </header>
 
-      <iframe
-        src={iframeSrc}
-        title="Metrics Tracking"
-        className="flex-1 w-full border-0"
-      />
+      {isAdmin ? (
+        <BoardSwitcher
+          iframeTitle="Metrics Tracking"
+          buildIframeSrc={(b) =>
+            `/tracking-app/index.html?board=${encodeURIComponent(b.id)}&board_name=${encodeURIComponent(b.name)}`
+          }
+          emptyMessage="No boards yet — add one from the Sales Team Board or here to start tracking its metrics."
+        />
+      ) : (
+        <iframe
+          src={iframeSrc}
+          title="Metrics Tracking"
+          className="flex-1 w-full border-0"
+        />
+      )}
     </div>
   );
 }

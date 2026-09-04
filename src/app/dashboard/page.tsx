@@ -41,15 +41,31 @@ export default async function DashboardPage() {
         .maybeSingle()
     : { data: null };
 
+  const isAdmin = isAdminUsername(profile?.username ?? "");
+
   // Today's Cash Collected -- this user's own Sales Board deals closed today.
   const todayISO = new Date().toISOString().slice(0, 10);
   const { data: salesBoardRow } = user
     ? await supabase.from("sales_board_state").select("data").eq("id", user.id).maybeSingle()
     : { data: null };
   const deals = (salesBoardRow?.data?.deals as Deal[] | undefined) ?? [];
-  const todayCash = deals
-    .filter((d) => d.closingDate === todayISO && d.callOutcome === "Closed/Won/Deposit")
-    .reduce((sum, d) => sum + (Number(d.cashCollected) || 0), 0);
+  const sumTodayCash = (list: Deal[]) =>
+    list
+      .filter((d) => d.closingDate === todayISO && d.callOutcome === "Closed/Won/Deposit")
+      .reduce((sum, d) => sum + (Number(d.cashCollected) || 0), 0);
+
+  // Admins can also run any number of extra Sales Team Boards
+  // (0023_multi_sales_boards.sql, one per offer) -- their cash counts
+  // toward this same card too, combined with the account's original
+  // single board above, since the point is tracking everything running
+  // at once, not picking just one to show here.
+  const { data: extraBoards } =
+    user && isAdmin
+      ? await supabase.from("sales_boards").select("data").eq("owner_id", user.id)
+      : { data: [] };
+  const extraDeals = (extraBoards ?? []).flatMap((b) => (b.data?.deals as Deal[] | undefined) ?? []);
+
+  const todayCash = sumTodayCash(deals) + sumTodayCash(extraDeals);
   const dailyCashTarget = (salesBoardRow?.data?.dailyCashTarget as number | null | undefined) ?? null;
 
   // Urgent To-Do -- starred, not-yet-done tasks from this user's own backlog.
@@ -64,7 +80,6 @@ export default async function DashboardPage() {
   // 0011_conversation_reads.sql.
   const { data: hasUnread } = user ? await supabase.rpc("has_unread_communications") : { data: false };
 
-  const isAdmin = isAdminUsername(profile?.username ?? "");
   const visibleCards = CARDS.filter((card) => !card.adminOnly || isAdmin);
 
   return (
