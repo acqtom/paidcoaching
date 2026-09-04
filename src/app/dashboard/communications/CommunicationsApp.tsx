@@ -165,6 +165,11 @@ export function CommunicationsApp({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Conversation ids with something unread in them -- bolds the name and
+  // shows a green dot for that row in the sidebar. Separate from (and a
+  // finer-grained sibling to) has_unread_communications(), which only
+  // ever answers "is anything, anywhere, unread" for the dashboard card.
+  const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
   const [messages, setMessages] = useState<Message[]>([]);
   // Which conversation `messages` currently holds data for -- compared
   // against `activeId` to derive a loading flag, rather than a separate
@@ -227,6 +232,12 @@ export function CommunicationsApp({
   // whatever the user is actually looking at. Fire-and-forget: nothing
   // in the UI needs to wait on this.
   function markRead(conversationId: string) {
+    setUnreadIds((prev) => {
+      if (!prev.has(conversationId)) return prev;
+      const next = new Set(prev);
+      next.delete(conversationId);
+      return next;
+    });
     supabase
       .from("conversation_reads")
       .upsert({ user_id: userId, conversation_id: conversationId, last_read_at: new Date().toISOString() })
@@ -305,6 +316,42 @@ export function CommunicationsApp({
     })();
     return () => {
       cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---- Load which conversations already have something unread, once on mount ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("unread_conversation_ids");
+      if (cancelled || !data) return;
+      setUnreadIds(new Set((data as { conversation_id: string }[]).map((r) => r.conversation_id)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---- Live: any new message across every conversation the user can see,
+  // purely to keep the sidebar's unread dots current. Separate from the
+  // per-active-conversation subscription below (which only covers
+  // whichever conversation is currently open) -- unfiltered here since
+  // RLS already limits this to conversations the caller could see anyway,
+  // the same way the has_unread_communications()/unread_conversation_ids()
+  // functions rely on RLS rather than an explicit visibility check.
+  useEffect(() => {
+    const channel = supabase
+      .channel("communications-unread")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+        const row = payload.new as MessageRow;
+        if (row.sender_id === userId) return;
+        setUnreadIds((prev) => (prev.has(row.conversation_id) ? prev : new Set(prev).add(row.conversation_id)));
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -788,22 +835,26 @@ export function CommunicationsApp({
             </div>
           )}
           <ul className="space-y-0.5">
-            {channels.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => setActiveId(c.id)}
-                  className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm ${
-                    c.id === activeId
-                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                  }`}
-                >
-                  <Hash size={13} className="shrink-0 opacity-60" />
-                  <span className="truncate">{c.name}</span>
-                </button>
-              </li>
-            ))}
+            {channels.map((c) => {
+              const unread = unreadIds.has(c.id);
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(c.id)}
+                    className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm ${
+                      c.id === activeId
+                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                        : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${unread ? "bg-emerald-500" : "invisible"}`} />
+                    <Hash size={13} className="shrink-0 opacity-60" />
+                    <span className={`truncate ${unread ? "font-semibold" : ""}`}>{c.name}</span>
+                  </button>
+                </li>
+              );
+            })}
             {conversationsLoaded && channels.length === 0 && (
               <li className="px-2 py-1 text-xs text-neutral-400">No channels yet.</li>
             )}
@@ -813,22 +864,28 @@ export function CommunicationsApp({
             {isAdmin ? "Direct Messages" : "Support"}
           </div>
           <ul className="space-y-0.5">
-            {dms.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() => setActiveId(c.id)}
-                  className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm ${
-                    c.id === activeId
-                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                  }`}
-                >
-                  <MessageCircle size={13} className="shrink-0 opacity-60" />
-                  <span className="truncate">{isAdmin ? `@${c.dmUsername ?? "unknown"}` : "Message an admin"}</span>
-                </button>
-              </li>
-            ))}
+            {dms.map((c) => {
+              const unread = unreadIds.has(c.id);
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(c.id)}
+                    className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm ${
+                      c.id === activeId
+                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                        : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${unread ? "bg-emerald-500" : "invisible"}`} />
+                    <MessageCircle size={13} className="shrink-0 opacity-60" />
+                    <span className={`truncate ${unread ? "font-semibold" : ""}`}>
+                      {isAdmin ? `@${c.dmUsername ?? "unknown"}` : "Message an admin"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </aside>

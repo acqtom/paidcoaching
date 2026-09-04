@@ -125,6 +125,10 @@ Router) and Supabase Auth.
    student — amount paid upfront, amount due, due date, a `paid` flag),
    admin-only in both directions, backing the Payment button on Student
    Data.
+   `0022_unread_per_conversation.sql` adds `unread_conversation_ids()`,
+   the same query `has_unread_communications()` runs but returned per
+   conversation instead of collapsed to one boolean — backs the bold
+   name + green dot per unread channel/DM in the Communications sidebar.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -1057,6 +1061,30 @@ in and you'll land on `/dashboard`.
   runs with the caller's own RLS applied to `messages` directly, so it
   can only ever see what that user could already see through the normal
   policies, with no separate visibility logic to keep in sync.
+
+  That dashboard badge only ever says "something, somewhere is unread" —
+  finding out *which* sidebar row within Communications also needed
+  per-conversation granularity, so each channel/DM in the sidebar now
+  bolds its name and shows a green dot to its left when it has something
+  unread, clearing the instant that conversation is opened (or a new
+  message arrives while it's already open). `unread_conversation_ids()`
+  (`0022_unread_per_conversation.sql`) is `has_unread_communications()`'s
+  own query shape — same NULL-safe `sender_id is null or sender_id <>
+  auth.uid()` check, so a bot's welcome message still counts as unread,
+  same non-`SECURITY DEFINER` reasoning — just grouped by
+  `conversation_id` and returned as a table instead of collapsed to one
+  boolean. `CommunicationsApp.tsx` fetches it once on mount into a local
+  `unreadIds` Set, then keeps it current via a *second*, unfiltered
+  realtime subscription on `messages` INSERT (`communications-unread`,
+  separate from the existing per-active-conversation one) — unfiltered
+  because RLS already limits what reaches this client to conversations
+  it could see anyway, the same trust boundary the unread functions
+  themselves lean on. `markRead()` now clears a conversation's id out of
+  local `unreadIds` immediately (before its `conversation_reads` write
+  even resolves), which is also what clears the bold/dot the instant a
+  conversation is opened. The sidebar row reserves the dot's width with
+  an `invisible` (not `hidden`) spacer when read, so a channel's name
+  never shifts left/right as its unread state toggles.
 
   New signups get auto-welcomed into `#general` by a bot (`0012_welcome_bot.sql`).
   Rather than create a fake `auth.users` row just to have something to
