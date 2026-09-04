@@ -746,13 +746,21 @@ function makeTaskRow(task) {
   del.title = "Delete task";
   del.addEventListener("click", () => deleteTask(task.id));
 
+  // Grouped so the whole cluster wraps onto its own line below the task
+  // text (as one unit, then further wraps internally if even that line
+  // is too narrow) instead of squeezing task-text down to nothing on
+  // narrow department cards -- see .task-row/.task-meta in styles.css.
+  const meta = document.createElement("div");
+  meta.className = "task-meta";
+  meta.appendChild(level);
+  meta.appendChild(department);
+  if (repeatBadge) meta.appendChild(repeatBadge);
+  meta.appendChild(star);
+  meta.appendChild(del);
+
   row.appendChild(checkbox);
   row.appendChild(text);
-  row.appendChild(level);
-  row.appendChild(department);
-  if (repeatBadge) row.appendChild(repeatBadge);
-  row.appendChild(star);
-  row.appendChild(del);
+  row.appendChild(meta);
   return row;
 }
 

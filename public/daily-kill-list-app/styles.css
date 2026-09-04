@@ -499,7 +499,9 @@ textarea:focus-visible,
 
 .task-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 12px 12px;
   border-radius: 10px;
@@ -543,7 +545,25 @@ textarea:focus-visible,
   transform: translate(-50%, -55%);
 }
 
-.task-text { flex: 1; font-size: 14px; word-break: break-word; }
+.task-text {
+  flex: 1 1 120px;
+  min-width: 120px;
+  font-size: 14px;
+  overflow-wrap: break-word;
+}
+
+/* Level/department/repeat badges + star + delete, grouped so they wrap
+   as one unit onto their own line below the text on narrow cards
+   (department to-do cards), rather than squeezing task-text down to a
+   sliver that then wraps one character per line. If even this whole
+   group doesn't fit the row width, it wraps again internally. */
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 
 .task-row.done .task-text {
   text-decoration: line-through;

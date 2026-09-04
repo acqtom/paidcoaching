@@ -388,6 +388,21 @@ in and you'll land on `/dashboard`.
     still loads (nothing is deleted), defaulting to Marketing until
     manually re-filed.
 
+  Each task row (`makeTaskRow()` in `app.js`) groups its level/
+  department/repeat badges + star + delete button into one `.task-meta`
+  wrapper div, and `.task-row` is `flex-wrap: wrap` with
+  `justify-content: space-between` (`styles.css`) — on a wide row
+  everything sits on one line as before, but on a narrow one (the
+  per-department to-do cards especially) the whole badge cluster wraps
+  onto its own line below the task text instead of squeezing
+  `.task-text` down to near-zero width, which used to force
+  `word-break: break-word` to wrap one character per line. If even the
+  wrapped badge cluster doesn't fit the card's width, `.task-meta` wraps
+  again internally. Verified with a standalone headless-Chrome
+  screenshot of the exact markup/CSS at both a wide (~650px, stays on
+  one line) and a very narrow (~190px, text wraps normally and the badge
+  row splits across two lines) width.
+
   `0018_private_daily_kill_list.sql` drops and recreates both tables
   rather than migrating the id column in place — the singleton-to-
   per-user conversion has no way to attribute the old shared content to
