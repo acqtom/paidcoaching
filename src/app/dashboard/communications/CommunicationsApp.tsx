@@ -331,6 +331,23 @@ export function CommunicationsApp({
           setConversations((prev) => prev.map((c) => (c.id === row.id ? { ...c, ...row } : c)));
         }
       )
+      .on(
+        // Covers an admin deleting a channel -- no `filter` here (unlike
+        // the two above) since a DELETE payload's `old` record only ever
+        // carries the primary key with this table's default replica
+        // identity, so a `type=eq.channel` filter would never match and
+        // this event would silently never fire. Safe to leave unfiltered
+        // anyway: the delete RLS policy (0019_delete_channels.sql) only
+        // ever allows type = 'channel' rows to be deleted at all, so any
+        // DELETE that reaches here is a channel by construction.
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "conversations" },
+        (payload) => {
+          const row = payload.old as { id: string };
+          setConversations((prev) => prev.filter((c) => c.id !== row.id));
+          setActiveId((prev) => (prev === row.id ? null : prev));
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -645,6 +662,22 @@ export function CommunicationsApp({
     }
   }
 
+  async function handleDeleteChannel(conversationId: string, name: string | null) {
+    if (!window.confirm(`Delete #${name ?? "this channel"} and every message in it? This can't be undone.`)) return;
+    const { data, error: deleteError } = await supabase
+      .from("conversations")
+      .delete()
+      .eq("id", conversationId)
+      .select("id");
+    if (deleteError || !data || data.length === 0) {
+      console.error("Failed to delete channel:", deleteError ?? "no row was deleted (RLS?)");
+      setError("Couldn't delete that channel — try again.");
+      return;
+    }
+    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    setActiveId((prev) => (prev === conversationId ? null : prev));
+  }
+
   function handleComposerChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const text = e.target.value;
     setComposerText(text);
@@ -814,19 +847,29 @@ export function CommunicationsApp({
               </div>
               {active.type === "channel" &&
                 (isAdmin ? (
-                  <button
-                    type="button"
-                    onClick={() => handleToggleChannelLock(active.id, active.admin_only_posting)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
-                      active.admin_only_posting
-                        ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
-                        : "border-neutral-300 text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-                    }`}
-                    title={active.admin_only_posting ? "Only admins can post — click to let everyone post" : "Anyone can post — click to restrict to admins"}
-                  >
-                    {active.admin_only_posting ? <Lock size={13} /> : <LockOpen size={13} />}
-                    {active.admin_only_posting ? "Admins only" : "Anyone can post"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleChannelLock(active.id, active.admin_only_posting)}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                        active.admin_only_posting
+                          ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
+                          : "border-neutral-300 text-neutral-500 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                      }`}
+                      title={active.admin_only_posting ? "Only admins can post — click to let everyone post" : "Anyone can post — click to restrict to admins"}
+                    >
+                      {active.admin_only_posting ? <Lock size={13} /> : <LockOpen size={13} />}
+                      {active.admin_only_posting ? "Admins only" : "Anyone can post"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteChannel(active.id, active.name)}
+                      title="Delete channel"
+                      className="inline-flex text-neutral-400 hover:text-rose-500"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 ) : (
                   active.admin_only_posting && (
                     <span className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">

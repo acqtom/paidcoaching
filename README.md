@@ -109,6 +109,12 @@ Router) and Supabase Auth.
    rather than everyone getting a duplicate copy of the old shared
    list). Back up that data first if it still matters before running
    this one.
+   `0019_delete_channels.sql` adds a DELETE policy on `conversations`
+   letting admins delete a channel — gated `type = 'channel'` the same
+   way the admin-only UPDATE policy from `0013_channel_lock.sql` is, so
+   DMs can never be deleted. Messages, reactions, and read-tracking rows
+   all already cascade-delete off `conversations.id`, so no extra
+   cleanup is needed.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -918,6 +924,27 @@ in and you'll land on `/dashboard`.
   not just after a reload — and it's also what silently disables that
   same user's composer, since `canPost` is derived from the live
   `conversations` state on every render rather than checked only once.
+
+  **Deleting a channel** (`0019_delete_channels.sql`) is a trash icon
+  next to the lock toggle, admin-only, channel-only (same `type =
+  'channel'` restriction as the lock toggle — DMs were never deletable
+  and still aren't). Asks for confirmation first (`window.confirm`,
+  same as the destructive SOP deletes) since it takes every message,
+  reaction, and read-receipt in that channel with it — all three
+  already cascade-delete off `conversations.id` via their foreign keys,
+  so the app only ever deletes the one `conversations` row and the
+  database handles the rest. The realtime `DELETE` subscription on
+  `conversations` deliberately has **no** `filter` (unlike the sibling
+  `INSERT`/`UPDATE` ones, both filtered to `type=eq.channel`) — a
+  `DELETE` payload's `old` record only carries the primary key under
+  this table's default replica identity, so a `type`-based filter would
+  never match anything and the event would silently never fire. Leaving
+  it unfiltered is still safe: the delete RLS policy only ever allows
+  `type = 'channel'` rows to be deleted in the first place, so any
+  `DELETE` event reaching the client is a channel by construction.
+  Whoever's looking at a channel when it's deleted (including other
+  people's open tabs, not just whoever clicked delete) gets bounced to
+  the "Pick a channel to get started" empty state immediately.
 
   **Reactions and message editing** (`0014_reactions_and_edit.sql`) both
   render as small icon buttons next to the trash icon on the right of
