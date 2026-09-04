@@ -207,6 +207,11 @@ in and you'll land on `/dashboard`.
   editable inline (pencil icon → textarea → Save/Cancel, the same
   pattern as the SOP title/description edit) rather than through the
   add/edit-lesson modal, which now only asks for title and video link.
+  The read-only view renders saved content inside a bordered card
+  (matching the sidebar's own `rounded-2xl border ... bg-white
+  dark:bg-neutral-900` styling) rather than as bare text sitting loose on
+  the page — the empty state ("Nothing here yet") gets a dashed-border
+  version of the same card, so it doesn't look like an error either.
   Below that, **Resources** is a per-lesson list of named links
   (`sop_lesson_resources` — its own table since a lesson can have any
   number of them) an admin can add (title + URL) or remove; both

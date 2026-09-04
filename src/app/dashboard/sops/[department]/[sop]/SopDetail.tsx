@@ -583,11 +583,15 @@ export function SopDetail({
                   </div>
                 </div>
               ) : selected.content ? (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
-                  {selected.content}
-                </p>
+                <div className="mt-2 rounded-2xl border border-neutral-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+                  <p className="whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
+                    {selected.content}
+                  </p>
+                </div>
               ) : (
-                <p className="mt-2 text-sm italic text-neutral-400">Nothing here yet — click the pencil to add content.</p>
+                <div className="mt-2 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 p-4">
+                  <p className="text-sm italic text-neutral-400">Nothing here yet — click the pencil to add content.</p>
+                </div>
               )}
             </div>
           )}
