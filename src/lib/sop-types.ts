@@ -1,9 +1,17 @@
+export type SopResource = {
+  id: string;
+  title: string;
+  url: string;
+  position: number;
+};
+
 export type SopLesson = {
   id: string;
   title: string;
   video_url: string | null;
-  notes: string | null;
+  content: string | null;
   position: number;
+  resources: SopResource[];
 };
 
 export type SopSubcategory = {

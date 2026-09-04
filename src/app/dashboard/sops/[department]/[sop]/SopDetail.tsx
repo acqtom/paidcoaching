@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Pencil, Play, Plus, Trash2, Video, X } from "lucide-react";
+import { FileText, Link2, Pencil, Play, Plus, Trash2, Video, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getVideoEmbedUrl } from "@/lib/sop-types";
 import type { SopDetailData, SopLesson, SopSubcategory } from "@/lib/sop-types";
@@ -10,7 +10,7 @@ import type { SopDetailData, SopLesson, SopSubcategory } from "@/lib/sop-types";
 type LessonEditorState = {
   subcategoryId: string;
   lessonId: string | null;
-  initial: { title: string; video_url: string; notes: string };
+  initial: { title: string; video_url: string };
 };
 
 function LessonEditorModal({
@@ -20,13 +20,12 @@ function LessonEditorModal({
   onClose,
 }: {
   isNew: boolean;
-  initial: { title: string; video_url: string; notes: string };
-  onSave: (values: { title: string; video_url: string; notes: string }) => Promise<boolean>;
+  initial: { title: string; video_url: string };
+  onSave: (values: { title: string; video_url: string }) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(initial.title);
   const [videoUrl, setVideoUrl] = useState(initial.video_url);
-  const [notes, setNotes] = useState(initial.notes);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +35,7 @@ function LessonEditorModal({
     if (!trimmedTitle) return;
     setSaving(true);
     setError(null);
-    const ok = await onSave({ title: trimmedTitle, video_url: videoUrl.trim(), notes: notes.trim() });
+    const ok = await onSave({ title: trimmedTitle, video_url: videoUrl.trim() });
     setSaving(false);
     if (!ok) {
       setError("Couldn't save — try again.");
@@ -80,16 +79,6 @@ function LessonEditorModal({
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://loom.com/share/…"
               className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-neutral-500">Notes</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Notes for this lesson…"
-              className="w-full resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
             />
           </label>
           {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
@@ -136,9 +125,34 @@ export function SopDetail({
 
   const [lessonEditor, setLessonEditor] = useState<LessonEditorState | null>(null);
 
+  // The big paste-anything block under a lesson's video, and its
+  // per-lesson resource links -- both reset whenever the selected
+  // lesson changes, via the explicit resets next to every place below
+  // that changes selectedLessonId (rather than a useEffect keyed on it).
+  const [editingContent, setEditingContent] = useState(false);
+  const [contentDraft, setContentDraft] = useState("");
+  const [savingContent, setSavingContent] = useState(false);
+
+  const [addingResource, setAddingResource] = useState(false);
+  const [newResourceTitle, setNewResourceTitle] = useState("");
+  const [newResourceUrl, setNewResourceUrl] = useState("");
+  const [savingResource, setSavingResource] = useState(false);
+
   const selected: SopLesson | undefined = subcategories
     .flatMap((c) => c.lessons)
     .find((l) => l.id === selectedLessonId);
+
+  function selectLesson(id: string | null) {
+    setSelectedLessonId(id);
+    setEditingContent(false);
+    setAddingResource(false);
+  }
+
+  function updateLessonInState(lessonId: string, updater: (lesson: SopLesson) => SopLesson) {
+    setSubcategories((prev) =>
+      prev.map((c) => ({ ...c, lessons: c.lessons.map((l) => (l.id === lessonId ? updater(l) : l)) }))
+    );
+  }
 
   async function handleSaveMeta(e: React.FormEvent) {
     e.preventDefault();
@@ -199,7 +213,7 @@ export function SopDetail({
     const previous = subcategories;
     const removed = subcategories.find((c) => c.id === id);
     setSubcategories((prev) => prev.filter((c) => c.id !== id));
-    if (removed?.lessons.some((l) => l.id === selectedLessonId)) setSelectedLessonId(null);
+    if (removed?.lessons.some((l) => l.id === selectedLessonId)) selectLesson(null);
     const { data, error } = await supabase.from("sop_subcategories").delete().eq("id", id).select("id");
     if (error || !data || data.length === 0) setSubcategories(previous);
   }
@@ -207,21 +221,17 @@ export function SopDetail({
   async function handleSaveLesson(
     subcategoryId: string,
     lessonId: string | null,
-    values: { title: string; video_url: string; notes: string }
+    values: { title: string; video_url: string }
   ): Promise<boolean> {
     if (lessonId) {
       const { data, error } = await supabase
         .from("sop_lessons")
-        .update({ title: values.title, video_url: values.video_url || null, notes: values.notes || null })
+        .update({ title: values.title, video_url: values.video_url || null })
         .eq("id", lessonId)
-        .select("id, title, video_url, notes, position")
+        .select("id, title, video_url")
         .single();
       if (error || !data) return false;
-      setSubcategories((prev) =>
-        prev.map((c) =>
-          c.id === subcategoryId ? { ...c, lessons: c.lessons.map((l) => (l.id === lessonId ? data : l)) } : c
-        )
-      );
+      updateLessonInState(lessonId, (l) => ({ ...l, title: data.title, video_url: data.video_url }));
       return true;
     }
     const category = subcategories.find((c) => c.id === subcategoryId);
@@ -231,14 +241,14 @@ export function SopDetail({
         subcategory_id: subcategoryId,
         title: values.title,
         video_url: values.video_url || null,
-        notes: values.notes || null,
         position: category?.lessons.length ?? 0,
       })
-      .select("id, title, video_url, notes, position")
+      .select("id, title, video_url, content, position")
       .single();
     if (error || !data) return false;
-    setSubcategories((prev) => prev.map((c) => (c.id === subcategoryId ? { ...c, lessons: [...c.lessons, data] } : c)));
-    setSelectedLessonId(data.id);
+    const newLesson: SopLesson = { ...data, resources: [] };
+    setSubcategories((prev) => prev.map((c) => (c.id === subcategoryId ? { ...c, lessons: [...c.lessons, newLesson] } : c)));
+    selectLesson(data.id);
     return true;
   }
 
@@ -247,8 +257,57 @@ export function SopDetail({
     setSubcategories((prev) =>
       prev.map((c) => (c.id === subcategoryId ? { ...c, lessons: c.lessons.filter((l) => l.id !== lessonId) } : c))
     );
-    if (selectedLessonId === lessonId) setSelectedLessonId(null);
+    if (selectedLessonId === lessonId) selectLesson(null);
     const { data, error } = await supabase.from("sop_lessons").delete().eq("id", lessonId).select("id");
+    if (error || !data || data.length === 0) setSubcategories(previous);
+  }
+
+  function startEditingContent() {
+    setContentDraft(selected?.content ?? "");
+    setEditingContent(true);
+  }
+
+  async function handleSaveContent() {
+    if (!selected) return;
+    setSavingContent(true);
+    const { data, error } = await supabase
+      .from("sop_lessons")
+      .update({ content: contentDraft.trim() || null })
+      .eq("id", selected.id)
+      .select("content")
+      .single();
+    setSavingContent(false);
+    if (error || !data) return;
+    updateLessonInState(selected.id, (l) => ({ ...l, content: data.content }));
+    setEditingContent(false);
+  }
+
+  async function handleAddResource(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    const title = newResourceTitle.trim();
+    const url = newResourceUrl.trim();
+    if (!title || !url) return;
+    setSavingResource(true);
+    const { data, error } = await supabase
+      .from("sop_lesson_resources")
+      .insert({ lesson_id: selected.id, title, url, position: selected.resources.length })
+      .select("id, title, url, position")
+      .single();
+    setSavingResource(false);
+    if (error || !data) return;
+    updateLessonInState(selected.id, (l) => ({ ...l, resources: [...l.resources, data] }));
+    setNewResourceTitle("");
+    setNewResourceUrl("");
+    setAddingResource(false);
+  }
+
+  async function handleDeleteResource(resourceId: string) {
+    if (!selected) return;
+    const lessonId = selected.id;
+    const previous = subcategories;
+    updateLessonInState(lessonId, (l) => ({ ...l, resources: l.resources.filter((r) => r.id !== resourceId) }));
+    const { data, error } = await supabase.from("sop_lesson_resources").delete().eq("id", resourceId).select("id");
     if (error || !data || data.length === 0) setSubcategories(previous);
   }
 
@@ -342,7 +401,7 @@ export function SopDetail({
                     <div key={lesson.id} className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setSelectedLessonId(lesson.id)}
+                        onClick={() => selectLesson(lesson.id)}
                         className={
                           isSelected
                             ? "flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-neutral-900 dark:bg-neutral-100 px-2 py-2 text-left text-sm font-medium text-white dark:text-neutral-900"
@@ -363,7 +422,6 @@ export function SopDetail({
                                 initial: {
                                   title: lesson.title,
                                   video_url: lesson.video_url ?? "",
-                                  notes: lesson.notes ?? "",
                                 },
                               })
                             }
@@ -392,7 +450,7 @@ export function SopDetail({
                       setLessonEditor({
                         subcategoryId: category.id,
                         lessonId: null,
-                        initial: { title: "", video_url: "", notes: "" },
+                        initial: { title: "", video_url: "" },
                       })
                     }
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -479,8 +537,140 @@ export function SopDetail({
 
           <div className="mt-6">
             <h2 className="text-lg font-semibold">{selected?.title ?? "Select a lesson"}</h2>
-            {selected?.notes && <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-500">{selected.notes}</p>}
           </div>
+
+          {selected && (isAdmin || selected.content) && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Content</p>
+                {isAdmin && !editingContent && (
+                  <button
+                    type="button"
+                    onClick={startEditingContent}
+                    title="Edit content"
+                    className="inline-flex text-neutral-400 hover:text-indigo-500"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+              {editingContent ? (
+                <div className="mt-2 space-y-2">
+                  <textarea
+                    autoFocus
+                    value={contentDraft}
+                    onChange={(e) => setContentDraft(e.target.value)}
+                    rows={14}
+                    placeholder="Paste anything you need here…"
+                    className="w-full resize-y rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveContent}
+                      disabled={savingContent}
+                      className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+                    >
+                      {savingContent ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingContent(false)}
+                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : selected.content ? (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-300">
+                  {selected.content}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm italic text-neutral-400">Nothing here yet — click the pencil to add content.</p>
+              )}
+            </div>
+          )}
+
+          {selected && (isAdmin || selected.resources.length > 0) && (
+            <div className="mt-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Resources</p>
+              <div className="mt-2 space-y-1.5">
+                {selected.resources.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+                    >
+                      <Link2 size={13} className="shrink-0" />
+                      <span className="truncate">{r.title}</span>
+                    </a>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteResource(r.id)}
+                        title="Delete link"
+                        className="inline-flex shrink-0 text-neutral-300 hover:text-rose-500 dark:text-neutral-600"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {selected.resources.length === 0 && (
+                  <p className="text-sm text-neutral-400">No resources yet.</p>
+                )}
+              </div>
+              {isAdmin &&
+                (addingResource ? (
+                  <form onSubmit={handleAddResource} className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                      autoFocus
+                      value={newResourceTitle}
+                      onChange={(e) => setNewResourceTitle(e.target.value)}
+                      placeholder="Title"
+                      className="w-36 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+                    />
+                    <input
+                      type="url"
+                      value={newResourceUrl}
+                      onChange={(e) => setNewResourceUrl(e.target.value)}
+                      placeholder="https://…"
+                      className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:focus:ring-neutral-100"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingResource || !newResourceTitle.trim() || !newResourceUrl.trim()}
+                      className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+                    >
+                      {savingResource ? "Adding…" : "Add"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingResource(false);
+                        setNewResourceTitle("");
+                        setNewResourceUrl("");
+                      }}
+                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingResource(true)}
+                    className="mt-2 flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                  >
+                    <Plus size={14} />
+                    Add link
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
       </div>
 

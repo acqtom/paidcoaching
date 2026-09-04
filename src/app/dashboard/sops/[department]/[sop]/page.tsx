@@ -5,7 +5,7 @@ import { DEPARTMENTS } from "@/lib/sops";
 import { isAdminUsername } from "@/lib/is-admin-username";
 import { createClient } from "@/lib/supabase/server";
 import { SopDetail } from "./SopDetail";
-import type { SopDetailData, SopLesson, SopSubcategory } from "@/lib/sop-types";
+import type { SopDetailData, SopSubcategory } from "@/lib/sop-types";
 
 export default async function SopPage({
   params,
@@ -32,7 +32,7 @@ export default async function SopPage({
   const { data: sopRow } = await supabase
     .from("sops")
     .select(
-      "id, slug, title, description, sop_subcategories(id, name, position, sop_lessons(id, title, video_url, notes, position))"
+      "id, slug, title, description, sop_subcategories(id, name, position, sop_lessons(id, title, video_url, content, position, sop_lesson_resources(id, title, url, position)))"
     )
     .eq("department_slug", department.slug)
     .eq("slug", sopSlug)
@@ -40,7 +40,17 @@ export default async function SopPage({
 
   if (!sopRow) notFound();
 
-  type RawSubcategory = { id: string; name: string; position: number; sop_lessons: SopLesson[] };
+  type RawResource = { id: string; title: string; url: string; position: number };
+  type RawLesson = {
+    id: string;
+    title: string;
+    video_url: string | null;
+    content: string | null;
+    position: number;
+    sop_lesson_resources: RawResource[];
+  };
+  type RawSubcategory = { id: string; name: string; position: number; sop_lessons: RawLesson[] };
+
   const subcategories: SopSubcategory[] = (sopRow.sop_subcategories as RawSubcategory[])
     .slice()
     .sort((a, b) => a.position - b.position)
@@ -48,7 +58,17 @@ export default async function SopPage({
       id: c.id,
       name: c.name,
       position: c.position,
-      lessons: c.sop_lessons.slice().sort((a, b) => a.position - b.position),
+      lessons: c.sop_lessons
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .map((l) => ({
+          id: l.id,
+          title: l.title,
+          video_url: l.video_url,
+          content: l.content,
+          position: l.position,
+          resources: l.sop_lesson_resources.slice().sort((a, b) => a.position - b.position),
+        })),
     }));
 
   const sop: SopDetailData = {

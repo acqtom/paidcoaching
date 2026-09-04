@@ -92,6 +92,10 @@ Router) and Supabase Auth.
    `is_admin()`) and seeds them with the SOPs that used to be hardcoded
    in `src/lib/sops.ts`, so existing `/dashboard/sops/...` links keep
    working after this ships.
+   `0017_sop_lesson_content_resources.sql` renames
+   `sop_lessons.notes` to `content` (a lesson's big paste-anything text
+   block instead of a short note) and adds `sop_lesson_resources`
+   (per-lesson named links, same admin-write/everyone-read RLS split).
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -169,18 +173,34 @@ in and you'll land on `/dashboard`.
   client pattern Communications and Profiles use, following the same
   optimistic-update-then-verify-a-row-came-back convention throughout.
 
-  A lesson stores a video link (Loom or YouTube) plus free-text notes —
-  no PDF/file upload in this pass. `getVideoEmbedUrl()`
-  (`src/lib/sop-types.ts`) turns a recognized Loom/YouTube URL into its
-  embeddable form, rendered in an `<iframe>` in place of the old fixed
-  "Loom video placeholder" box; an unrecognized host falls back to a
-  plain "Watch video ↗" link instead of embedding an arbitrary URL, and
-  no video link at all just shows "No video linked yet" (or "Select a
-  lesson" before anything's picked). Deleting a SOP or a sub-category
-  cascades to what's inside it (`on delete cascade` on both foreign
-  keys) and asks for confirmation first (`window.confirm`) since that's
-  not cheaply undoable, unlike a single message delete elsewhere in the
-  app which isn't guarded the same way.
+  A lesson stores a video link (Loom or YouTube), a large free-text
+  content block, and a list of named resource links — no PDF/file
+  upload in this pass. `getVideoEmbedUrl()` (`src/lib/sop-types.ts`)
+  turns a recognized Loom/YouTube URL into its embeddable form, rendered
+  in an `<iframe>` in place of the old fixed "Loom video placeholder"
+  box; an unrecognized host falls back to a plain "Watch video ↗" link
+  instead of embedding an arbitrary URL, and no video link at all just
+  shows "No video linked yet" (or "Select a lesson" before anything's
+  picked). Underneath that sits **Content** — `sop_lessons.content`
+  (`0017_sop_lesson_content_resources.sql`, renamed from the original
+  `notes` column added in 0016 once it became clear a single short note
+  wasn't enough): a large textarea for pasting whatever's needed,
+  editable inline (pencil icon → textarea → Save/Cancel, the same
+  pattern as the SOP title/description edit) rather than through the
+  add/edit-lesson modal, which now only asks for title and video link.
+  Below that, **Resources** is a per-lesson list of named links
+  (`sop_lesson_resources` — its own table since a lesson can have any
+  number of them) an admin can add (title + URL) or remove; both
+  Content and Resources are scoped to whichever lesson is selected, and
+  both explicitly reset (`selectLesson()`) whenever the selected lesson
+  changes so a half-written draft never leaks onto the next lesson you
+  click into.
+
+  Deleting a SOP or a sub-category cascades to what's inside it
+  (`on delete cascade` on every relevant foreign key, all the way down
+  to resources) and asks for confirmation first (`window.confirm`)
+  since that's not cheaply undoable, unlike a single message delete
+  elsewhere in the app which isn't guarded the same way.
 
   The `[department]` and `[department]/[sop]` routes dropped their
   `generateStaticParams` static generation (SOPs aren't known at build
