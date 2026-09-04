@@ -622,8 +622,14 @@ const WEBINAR_METRIC_META=[
   {id:'show_rate_call',      stage:'setting',label:'Show Rate To Call',                format:'percent', dir:'higher',target:80},
   {id:'cost_per_shown_call', stage:'setting',label:'Cost Per Shown Call',              format:'currency',dir:'lower', target:null},
   {id:'deals_closed',        stage:'setting',label:'Deals Closed',                     format:'number',  dir:'higher',target:null},
-  {id:'close_rate',          stage:'setting',label:'Close Rate',                       format:'percent', dir:'higher',target:60},
-  {id:'aov',                 stage:'setting',label:'AOV',                             format:'currency',dir:'higher',target:7000},
+  // These two are named close_rate_webinar/aov_webinar (not close_rate/aov
+  // like VSL_METRIC_META's own entries) purely to avoid a storage
+  // collision: data is stored flat as { [metricId]: { [isoDate]: number } }
+  // with no separate funnel dimension, so VSL and Webinar would otherwise
+  // silently overwrite each other's number on any date with deals from
+  // both funnels. See src/lib/metrics-tracking-state.ts.
+  {id:'close_rate_webinar',  stage:'setting',label:'Close Rate',                       format:'percent', dir:'higher',target:60},
+  {id:'aov_webinar',         stage:'setting',label:'AOV',                             format:'currency',dir:'higher',target:7000},
   // Revenue
   {id:'total_revenue',   stage:'closing',label:'Total Revenue',   format:'currency',dir:'higher',target:null},
   {id:'roas',            stage:'closing',label:'ROAS',            format:'multiple',dir:'higher',target:7},
@@ -660,8 +666,8 @@ const WEBINAR_CARD_DEFS={
     {metric:'show_rate_call',      label:'Show Rate To Call',              sub:'Shown ÷ booked',            src:'avg', icon:'percent',format:'percent',dir:'higher'},
     {metric:'cost_per_shown_call', label:'Cost Per Shown Call',            sub:'Spend ÷ calls shown',       src:'avg', icon:'dollar', format:'currency',dir:'lower'},
     {metric:'deals_closed',        label:'Deals Closed',                   sub:'Average of daily entries',  src:'avg', icon:'hash',   format:'number', dir:'higher'},
-    {metric:'close_rate',          label:'Close Rate',                     sub:'Closed ÷ calls shown',      src:'avg', icon:'percent',format:'percent',dir:'higher'},
-    {metric:'aov',                 label:'AOV',                            sub:'Average deal size',         src:'avg', icon:'dollar', format:'currency',dir:'higher'},
+    {metric:'close_rate_webinar',  label:'Close Rate',                     sub:'Closed ÷ calls shown',      src:'avg', icon:'percent',format:'percent',dir:'higher'},
+    {metric:'aov_webinar',         label:'AOV',                            sub:'Average deal size',         src:'avg', icon:'dollar', format:'currency',dir:'higher'},
   ],
   closing:[
     {metric:'total_revenue', label:'Total Revenue', sub:'Average of daily entries', src:'avg', icon:'dollar', format:'currency',dir:'higher'},
@@ -671,7 +677,7 @@ const WEBINAR_CARD_DEFS={
 
 const FUNNEL_CONFIGS={
   vsl:{stages:VSL_STAGES,metricMeta:VSL_METRIC_META,cardDefs:VSL_CARD_DEFS,tabNames:VSL_TAB_NAMES,defaultTab:'sales',defaultTrend:'cpl',visualFunnelTab:'funnel'},
-  webinar:{stages:WEBINAR_STAGES,metricMeta:WEBINAR_METRIC_META,cardDefs:WEBINAR_CARD_DEFS,tabNames:WEBINAR_TAB_NAMES,defaultTab:'setting',defaultTrend:'close_rate',visualFunnelTab:'setting'},
+  webinar:{stages:WEBINAR_STAGES,metricMeta:WEBINAR_METRIC_META,cardDefs:WEBINAR_CARD_DEFS,tabNames:WEBINAR_TAB_NAMES,defaultTab:'setting',defaultTrend:'close_rate_webinar',visualFunnelTab:'setting'},
 };
 function contentMode(){return currentClient().contentMode==='webinar'?'webinar':'vsl';}
 let STAGES=VSL_STAGES,METRIC_META=VSL_METRIC_META,CARD_DEFS=VSL_CARD_DEFS,tabNames=VSL_TAB_NAMES;

@@ -273,43 +273,101 @@ in and you'll land on `/dashboard`.
   funnel picker (above the Outcome picker, also editable per-deal from
   the Data view's edit modal) — see `src/lib/metrics-tracking-state.ts`
   for the push logic, called from `/api/sales-board/save` and `/by-code`
-  whenever a save includes `deals`. It recomputes, from scratch, that
-  funnel's closing-stage numbers for every date any current deal touches
-  (VSL: `cash`, `revenue_gen`, `units`, `calls_show`; Webinar:
-  `total_revenue`, `deals_closed`, `calls_shown`) and writes them into
-  the same user's tracking row — recomputing rather than incrementing
-  means an edited or deleted deal is reflected correctly, not just
-  additive, per explicit direction to have this overwrite/recompute
-  rather than add on top. A `sales_board_dates` column (not a key inside
-  `data` itself) separately tracks which dates this feature has actually
-  written to, per funnel mode — without it, there'd be no way to tell "a
-  date I previously pushed to that now has no qualifying deals" (should
-  be zeroed) apart from "a date the user manually typed a number into
-  under one of these same 7 metric ids, that no deal has ever touched"
-  (must never be touched); every other metric a person enters by hand
-  (ad spend, CPC, and so on) is never touched by this either way. The
-  by-code (secret-key) save path resolves the code to its owning user's
-  id via `get_sales_board_owner_id` (0008_...sql, SECURITY DEFINER) before
-  pushing — safe to expose, since whoever already holds a valid code has
-  full read/write on that account's sales data via the existing by-code
-  RPCs anyway.
+  whenever a save includes `deals`. It recomputes, from scratch, every
+  metric that funnel's `deals` data can actually fill, for every date any
+  current deal touches, using the exact same field derivations and
+  formulas the Sales Team Board's own KPI grid uses
+  (`renderBasePage()` in `public/sales-board-app/index.html`):
+
+  - **VSL** (11 metric ids): `cash`, `revenue_gen`, `units` (closed-deal
+    sums/count), `calls_cal` (Calls On Calendar — deals where `isCall !==
+    false`), `calls_show` (of those, `calendarStatus === "showed"`),
+    `show_rate` (`calls_show ÷ calls_cal`), `dq_rate` (`disqualified`
+    count ÷ `calls_show`), `close_rate` (`units ÷ calls_cal`),
+    `cash_per_call` (`cash ÷ calls_show`), `aov` (`cash ÷ units`), and
+    `depos` (closed deals where `paymentMethod === "Deposit"`).
+  - **Webinar** (7 metric ids): `total_revenue`, `deals_closed` (closed-
+    deal sum/count), `calls_booked` (Webinar's "Calls On Calendar"
+    equivalent), `calls_shown`, `show_rate_call`, `close_rate_webinar`,
+    `aov_webinar` — same formulas as VSL's `show_rate`/`close_rate`/`aov`,
+    just against Webinar's own call counts. Webinar has no DQ-rate metric
+    id at all in `WEBINAR_METRIC_META`, so there's nothing to push there.
+
+  `close_rate`/`aov` exist as metric ids in **both** funnels'
+  `*_METRIC_META` lists in `public/tracking-app/index.html`, but
+  `metrics_tracking_state.data` stores values flat as `{ [metricId]: {
+  [isoDate]: number } }` with no funnel dimension — so before this pass,
+  a VSL deal and a Webinar deal closing on the same date would have
+  silently overwritten each other's `close_rate`/`aov` number. Per
+  explicit direction that a deal's numbers only ever affect the funnel
+  chosen on its own Post Call Form, Webinar's copies were renamed to
+  `close_rate_webinar`/`aov_webinar` (in `WEBINAR_METRIC_META`,
+  `WEBINAR_CARD_DEFS`, and `FUNNEL_CONFIGS.webinar.defaultTrend`) so the
+  two funnels can never collide — VSL keeps the original `close_rate`/
+  `aov` ids unchanged. One caveat worth knowing: any Webinar close
+  rate/AOV value typed in by hand *before* this rename was stored under
+  the old shared `close_rate`/`aov` ids, so it won't show up under
+  Webinar's new ids afterward — there's no way to tell, from the stored
+  data alone, which of those old entries were meant for VSL versus
+  Webinar, so nothing was auto-migrated.
+
+  `wasCall`/`calendarStatus`/`disqualified` all fall back to deriving the
+  same value `dealFieldsFromForm()` would have computed from `callOutcome`
+  alone, for deals saved before those fields existed — same spirit as
+  funnel-less deals already defaulting to VSL. Recomputing rather than
+  incrementing means an edited or deleted deal is reflected correctly,
+  not just additive, per explicit direction to have this overwrite/
+  recompute rather than add on top — and since it recomputes off every
+  currently-known deal on every save, a later formula fix (see below)
+  retroactively corrects *all* historical dates the next time anything is
+  saved, not just newly-touched ones. A `sales_board_dates` column (not a
+  key inside `data` itself) separately tracks which dates this feature
+  has actually written to, per funnel mode — without it, there'd be no
+  way to tell "a date I previously pushed to that now has no qualifying
+  deals" (should be zeroed) apart from "a date the user manually typed a
+  number into under one of these same metric ids, that no deal has ever
+  touched" (must never be touched); every other metric a person enters by
+  hand (ad spend, CPC, and so on) is never touched by this either way.
+  The by-code (secret-key) save path resolves the code to its owning
+  user's id via `get_sales_board_owner_id` (0008_...sql, SECURITY
+  DEFINER) before pushing — safe to expose, since whoever already holds a
+  valid code has full read/write on that account's sales data via the
+  existing by-code RPCs anyway.
+
+  One real, pre-existing quirk worth knowing about, inherited directly
+  from the Sales Team Board's own model rather than introduced here:
+  `calendarStatus` is only ever `"showed"` for anything counted in
+  `calls_cal`/`calls_booked` at all — a No-Show/Cancelled/Rescheduled
+  outcome sets `isCall = false` (per `dealFieldsFromForm`'s own comment,
+  those "happen before the closing call ever takes place"), which
+  excludes it from the calendar-call count entirely rather than counting
+  it as a booked call that didn't show. So `show_rate`/`show_rate_call`
+  will read 100% whenever there's at least one calendar call that day —
+  that's what the board's own KPI grid shows too, not a bug in the push.
+  This *did* fix a real, narrower bug in what was pushed before: the old
+  `calls_show`/`calls_shown` push used `callOutcome !== "No-Show"` as a
+  rough stand-in, which wrongly counted Cancelled/Rescheduled/Remainder-
+  Collection deals as "shown" — the new formula matches the board's real
+  `calendarStatus === "showed"` definition exactly.
 
   Verified with a standalone unit test against `mergeSalesBoardMetrics`
-  (25 cases: per-mode isolation on mixed VSL+Webinar days, summing
-  multiple same-day deals, `calls_show`/`calls_shown` correctly excluding
-  No-Show, legacy undated-funnel deals defaulting to VSL, a deleted deal's
-  date zeroing out via the real `sales_board_dates` bookkeeping, and —
-  the one real bug this test caught before it shipped — that a
-  VSL-only date never gets a stray `total_revenue`/`deals_closed` entry
-  written, and that an old manual entry under a shared metric id with no
-  deal history is left completely alone) and via Puppeteer end-to-end:
-  confirmed the funnel picker blocks Post Call Form submission until
-  chosen, confirmed the Data table's new Funnel column and the edit
-  modal's pre-fill/re-save both reflect it correctly, confirmed a
-  `metrics_tracking_state` row seeded server-side renders correctly in
-  Tracking's own Closing-stage table once the date range covers it, and
-  confirmed the one-time import prompt and the focused-input poll guard
-  both behave correctly.
+  (25 assertions, run by compiling the function with `tsc` and executing
+  it directly with `node` — no Next.js/Supabase runtime needed since the
+  function itself is pure): every VSL and Webinar formula above against
+  hand-computed expected values on a day with a realistic mix of outcomes
+  (closed via deposit, closed via paid-in-full, No Close, Disqualified,
+  No-Show, Cancelled), confirmed a same-day VSL deal and Webinar deal
+  never leak into each other's numbers (including `close_rate`/`aov` vs.
+  `close_rate_webinar`/`aov_webinar` specifically), confirmed a deal
+  missing `funnelType`/`isCall`/`calendarStatus`/`disqualified` entirely
+  (a legacy deal) still computes correctly via the `callOutcome`-based
+  fallbacks, and confirmed recomputing after a deal's removal zeroes out
+  exactly the counts that deal contributed rather than leaving stale
+  values. This repo's existing Puppeteer coverage of the funnel picker,
+  Data table Funnel column, edit-modal pre-fill, server-seeded row
+  rendering, one-time import prompt, and focused-input poll guard (from
+  when the funnel picker itself first shipped) is unaffected by this
+  change and wasn't re-run.
 - `src/app/dashboard/accounting` — the Accounting Hub, ported natively (real
   React components, not an iframe) from the `acqtom/accounting` repo. Fully
   self-contained client-side (state in `localStorage`); loaded via
