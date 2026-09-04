@@ -51,8 +51,10 @@ export default async function DashboardPage() {
     .reduce((sum, d) => sum + (Number(d.cashCollected) || 0), 0);
   const dailyCashTarget = (salesBoardRow?.data?.dailyCashTarget as number | null | undefined) ?? null;
 
-  // Urgent To-Do -- starred, not-yet-done tasks from the shared backlog.
-  const { data: backlogRow } = await supabase.from("task_backlog_state").select("data").eq("id", 1).maybeSingle();
+  // Urgent To-Do -- starred, not-yet-done tasks from this user's own backlog.
+  const { data: backlogRow } = user
+    ? await supabase.from("task_backlog_state").select("data").eq("id", user.id).maybeSingle()
+    : { data: null };
   const allTasks = (backlogRow?.data?.tasks as BacklogTask[] | undefined) ?? [];
   const urgentTasks = allTasks.filter((t) => t.priority && !isTaskDoneToday(t, todayISO));
 

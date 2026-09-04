@@ -26,10 +26,12 @@ Router) and Supabase Auth.
 6. In the Supabase dashboard's **SQL Editor**, run the migrations in
    `supabase/migrations/` in order. `0001_profiles.sql` + `0002_...` set up
    the `profiles` table (username, auto-filled at signup).
-   `0003_daily_kill_list_state.sql` sets up the shared state table behind
-   the Daily Kill List's day-scoped sync (calls, braindump).
+   `0003_daily_kill_list_state.sql` sets up the state table behind
+   the Daily Kill List's day-scoped sync (calls, braindump), originally
+   shared team-wide but made private per account by `0018_...sql` below.
    `0004_task_backlog_state.sql` sets up the table behind its persistent
-   backlog + Yearly Goals. `0005_content_hub_state.sql` sets up the
+   backlog + Yearly Goals, same original-shared/later-private-per-account
+   arc. `0005_content_hub_state.sql` sets up the
    per-user table behind the Weekly Content Hub, plus the two
    `SECURITY DEFINER` functions its `/team-access` secret-key flow calls.
    `0006_sales_board_state.sql` sets up the per-user table behind the
@@ -96,6 +98,17 @@ Router) and Supabase Auth.
    `sop_lessons.notes` to `content` (a lesson's big paste-anything text
    block instead of a short note) and adds `sop_lesson_resources`
    (per-lesson named links, same admin-write/everyone-read RLS split).
+   **`0018_private_daily_kill_list.sql` drops and recreates
+   `daily_kill_list_state` and `task_backlog_state`** as per-account
+   tables (`id uuid references auth.users(id)`, RLS `auth.uid() = id`),
+   reversing their original "one shared team-wide board" design at the
+   user's explicit direction. This one really is destructive — everyone's
+   existing Daily Kill List, backlog, and Yearly Goals content is
+   discarded (the user's own call: there's no way to tell which of the
+   old shared tasks belonged to whom, so every account starts fresh
+   rather than everyone getting a duplicate copy of the old shared
+   list). Back up that data first if it still matters before running
+   this one.
 7. Create a free account at [resend.com](https://resend.com) and grab an
    API key — this sends the "Submit a bug" emails. Set `RESEND_API_KEY` in
    `.env.local`. Without a verified sending domain, Resend only lets the
@@ -136,8 +149,8 @@ in and you'll land on `/dashboard`.
   table, since it's a Sales Board concept through and through and that
   row is already private per user. Progress-bar color follows the same
   good/warn/bad thresholds (≥100% / ≥75% / below) as Metrics Tracking's
-  own target system. `UrgentTasksCard` reads the shared
-  `task_backlog_state` singleton and shows starred (`priority: true`)
+  own target system. `UrgentTasksCard` reads this user's own
+  `task_backlog_state` row and shows starred (`priority: true`)
   tasks not yet done — `isTaskDoneToday()` in `page.tsx` mirrors
   `isTaskDone()` in `public/daily-kill-list-app/app.js` exactly (a
   repeating task counts as done only if `lastCompletedDate` is today; a
@@ -336,23 +349,29 @@ in and you'll land on `/dashboard`.
   the user's request. Static HTML/CSS/JS, embedded via iframe as usual.
 
   Two independent state slices, each keeping its source app's original
-  sync architecture:
+  sync architecture. Both were originally one shared team-wide board
+  (a singleton row everyone read/wrote) but were made **private per
+  account** by `0018_private_daily_kill_list.sql`, at the user's
+  explicit direction, once it became clear the cross-referencing across
+  accounts wasn't wanted — matching every other feature in the app
+  except Communications:
   - **Day-scoped** (changes with the date-nav up top): Daily Calls (with
     repeat schedules) and a per-day Braindump. Cross-device sync via
-    `/api/daily-kill-list/state` → a `daily_kill_list_state` table (one
-    shared JSON blob, RLS-gated to any authenticated portal user), cached
-    in each browser's `localStorage` for instant offline access with a
-    debounced background push — unchanged from the original Daily Kill
-    List. The original's needle-mover tasks, per-client to-do cards, and
-    revenue/streak tracking were dropped (superseded by the backlog below,
-    or just removed) at the user's request; their old data isn't deleted
-    from the stored JSON on save, just no longer read or rendered, so nothing
-    already entered there is destroyed by the merge.
-  - **Persistent** (ignores the date-nav — one shared, ongoing list): the
-    backlog and Yearly Goals, via `/api/daily-kill-list/backlog` → the
-    `task_backlog_state` table from the original standalone Task Backlog
-    port (reused as-is; it's just a jsonb column, so no migration was
-    needed for the new shape). Same GET-latest → mutate → POST round-trip
+    `/api/daily-kill-list/state` → this user's own row in
+    `daily_kill_list_state` (`id uuid references auth.users(id)`, RLS
+    `auth.uid() = id`), cached in each browser's `localStorage` for
+    instant offline access with a debounced background push —
+    unchanged from the original Daily Kill List other than the
+    ownership model. The original's needle-mover tasks, per-client
+    to-do cards, and revenue/streak tracking were dropped (superseded
+    by the backlog below, or just removed) at the user's request; their
+    old data isn't deleted from the stored JSON on save, just no longer
+    read or rendered, so nothing already entered there is destroyed by
+    the merge.
+  - **Persistent** (ignores the date-nav — this user's own ongoing
+    list): the backlog and Yearly Goals, via
+    `/api/daily-kill-list/backlog` → this user's own row in
+    `task_backlog_state`. Same GET-latest → mutate → POST round-trip
     per change, no local cache, as the original Task Backlog. Its client
     (Adriel/Alex) and per-assignee (Tom/Derek) routing was replaced with
     four fixed departments — Marketing, Sales, Operations, Fulfilment —
@@ -362,6 +381,17 @@ in and you'll land on `/dashboard`.
     saved under the old client/assignee schema before the merge shipped
     still loads (nothing is deleted), defaulting to Marketing until
     manually re-filed.
+
+  `0018_private_daily_kill_list.sql` drops and recreates both tables
+  rather than migrating the id column in place — the singleton-to-
+  per-user conversion has no way to attribute the old shared content to
+  any particular account, so per the user's own call it isn't carried
+  forward; every account starts with an empty Daily Kill List and
+  backlog after that migration runs. Both API routes
+  (`src/app/api/daily-kill-list/state/route.ts` and
+  `.../backlog/route.ts`) now call `auth.getUser()` and key every
+  read/write off `user.id` instead of the old fixed `id: 1`, the same
+  auth pattern `/api/sales-board/save` already used.
 
   Verified via Puppeteer with both endpoints mocked (a real authenticated
   session isn't available in a headless run, so `fetch` was intercepted
@@ -459,11 +489,11 @@ in and you'll land on `/dashboard`.
   header (one general owner per column, not a per-card assignee —
   multiple members on the same stage are comma-joined).
 
-  Unlike every other feature in this app, this one is **private per
-  account** rather than shared team-wide, per the user's explicit call.
-  Backed by `content_hub_state` (`supabase/migrations/0005_...sql`) — one
-  JSON blob per user, RLS-gated to `auth.uid() = id` instead of the
-  shared-singleton pattern everywhere else — behind `/api/content-hub/state`
+  Like almost everything else in this app (Communications is the one
+  deliberately shared exception), this is **private per account**, per
+  the user's explicit call. Backed by `content_hub_state`
+  (`supabase/migrations/0005_...sql`) — one JSON blob per user,
+  RLS-gated to `auth.uid() = id` — behind `/api/content-hub/state`
   (`src/app/api/content-hub/state/route.ts`). Local React state with a
   debounced save + background poll, same shape as Daily Kill List's
   day-scoped side, just per-user instead of localStorage-cached. That
