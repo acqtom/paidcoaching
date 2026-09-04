@@ -70,7 +70,11 @@ export async function signup(
     password,
     options: {
       data: { username },
-      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
+      // Lands on /login (not /dashboard) after confirming, per explicit
+      // direction -- confirming does log them in, so /dashboard would
+      // technically also work, but /login is the one clearly "correct"
+      // landing spot they asked for either way.
+      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/login`,
     },
   });
 
