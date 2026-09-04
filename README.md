@@ -818,6 +818,29 @@ in and you'll land on `/dashboard`.
   commission rates), not a defect in the port. Zero console errors in
   every run.
 
+  The top filter bar (date preset, Call Outcome, Closer, Setter —
+  `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
+  filter for VSL vs. Webinar, sitting right after the date preset. It
+  slots into the same fully generic system the other three fields
+  already use — no special-casing needed in `renderFilters`/
+  `passesFilters` themselves — via two small per-field hooks added for
+  it: `value` (a deal → filter-value function, so a legacy deal with no
+  `funnelType` still filters as VSL, matching the default used
+  everywhere else in this app) and `options` (a fixed `["vsl",
+  "webinar"]` list rather than one derived from whatever's actually in
+  `deals`, so both choices always show up even before any Webinar deal
+  exists). `format` renders the checkbox labels as "VSL"/"Webinar"
+  rather than the raw stored strings. Verified with a standalone test of
+  `passesFilters`/`FILTER_FIELDS`' value-resolution logic (13 cases:
+  fixed options list independent of `deals` content, correct label
+  formatting, a legacy no-`funnelType` deal filtering as VSL, a Webinar
+  deal correctly excluded when Source=VSL is active and vice versa, no
+  filter selected passing everything through, and Source composing
+  correctly alongside an existing Closer filter) — run the same way as
+  Metrics Tracking's `mergeSalesBoardMetrics` test, compiled with `tsc`
+  and executed with plain `node`, no browser needed since this slice of
+  logic has no DOM dependency.
+
 - `src/app/dashboard/communications` — the Communications Hub: open
   channels (any user can post, only admins create new ones) plus a private
   1-1 DM per regular user shared across every admin (a support-inbox

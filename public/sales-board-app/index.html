@@ -1266,6 +1266,19 @@
   }
 
   const FILTER_FIELDS = [
+    // Deals logged before the funnel picker existed have no funnelType --
+    // `value` folds those into "vsl" here too, same default used
+    // everywhere else (see dealFieldsFromForm and
+    // src/lib/metrics-tracking-state.ts). `options` is a fixed list
+    // rather than derived from `deals` like the other fields below, so
+    // both choices always show up even before any Webinar deal exists.
+    {
+      key: "funnelType",
+      label: "Source",
+      value: d => d.funnelType || "vsl",
+      options: ["vsl", "webinar"],
+      format: v => (v === "webinar" ? "Webinar" : "VSL")
+    },
     { key: "callOutcome", label: "Call Outcome" },
     { key: "closer", label: "Closer" },
     { key: "setter", label: "Setter" }
@@ -1313,7 +1326,7 @@
     if (!passesDatePreset(d)) return false;
     return FILTER_FIELDS.every(f => {
       const set = filterState[f.key];
-      return set.size === 0 || set.has(d[f.key]);
+      return set.size === 0 || set.has(f.value ? f.value(d) : d[f.key]);
     });
   }
 
@@ -1332,7 +1345,7 @@
       </details>
     `;
     FILTER_FIELDS.forEach(f => {
-      const values = [...new Set(deals.map(d => d[f.key]))];
+      const values = f.options ?? [...new Set(deals.map(d => (f.value ? f.value(d) : d[f.key])))];
       const active = filterState[f.key];
       const optsHtml = values.map(v => {
         const display = f.format ? f.format(v) : v;
