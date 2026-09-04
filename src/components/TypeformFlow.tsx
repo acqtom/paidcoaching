@@ -6,6 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import type { TypeformQuestion } from "@/lib/intake-forms";
 
 type Phase = "loading" | "answering" | "submitting" | "done";
+type Answer = string | string[];
+type Answers = Record<string, Answer>;
+
+function asArray(value: Answer | undefined): string[] {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
 
 // Owns its own draft text so switching questions doesn't need an effect
 // to reset it -- the parent renders this with `key={question.id}`, so
@@ -62,6 +69,102 @@ function ShortTextQuestion({
   );
 }
 
+// Checkboxes rather than single_select's auto-advancing cards, since
+// more than one can be picked -- needs its own explicit Continue/Submit
+// button. `initialValue` seeds both the checked standard options and the
+// "Other" text box when coming back to a question already answered
+// (recognized by not matching any of `options` verbatim). Same
+// key={question.id}-remount reset pattern as ShortTextQuestion.
+function MultiSelectQuestion({
+  options,
+  allowOther,
+  initialValue,
+  isLast,
+  submitting,
+  onAdvance,
+}: {
+  options: string[];
+  allowOther?: boolean;
+  initialValue: string[];
+  isLast: boolean;
+  submitting: boolean;
+  onAdvance: (value: string[]) => void;
+}) {
+  const initialOther = initialValue.find((v) => !options.includes(v)) ?? "";
+  const [selected, setSelected] = useState<Set<string>>(new Set(initialValue.filter((v) => options.includes(v))));
+  const [otherChecked, setOtherChecked] = useState(!!initialOther);
+  const [otherText, setOtherText] = useState(initialOther);
+
+  function toggle(opt: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(opt)) next.delete(opt);
+      else next.add(opt);
+      return next;
+    });
+  }
+
+  const otherValue = otherChecked ? otherText.trim() : "";
+  const canAdvance = selected.size > 0 || !!otherValue;
+
+  function advance() {
+    if (!canAdvance) return;
+    onAdvance(otherValue ? [...selected, otherValue] : [...selected]);
+  }
+
+  return (
+    <div className="mt-5">
+      <div className="space-y-2">
+        {options.map((opt) => (
+          <label
+            key={opt}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(opt)}
+              onChange={() => toggle(opt)}
+              className="h-4 w-4 shrink-0 rounded border-neutral-300 text-amber-500 focus:ring-amber-500 dark:border-neutral-600"
+            />
+            {opt}
+          </label>
+        ))}
+        {allowOther && (
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3">
+            <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              <input
+                type="checkbox"
+                checked={otherChecked}
+                onChange={(e) => setOtherChecked(e.target.checked)}
+                className="h-4 w-4 shrink-0 rounded border-neutral-300 text-amber-500 focus:ring-amber-500 dark:border-neutral-600"
+              />
+              Other
+            </label>
+            {otherChecked && (
+              <input
+                autoFocus
+                value={otherText}
+                onChange={(e) => setOtherText(e.target.value)}
+                placeholder="Tell us more…"
+                className="mt-2 w-full border-b-2 border-neutral-200 bg-transparent px-1 py-1.5 text-sm text-neutral-900 outline-none focus:border-amber-500 dark:border-neutral-700 dark:text-neutral-100"
+              />
+            )}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={advance}
+        disabled={!canAdvance || submitting}
+        className="mt-4 flex items-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900"
+      >
+        {isLast ? (submitting ? "Submitting…" : "Submit") : "Continue"}
+        <ArrowRight size={14} />
+      </button>
+    </div>
+  );
+}
+
 // A one-question-at-a-time flow in the style of Typeform: full-width
 // card, one question visible at a time, a thin progress bar, Enter/
 // number-key navigation, a back arrow, and no visible submit button
@@ -83,7 +186,7 @@ export function TypeformFlow({
   const supabase = useMemo(() => createClient(), []);
   const [phase, setPhase] = useState<Phase>("loading");
   const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Answers>({});
   const [visible, setVisible] = useState(true);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +205,7 @@ export function TypeformFlow({
         .maybeSingle();
       if (cancelled) return;
       if (data) {
-        setAnswers((data.answers as Record<string, string>) ?? {});
+        setAnswers((data.answers as Answers) ?? {});
         setSubmittedAt(data.submitted_at as string);
         setPhase("done");
       } else {
@@ -123,7 +226,7 @@ export function TypeformFlow({
     }, 150);
   }
 
-  async function submit(finalAnswers: Record<string, string>) {
+  async function submit(finalAnswers: Answers) {
     setPhase("submitting");
     setError(null);
     const { data, error: upsertError } = await supabase
@@ -143,7 +246,7 @@ export function TypeformFlow({
     setPhase("done");
   }
 
-  function answerAndAdvance(value: string) {
+  function answerAndAdvance(value: Answer) {
     const next = { ...answers, [question.id]: value };
     setAnswers(next);
     if (isLast) {
@@ -261,15 +364,30 @@ export function TypeformFlow({
                 </button>
               ))}
             </div>
-          ) : (
-            <ShortTextQuestion
+          ) : question.type === "multi_select" ? (
+            <MultiSelectQuestion
               key={question.id}
-              initialValue={answers[question.id] ?? ""}
-              placeholder={question.placeholder}
+              options={question.options}
+              allowOther={question.allowOther}
+              initialValue={asArray(answers[question.id])}
               isLast={isLast}
               submitting={phase === "submitting"}
               onAdvance={answerAndAdvance}
             />
+          ) : (
+            (() => {
+              const existing = answers[question.id];
+              return (
+                <ShortTextQuestion
+                  key={question.id}
+                  initialValue={typeof existing === "string" ? existing : ""}
+                  placeholder={question.placeholder}
+                  isLast={isLast}
+                  submitting={phase === "submitting"}
+                  onAdvance={answerAndAdvance}
+                />
+              );
+            })()
           )}
 
           {error && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{error}</p>}

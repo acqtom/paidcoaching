@@ -232,8 +232,25 @@ in and you'll land on `/dashboard`.
   (`src/lib/intake-forms.ts`) so the same component backs both the CMO
   form (7 questions: offer status, niche, ad spend budget, ads
   knowledge, traffic source, monthly revenue, data tracking — all given
-  verbatim) and the CEO form (no questions yet — `CEO_QUESTIONS` is
-  empty and the CEO tab hides `TypeformFlow` entirely until it isn't).
+  verbatim) and the CEO form (2 so far, more to come later: backend
+  systems in use, sales reps in place — both given verbatim too).
+
+  `TypeformQuestion` has a third variant beyond `single_select`/
+  `short_text`: **`multi_select`** — checkboxes rather than
+  auto-advancing cards, since more than one can be true (the CEO form's
+  first question needed this), with its own explicit Continue/Submit
+  button since there's no single click that means "done." An optional
+  `allowOther` flag adds a trailing "Other" checkbox that reveals a text
+  input; the typed text is stored in the saved answer array in place of
+  the literal word "Other", so an admin reviewing it later on Student
+  Data sees what the student actually meant. A stored answer is now
+  `string | string[]` (a plain string for `single_select`/`short_text`,
+  an array for `multi_select`) — `SubmissionModal` in `StudentTable.tsx`
+  joins arrays with `", "` for display. `MultiSelectQuestion` (alongside
+  `ShortTextQuestion`) uses the same `key={question.id}`-remount pattern
+  to seed its checked options and "Other" text from any previous answer
+  when navigating back to it, without a `useEffect`.
+
   Submitting writes one row per (student, form) to
   `intake_form_submissions` (`0020_student_data.sql`) as a flat
   `{ [questionId]: answer }` jsonb blob — an `upsert` keyed on

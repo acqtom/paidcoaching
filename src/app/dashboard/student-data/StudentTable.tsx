@@ -267,7 +267,7 @@ function PaymentModal({
 function SubmissionModal({ student, onClose }: { student: Student; onClose: () => void }) {
   const supabase = useMemo(() => createClient(), []);
   const [form, setForm] = useState<"cmo" | "ceo">("cmo");
-  const [answers, setAnswers] = useState<Record<string, string> | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string | string[]> | null>(null);
   // Which (student, form) pair `answers` was actually fetched for -- lets
   // `loading` be derived (true whenever the key we want doesn't match
   // what's loaded yet) instead of set directly inside the effect below.
@@ -287,7 +287,7 @@ function SubmissionModal({ student, onClose }: { student: Student; onClose: () =
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        setAnswers((data?.answers as Record<string, string>) ?? null);
+        setAnswers((data?.answers as Record<string, string | string[]>) ?? null);
         setLoadedKey(key);
       });
     return () => {
@@ -342,14 +342,18 @@ function SubmissionModal({ student, onClose }: { student: Student; onClose: () =
           ) : !answers ? (
             <p className="text-sm text-neutral-400">Not submitted yet.</p>
           ) : (
-            questions.map((q) => (
-              <div key={q.id}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{q.question}</p>
-                <p className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">
-                  {answers[q.id] ?? <span className="text-neutral-400">Skipped</span>}
-                </p>
-              </div>
-            ))
+            questions.map((q) => {
+              const a = answers[q.id];
+              const display = Array.isArray(a) ? a.join(", ") : a;
+              return (
+                <div key={q.id}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{q.question}</p>
+                  <p className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">
+                    {display || <span className="text-neutral-400">Skipped</span>}
+                  </p>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

@@ -1,6 +1,13 @@
 export type TypeformQuestion =
   | { id: string; type: "short_text"; question: string; placeholder?: string }
-  | { id: string; type: "single_select"; question: string; options: string[] };
+  | { id: string; type: "single_select"; question: string; options: string[] }
+  // Checkboxes, not auto-advancing radio cards -- needs an explicit
+  // Continue/Submit button since more than one option can be picked.
+  // `allowOther` adds a trailing "Other" checkbox that reveals a text
+  // input; the typed text is stored in place of the literal word
+  // "Other" in the saved answer array, so reviewing it later shows what
+  // they actually meant, not a placeholder label.
+  | { id: string; type: "multi_select"; question: string; options: string[]; allowOther?: boolean };
 
 // Underneath the CMO tab's Calendly embed on Start Here. Answers are
 // stored keyed by these ids in intake_form_submissions.answers (see
@@ -49,7 +56,22 @@ export const CMO_QUESTIONS: TypeformQuestion[] = [
   },
 ];
 
-// Underneath the CEO tab's Calendly embed -- not given yet, so the CEO
-// tab hides TypeformFlow entirely until this has real questions (see the
-// `questions.length > 0` guard in StartHereTabs.tsx).
-export const CEO_QUESTIONS: TypeformQuestion[] = [];
+// Underneath the CEO tab's Calendly embed. Started empty (hiding
+// TypeformFlow entirely via the `questions.length > 0` guard in
+// StartHereTabs.tsx) until this first batch shipped -- more to come
+// later, per explicit direction.
+export const CEO_QUESTIONS: TypeformQuestion[] = [
+  {
+    id: "backend_systems",
+    type: "multi_select",
+    question: "What backend systems are you using right now?",
+    options: ["CRM", "Tracking systems", "Zapier", "Framer / landing page", "Discord / Slack"],
+    allowOther: true,
+  },
+  {
+    id: "sales_reps",
+    type: "multi_select",
+    question: "What sales reps do you have in place?",
+    options: ["Closers", "Setters", "None (need some)"],
+  },
+];
