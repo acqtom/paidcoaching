@@ -1,20 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DollarSign, ArrowUpRight } from "lucide-react";
 
 const fmtUSD = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
+type Deal = { closingDate?: string; callOutcome?: string; cashCollected?: number | string | null };
+
 export function CashTargetCard({
-  todayCash,
+  deals,
   initialTarget,
 }: {
-  todayCash: number;
+  deals: Deal[];
   initialTarget: number | null;
 }) {
   const [target, setTarget] = useState(initialTarget);
+  // Computed from the viewer's own local calendar day (not the server's UTC
+  // clock) so the card rolls over to $0 at this browser's actual midnight,
+  // matching the calendar day reps pick in the Sales Board's date field.
+  const todayCash = useMemo(() => {
+    const todayLocal = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    return deals
+      .filter((d) => d.closingDate === todayLocal && d.callOutcome === "Closed/Won/Deposit")
+      .reduce((sum, d) => sum + (Number(d.cashCollected) || 0), 0);
+  }, [deals]);
   const [editing, setEditing] = useState(false);
   const [inputValue, setInputValue] = useState(initialTarget != null ? String(initialTarget) : "");
   const [saving, setSaving] = useState(false);

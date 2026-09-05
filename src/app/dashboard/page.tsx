@@ -44,15 +44,14 @@ export default async function DashboardPage() {
   const isAdmin = isAdminUsername(profile?.username ?? "");
 
   // Today's Cash Collected -- this user's own Sales Board deals closed today.
+  // The "today" filter itself runs client-side in CashTargetCard, against
+  // the viewer's own local calendar day, not this server's UTC clock --
+  // see that component for why.
   const todayISO = new Date().toISOString().slice(0, 10);
   const { data: salesBoardRow } = user
     ? await supabase.from("sales_board_state").select("data").eq("id", user.id).maybeSingle()
     : { data: null };
   const deals = (salesBoardRow?.data?.deals as Deal[] | undefined) ?? [];
-  const sumTodayCash = (list: Deal[]) =>
-    list
-      .filter((d) => d.closingDate === todayISO && d.callOutcome === "Closed/Won/Deposit")
-      .reduce((sum, d) => sum + (Number(d.cashCollected) || 0), 0);
 
   // Admins can also run any number of extra Sales Team Boards
   // (0023_multi_sales_boards.sql, one per offer) -- their cash counts
@@ -65,7 +64,7 @@ export default async function DashboardPage() {
       : { data: [] };
   const extraDeals = (extraBoards ?? []).flatMap((b) => (b.data?.deals as Deal[] | undefined) ?? []);
 
-  const todayCash = sumTodayCash(deals) + sumTodayCash(extraDeals);
+  const allCashDeals = [...deals, ...extraDeals];
   const dailyCashTarget = (salesBoardRow?.data?.dailyCashTarget as number | null | undefined) ?? null;
 
   // Urgent To-Do -- starred, not-yet-done tasks from this user's own backlog.
@@ -119,7 +118,7 @@ export default async function DashboardPage() {
 
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="sm:col-span-2">
-            <CashTargetCard todayCash={todayCash} initialTarget={dailyCashTarget} />
+            <CashTargetCard deals={allCashDeals} initialTarget={dailyCashTarget} />
           </div>
           <UrgentTasksCard tasks={urgentTasks.slice(0, 2)} totalCount={urgentTasks.length} />
         </div>

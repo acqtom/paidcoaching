@@ -182,7 +182,18 @@ in and you'll land on `/dashboard`.
   `sales_board_state` row (via the existing `/api/sales-board/save`,
   which already merges whichever fields are present) rather than a new
   table, since it's a Sales Board concept through and through and that
-  row is already private per user. Progress-bar color follows the same
+  row is already private per user. "Today" for this filter is computed
+  client-side inside `CashTargetCard` itself, from the viewer's own
+  local calendar day (`Intl.DateTimeFormat("en-CA").format(new
+  Date())`), not the server's UTC clock — the dashboard page (a Server
+  Component) has no reliable notion of the viewer's timezone, and
+  comparing against raw UTC caused the card to roll over hours before
+  local midnight for US-based reps, making "today's" cash disappear
+  early or bleed into the wrong day. The server (`dashboard/page.tsx`)
+  now just fetches the raw deals from this user's own Sales Board plus
+  (for admins) every extra Sales Team Board they own and hands the
+  combined array straight to the card as a `deals` prop; the card does
+  the date filtering and summing itself in a `useMemo`. Progress-bar color follows the same
   good/warn/bad thresholds (≥100% / ≥75% / below) as Metrics Tracking's
   own target system. `UrgentTasksCard` reads this user's own
   `task_backlog_state` row and shows starred (`priority: true`)
