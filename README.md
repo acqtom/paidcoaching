@@ -1486,6 +1486,64 @@ in and you'll land on `/dashboard`.
   code review and a static HTML/Tailwind mockup of `TypeformFlow`'s
   question/done states for visual confirmation.
 
+  **Summary cards** (`SummaryCards.tsx`) sit above the roster: total
+  student revenue (all-time / last 90 days / last 30 days), total
+  accounts, total users, and average time spent per day
+  (`0024_student_data_summary.sql`). "Student revenue" here is
+  deliberately **not** anything the coaching business charged students —
+  it's the cash every student has collected running their *own*
+  business through their own Sales Board (`sales_board_state.data.deals`,
+  same `callOutcome === "Closed/Won/Deposit"` filter as everywhere else
+  cash gets summed), combined across every student via a new
+  `admin_list_student_sales_data()` function (same admin-only,
+  one-letter-usernames-excluded shape as `admin_list_students()`). The
+  90/30-day windows bucket each closed deal by its own `closingDate`
+  against the server's current date at render time — a coarser
+  three-month rolling report doesn't need the same per-viewer local-day
+  precision the "Today's Cash Collected" dashboard card does. "Total
+  Users" is Total Accounts plus every closer/setter name a student has
+  added to their own board's team (`data.closers`/`data.setters`,
+  de-duplicated per student, trimmed/case-insensitive) — summed *across*
+  students rather than de-duplicated globally, since the same first name
+  showing up in two different students' boards is almost always two
+  different people, not one.
+
+  **Average time spent per day** required new instrumentation that
+  didn't exist anywhere in the app before: `ActivityHeartbeat.tsx` (a
+  "use client" component with no props at all, so it's trivially safe to
+  render straight out of a Server Component) is now mounted for every
+  logged-in user via a new `src/app/dashboard/layout.tsx` wrapping the
+  entire authenticated portal. Every 20 seconds, while the tab is
+  actually visible (`document.visibilityState === "visible"` — a
+  backgrounded tab stops crediting time), it calls
+  `record_activity_heartbeat(date, seconds)`, which upserts into a new
+  `activity_daily` table (one row per user per day, `active_seconds`
+  incremented atomically server-side). `date` is this browser's own
+  local calendar day (`Intl.DateTimeFormat("en-CA")`, the same pattern
+  used to fix Today's Cash Collected), and each call is capped server-
+  side at 60 seconds regardless of what the client sends, so a stale
+  timer (e.g. a laptop waking from sleep) can't inflate a day's total.
+  `activity_daily` has RLS enabled with **no** table policies at all —
+  every read and write goes through `record_activity_heartbeat()` (which
+  only ever writes `auth.uid()`'s own row) or the admin-only, `SECURITY
+  DEFINER` `admin_average_daily_activity_seconds()` (average
+  `active_seconds` per student per active day), so no account can read
+  or inflate another's activity. Since this starts collecting from
+  scratch, the card will read `< 1m` for everyone until real usage
+  accumulates — there's no historical data to backfill.
+
+  Adding a portal-wide layout made every route under `/dashboard`
+  dynamic (`ƒ`) at build time instead of some being prerendered as
+  static (`○`) — expected, since the layout itself does a per-request
+  `supabase.auth.getUser()` call to decide whether to mount the
+  heartbeat, and every one of those routes already required a live
+  session via the auth middleware anyway. Verified live (not just via a
+  clean build) with a temporary test route rendering `SummaryCards` and
+  `ActivityHeartbeat` together with fake data — confirmed a real 200
+  response with the formatted dollar amounts and duration actually
+  present in the HTML, then fully reverted the test route and its
+  `PUBLIC_PATHS` entry.
+
 ## Deploying
 
 Any Next.js host works (e.g. Vercel). Set the same environment variables

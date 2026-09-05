@@ -4,6 +4,7 @@ import { Logo } from "@/components/Logo";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminUsername } from "@/lib/is-admin-username";
 import { StudentTable } from "./StudentTable";
+import { SummaryCards } from "./SummaryCards";
 
 const PROGRAM_MONTHS = 3;
 
@@ -41,6 +42,17 @@ type PaymentRow = {
   amount_due: number;
   due_date: string | null;
   paid: boolean;
+};
+
+// Deal shape inside a Sales Board's own data.deals -- same fields
+// dashboard/page.tsx's "Today's Cash Collected" card reads.
+type Deal = { closingDate?: string; callOutcome?: string; cashCollected?: number | string | null };
+
+// Row shape returned by admin_list_student_sales_data() -- each
+// student's own sales_board_state.data (0024_student_data_summary.sql).
+type SalesDataRow = {
+  user_id: string;
+  data: { deals?: Deal[]; closers?: string[]; setters?: string[] } | null;
 };
 
 export default async function StudentDataPage() {
@@ -98,6 +110,49 @@ export default async function StudentDataPage() {
     };
   });
 
+  // Summary cards -- revenue students have collected in their OWN Sales
+  // Boards (not anything the coaching business charged them), plus a
+  // headcount that also folds in the closers/setters each student has
+  // added to their own board's team.
+  const { data: salesDataRows } = await supabase.rpc("admin_list_student_sales_data");
+  const salesRows = (salesDataRows ?? []) as SalesDataRow[];
+
+  const nowMs = now.getTime();
+  const MS_90_DAYS = 90 * 24 * 60 * 60 * 1000;
+  const MS_30_DAYS = 30 * 24 * 60 * 60 * 1000;
+
+  let totalRevenue = 0;
+  let revenue90 = 0;
+  let revenue30 = 0;
+  let teamMemberCount = 0;
+
+  for (const row of salesRows) {
+    const deals = row.data?.deals ?? [];
+    for (const d of deals) {
+      if (d.callOutcome !== "Closed/Won/Deposit") continue;
+      const amount = Number(d.cashCollected) || 0;
+      totalRevenue += amount;
+      const closingMs = d.closingDate ? new Date(`${d.closingDate}T00:00:00`).getTime() : NaN;
+      if (!Number.isNaN(closingMs)) {
+        const age = nowMs - closingMs;
+        if (age <= MS_90_DAYS) revenue90 += amount;
+        if (age <= MS_30_DAYS) revenue30 += amount;
+      }
+    }
+    const teamNames = new Set(
+      [...(row.data?.closers ?? []), ...(row.data?.setters ?? [])]
+        .map((n) => n.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    teamMemberCount += teamNames.size;
+  }
+
+  const totalAccounts = studentRows.length;
+  const totalUsers = totalAccounts + teamMemberCount;
+
+  const { data: avgSecondsRaw } = await supabase.rpc("admin_average_daily_activity_seconds");
+  const avgDailySeconds = Number(avgSecondsRaw) || 0;
+
   return (
     <div className="min-h-full flex-1 bg-neutral-50 dark:bg-neutral-950">
       <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
@@ -117,6 +172,17 @@ export default async function StudentDataPage() {
         <p className="mt-1 text-sm text-neutral-500">
           Every student who&apos;s joined, their {PROGRAM_MONTHS}-month program timeline, and intake form submissions.
         </p>
+
+        <div className="mt-6">
+          <SummaryCards
+            totalRevenue={totalRevenue}
+            revenue90={revenue90}
+            revenue30={revenue30}
+            totalAccounts={totalAccounts}
+            totalUsers={totalUsers}
+            avgDailySeconds={avgDailySeconds}
+          />
+        </div>
 
         <div className="mt-6">
           <StudentTable students={students} />
