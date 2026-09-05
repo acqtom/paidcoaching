@@ -1015,6 +1015,31 @@ in and you'll land on `/dashboard`.
   session response carries — needed no changes at all to keep working
   for both systems.
 
+  A second real bug, found only after real multi-board use (three
+  boards created, all three showing the same stuck $10,000 in Metrics
+  Tracking): `tracking-app`'s local `localStorage` cache
+  (`STORE_KEY = 'growth-dashboard-v4'`) was one single, unscoped key
+  shared by every board. `loadStored()` reads this cache synchronously
+  on boot, before the server sync's `bootServerSync()` IIFE resolves —
+  so a value cached from one board (or the original single-account
+  view) made every *other*, genuinely-empty board look like "this
+  browser already has unsynced data," triggering the `confirm()`
+  "Import this browser's existing numbers?" prompt; accepting it (or
+  just the prompt reappearing on every load, since declining never
+  clears the shared cache) copied that same stale value into each new
+  board's own server row. Fixed by making `STORE_KEY` include `urlBoard`
+  when present (`` `growth-dashboard-v4:board:${urlBoard}` ``) so each
+  board's local cache is fully isolated — `urlBoard`'s declaration moved
+  earlier in the file since `STORE_KEY` now depends on it existing
+  first. Verified with a live headless-Chrome load of
+  `tracking-app/index.html?board=...` confirming no reference error and
+  that the page still rendered its title and KPI grid correctly.
+  Cleaning up the three boards' already-corrupted data required a
+  one-off SQL statement run directly in Supabase (not a numbered
+  migration, since it's a data fix for this specific incident, not a
+  schema change): resetting `metrics_tracking_boards.data` back to
+  `'{}'::jsonb` for the affected rows.
+
   The actual "add board, switch between boards" UI is a single shared
   React component, `src/components/BoardSwitcher.tsx`, rendered above
   the iframe on both `/dashboard/sales-board` and `/dashboard/tracking`

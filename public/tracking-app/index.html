@@ -750,7 +750,20 @@ let CLIENTS=[seedDefaultClient()];
 let currentClientId='default', trendMode='week';
 
 /* ── Storage ── */
-const STORE_KEY='growth-dashboard-v4';
+// Set only by the React wrapper page's board switcher (see
+// src/app/dashboard/tracking/page.tsx) when an admin is viewing one of
+// their multi-boards' own Metrics Tracking data
+// (0023_multi_sales_boards.sql) instead of their single per-account one.
+// Declared here (rather than down with the rest of the server-sync
+// state below) since STORE_KEY needs it immediately.
+const urlBoard=new URLSearchParams(location.search).get('board');
+// Board-scoped when viewing one of an admin's multi-boards -- otherwise
+// every board shared this one key, so a value cached from one board (or
+// the original single-account view) would look like "this browser
+// already has data" for every other board too, triggering the
+// unwanted-import prompt below and, if accepted, actually copying that
+// stale value into an unrelated board's own server row.
+const STORE_KEY=urlBoard?`growth-dashboard-v4:board:${urlBoard}`:'growth-dashboard-v4';
 let saveTimer=null;
 function queueSave(){
   clearTimeout(saveTimer);
@@ -770,11 +783,6 @@ let dataReady=false;
 let serverSaveTimer=null;
 let pollTimer=null;
 let pollInFlight=false;
-// Set only by the React wrapper page's board switcher (see
-// src/app/dashboard/tracking/page.tsx) when an admin is viewing one of
-// their multi-boards' own Metrics Tracking data
-// (0023_multi_sales_boards.sql) instead of their single per-account one.
-const urlBoard=new URLSearchParams(location.search).get('board');
 
 const syncBanner=document.getElementById('sync-banner');
 function showSyncError(msg){syncBanner.textContent=msg;syncBanner.hidden=false;}
