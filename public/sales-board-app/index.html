@@ -355,6 +355,31 @@
     border: 1px solid var(--pill-border); border-radius: 10px; padding: 14px; resize: vertical; background: #fff;
   }
   .sop-content:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .sop-tab-wrap[draggable="true"] { cursor: grab; }
+  .sop-tab-wrap.dragging { opacity: 0.4; }
+  .sop-tab-wrap.drag-over { box-shadow: inset 2px 0 0 var(--badge-fg); }
+  .sop-type-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+  .sop-type-btn {
+    border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
+    border-radius: 14px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
+    text-transform: uppercase; letter-spacing: .03em;
+  }
+  .sop-type-btn.active { background: var(--black); border-color: var(--black); color: #fff; }
+  .sop-type-btn:hover:not(.active) { background: var(--surface-1); }
+  .sop-video-url-input {
+    width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
+    border: 1px solid var(--pill-border); border-radius: 10px; padding: 10px 14px; background: #fff;
+  }
+  .sop-video-url-input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .sop-video-frame {
+    position: relative; padding-bottom: 62.5%; height: 0; margin-top: 12px;
+    border-radius: 10px; overflow: hidden; border: 1px solid var(--pill-border); background: var(--surface-1);
+  }
+  .sop-video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  .sop-video-empty {
+    margin-top: 12px; padding: 40px 14px; text-align: center; font-size: 12px; color: var(--muted);
+    border: 1px dashed var(--pill-border); border-radius: 10px;
+  }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
     padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -661,7 +686,9 @@
       </div>
       <div class="card-body">
         <div class="sop-tabs" id="onb-main-tabs"></div>
+        <div class="sop-type-toggle" id="onb-main-type-toggle"></div>
         <textarea class="sop-content" id="onb-main-content" placeholder="Write or paste this SOP's content here…"></textarea>
+        <div class="sop-video-editor" id="onb-main-video" style="display:none;"></div>
       </div>
     </div>
 
@@ -672,7 +699,9 @@
       </div>
       <div class="card-body">
         <div class="sop-tabs" id="onb-closer-tabs"></div>
+        <div class="sop-type-toggle" id="onb-closer-type-toggle"></div>
         <textarea class="sop-content" id="onb-closer-content" placeholder="Write or paste this SOP's content here…"></textarea>
+        <div class="sop-video-editor" id="onb-closer-video" style="display:none;"></div>
       </div>
     </div>
 
@@ -683,7 +712,9 @@
       </div>
       <div class="card-body">
         <div class="sop-tabs" id="onb-setter-tabs"></div>
+        <div class="sop-type-toggle" id="onb-setter-type-toggle"></div>
         <textarea class="sop-content" id="onb-setter-content" placeholder="Write or paste this SOP's content here…"></textarea>
+        <div class="sop-video-editor" id="onb-setter-video" style="display:none;"></div>
       </div>
     </div>
   </div>
@@ -2102,7 +2133,16 @@
   }
 
   function makeTabs(labels) {
-    return labels.map(label => ({ id: makeId(), label, content: "" }));
+    return labels.map(label => ({ id: makeId(), label, type: "text", content: "", videoUrl: "" }));
+  }
+
+  // Accepts either a Loom share link (loom.com/share/<id>) or an already-
+  // embed one (loom.com/embed/<id>) and returns the embeddable URL, or ""
+  // if it doesn't look like a Loom link at all.
+  function loomEmbedUrl(rawUrl) {
+    if (!rawUrl) return "";
+    const match = String(rawUrl).match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9]+)/);
+    return match ? `https://www.loom.com/embed/${match[1]}` : "";
   }
 
   const SOP_DEFAULTS = {
@@ -2113,9 +2153,16 @@
 
   // A section with no tabs at all (never saved, or the user removed every
   // one) falls back to that section's default set -- otherwise whatever's
-  // saved wins, including any tabs the user added or removed.
+  // saved wins, including any tabs the user added, removed, or reordered.
+  // Tabs saved before video SOPs existed have no type/videoUrl -- default
+  // them here so every consumer can trust both fields are always present.
   function normalizeSopSection(section, defaultLabels) {
     const tabs = section && Array.isArray(section.tabs) && section.tabs.length ? section.tabs : makeTabs(defaultLabels);
+    tabs.forEach(t => {
+      t.type = t.type === "video" ? "video" : "text";
+      if (typeof t.videoUrl !== "string") t.videoUrl = "";
+      if (typeof t.content !== "string") t.content = "";
+    });
     const activeId = section && section.activeId && tabs.some(t => t.id === section.activeId) ? section.activeId : tabs[0].id;
     return { tabs, activeId };
   }
@@ -2130,14 +2177,17 @@
 
   let onboarding = normalizeOnboarding(null);
 
-  function renderSopSection(key, tabsId, contentId, preserveFocused) {
+  function renderSopSection(key, tabsId, contentId, typeToggleId, videoId, preserveFocused) {
     const section = onboarding[key];
     const tabsEl = document.getElementById(tabsId);
     const contentEl = document.getElementById(contentId);
+    const typeToggleEl = document.getElementById(typeToggleId);
+    const videoEl = document.getElementById(videoId);
+    const rerender = () => renderSopSection(key, tabsId, contentId, typeToggleId, videoId);
     const activeTab = section.tabs.find(t => t.id === section.activeId) || section.tabs[0];
 
     const tabsHtml = section.tabs.map(t => `
-      <span class="sop-tab-wrap${t.id === activeTab.id ? " active" : ""}">
+      <span class="sop-tab-wrap${t.id === activeTab.id ? " active" : ""}" draggable="true" data-tab-id="${t.id}">
         <button type="button" class="sop-tab-btn" data-id="${t.id}">${t.label}</button>
         <button type="button" class="sop-tab-remove${section.tabs.length > 1 ? "" : " sop-tab-remove-hidden"}" data-remove="${t.id}" title="Remove this SOP">&times;</button>
       </span>
@@ -2155,7 +2205,7 @@
     tabsEl.querySelectorAll(".sop-tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         section.activeId = btn.dataset.id;
-        renderSopSection(key, tabsId, contentId);
+        rerender();
       });
     });
     tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
@@ -2168,8 +2218,43 @@
         const id = btn.dataset.remove;
         section.tabs = section.tabs.filter(t => t.id !== id);
         if (section.activeId === id) section.activeId = section.tabs[0].id;
-        renderSopSection(key, tabsId, contentId);
+        rerender();
         queueSaveOnboarding();
+      });
+    });
+
+    // Drag-to-reorder -- native HTML5 drag and drop, no library. Dropping
+    // one SOP tab onto another moves it to that tab's position.
+    let draggedId = null;
+    tabsEl.querySelectorAll(".sop-tab-wrap").forEach(wrap => {
+      wrap.addEventListener("dragstart", e => {
+        draggedId = wrap.dataset.tabId;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", draggedId);
+        wrap.classList.add("dragging");
+      });
+      wrap.addEventListener("dragend", () => {
+        tabsEl.querySelectorAll(".sop-tab-wrap").forEach(w => w.classList.remove("dragging", "drag-over"));
+      });
+      wrap.addEventListener("dragover", e => {
+        e.preventDefault();
+        wrap.classList.add("drag-over");
+      });
+      wrap.addEventListener("dragleave", () => wrap.classList.remove("drag-over"));
+      wrap.addEventListener("drop", e => {
+        e.preventDefault();
+        const targetId = wrap.dataset.tabId;
+        const sourceId = draggedId || e.dataTransfer.getData("text/plain");
+        if (sourceId && sourceId !== targetId) {
+          const fromIndex = section.tabs.findIndex(t => t.id === sourceId);
+          const toIndex = section.tabs.findIndex(t => t.id === targetId);
+          if (fromIndex !== -1 && toIndex !== -1) {
+            const [moved] = section.tabs.splice(fromIndex, 1);
+            section.tabs.splice(toIndex, 0, moved);
+            queueSaveOnboarding();
+          }
+        }
+        rerender();
       });
     });
 
@@ -2181,11 +2266,11 @@
         e.preventDefault();
         const label = input.value.trim();
         if (!label) return;
-        const tab = { id: makeId(), label, content: "" };
+        const tab = { id: makeId(), label, type: "text", content: "", videoUrl: "" };
         section.tabs.push(tab);
         section.activeId = tab.id;
         section.adding = false;
-        renderSopSection(key, tabsId, contentId);
+        rerender();
         queueSaveOnboarding();
       });
       input.addEventListener("blur", () => {
@@ -2193,35 +2278,77 @@
         setTimeout(() => {
           if (section.adding) {
             section.adding = false;
-            renderSopSection(key, tabsId, contentId);
+            rerender();
           }
         }, 150);
       });
     } else {
       tabsEl.querySelector(".sop-add-btn").addEventListener("click", () => {
         section.adding = true;
-        renderSopSection(key, tabsId, contentId);
+        rerender();
       });
     }
 
-    // Only a background poll re-render (preserveFocused) should ever skip
-    // resetting the textarea while it's focused, so a fetch landing
-    // mid-keystroke can't yank text out from under active typing. A direct
-    // user action -- switching tabs, adding, removing -- always updates it,
-    // since that's the whole point of the click.
-    if (!preserveFocused || document.activeElement !== contentEl) {
-      contentEl.value = activeTab.content || "";
+    // Text/Video toggle for whichever SOP is active -- switchable any time,
+    // not just when the SOP is first added.
+    typeToggleEl.innerHTML = `
+      <button type="button" class="sop-type-btn${activeTab.type !== "video" ? " active" : ""}" data-type="text">Text</button>
+      <button type="button" class="sop-type-btn${activeTab.type === "video" ? " active" : ""}" data-type="video">Video (Loom)</button>
+    `;
+    typeToggleEl.querySelectorAll(".sop-type-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (activeTab.type === btn.dataset.type) return;
+        activeTab.type = btn.dataset.type;
+        rerender();
+        queueSaveOnboarding();
+      });
+    });
+
+    if (activeTab.type === "video") {
+      contentEl.style.display = "none";
+      videoEl.style.display = "block";
+      videoEl.innerHTML = `
+        <input type="url" class="sop-video-url-input" placeholder="Paste the Loom share link…" value="${(activeTab.videoUrl || "").replace(/"/g, "&quot;")}">
+        <div class="sop-video-frame-wrap"></div>
+      `;
+      const urlInput = videoEl.querySelector(".sop-video-url-input");
+      const frameWrap = videoEl.querySelector(".sop-video-frame-wrap");
+      const renderFrame = () => {
+        const embed = loomEmbedUrl(activeTab.videoUrl);
+        frameWrap.innerHTML = embed
+          ? `<div class="sop-video-frame"><iframe src="${embed}" allow="fullscreen"></iframe></div>`
+          : `<div class="sop-video-empty">Paste a Loom share link above to embed it here.</div>`;
+      };
+      renderFrame();
+      // Updates the frame live as they type/paste, without re-rendering the
+      // whole section (which would rebuild this input and drop focus).
+      urlInput.addEventListener("input", () => {
+        activeTab.videoUrl = urlInput.value;
+        queueSaveOnboarding();
+        renderFrame();
+      });
+    } else {
+      videoEl.style.display = "none";
+      contentEl.style.display = "block";
+      // Only a background poll re-render (preserveFocused) should ever skip
+      // resetting the textarea while it's focused, so a fetch landing
+      // mid-keystroke can't yank text out from under active typing. A direct
+      // user action -- switching tabs, adding, removing -- always updates it,
+      // since that's the whole point of the click.
+      if (!preserveFocused || document.activeElement !== contentEl) {
+        contentEl.value = activeTab.content || "";
+      }
+      contentEl.oninput = () => {
+        activeTab.content = contentEl.value;
+        queueSaveOnboarding();
+      };
     }
-    contentEl.oninput = () => {
-      activeTab.content = contentEl.value;
-      queueSaveOnboarding();
-    };
   }
 
   function renderOnboarding(preserveFocused) {
-    renderSopSection("mainBreakdown", "onb-main-tabs", "onb-main-content", preserveFocused);
-    renderSopSection("closerSops", "onb-closer-tabs", "onb-closer-content", preserveFocused);
-    renderSopSection("setterSops", "onb-setter-tabs", "onb-setter-content", preserveFocused);
+    renderSopSection("mainBreakdown", "onb-main-tabs", "onb-main-content", "onb-main-type-toggle", "onb-main-video", preserveFocused);
+    renderSopSection("closerSops", "onb-closer-tabs", "onb-closer-content", "onb-closer-type-toggle", "onb-closer-video", preserveFocused);
+    renderSopSection("setterSops", "onb-setter-tabs", "onb-setter-content", "onb-setter-type-toggle", "onb-setter-video", preserveFocused);
   }
 
   (async function boot() {

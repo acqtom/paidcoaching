@@ -937,6 +937,48 @@ in and you'll land on `/dashboard`.
   commission rates), not a defect in the port. Zero console errors in
   every run.
 
+  Each SOP tab can now be **Text or Video** — a small pill toggle above
+  the content area (switchable any time, not locked in at creation)
+  swaps between the original textarea and a native **Loom** embed. Every
+  tab gained `type` ("text" | "video") and `videoUrl` fields
+  (`makeTabs()`/the add-form handler default new tabs to `type: "text"`;
+  `normalizeSopSection()` backfills both fields — defaulting `type` to
+  `"text"` — onto any tab saved before this existed, so old onboarding
+  data still loads correctly). Pasting a normal Loom *share* link
+  (`loom.com/share/<id>`) is enough — `loomEmbedUrl()` extracts the id
+  via regex and rewrites it to the `loom.com/embed/<id>` form Loom
+  requires for iframes; an already-embed URL passes through unchanged,
+  and anything that doesn't look like a Loom link renders a "paste a
+  link" empty state instead of a broken iframe. The URL input updates
+  just its own iframe preview on every keystroke rather than re-running
+  the section's full render, since rebuilding that input's DOM node
+  mid-keystroke (the same class of problem the textarea's
+  `preserveFocused` flag solves) would otherwise drop focus and cursor
+  position while typing or pasting.
+
+  SOP tabs within a section can also be **dragged to reorder** — native
+  HTML5 drag-and-drop (`draggable="true"` on each tab, `dragstart` /
+  `dragover` / `drop` / `dragend`) needing no library, since dropping tab
+  A onto tab B just splices A out of `section.tabs` and re-inserts it at
+  B's index. A `.dragging` class dims the tab being moved and
+  `.drag-over` outlines whatever it's currently over; both clear on
+  `dragend` regardless of whether the drop landed on a valid target.
+
+  Verified live with Puppeteer against the real dev server (the two
+  session/save endpoints mocked with a fake `onboarding` payload, since
+  a real login session isn't available headlessly): confirmed the Video
+  toggle hides the textarea and shows the URL input plus an empty state,
+  that pasting `loom.com/share/<id>` renders an
+  `<iframe src="https://www.loom.com/embed/<id>">`, that toggling back
+  to Text preserves whatever was already typed there, and that dragging
+  the third tab onto the first actually reorders the tab list
+  (`['Expectations','Daily Huddles','Prep']` →
+  `['Prep','Expectations','Daily Huddles']`). One cosmetic console
+  warning surfaced during that pass (`allow="fullscreen"` and the legacy
+  boolean `allowfullscreen` attribute both present on the same iframe) —
+  fixed by dropping the redundant legacy attribute, since
+  `allow="fullscreen"` alone already covers it.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It
