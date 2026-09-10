@@ -979,6 +979,26 @@ in and you'll land on `/dashboard`.
   fixed by dropping the redundant legacy attribute, since
   `allow="fullscreen"` alone already covers it.
 
+  A **Directory** card sits above Main Breakdown — the first thing
+  anyone sees on the Onboarding tab. Unlike the three SOP sections, it's
+  a fixed set of fields, not user-addable/removable tabs: Offer name,
+  Youtube, Instagram, Ads Library, Pitch Deck, VSL Landing Page,
+  Confirmation Page (`DIRECTORY_FIELDS`), each a label on the left and a
+  plain text input on the right for the team to drop a link (or, for
+  Offer name, just the name) into. Saved as `onboarding.directory` —
+  same generic jsonb merge as everything else in `onboarding`, so no SQL
+  was needed. `renderDirectory()` builds its row/input DOM once
+  (`container.dataset.built` guards against rebuilding it on every
+  render) and on every subsequent call just refreshes each input's
+  `.value` — skipping whichever one is currently focused during a poll
+  re-render, the same `preserveFocused` pattern used for the SOP
+  textarea and video-URL inputs, so a poll landing mid-keystroke can't
+  overwrite what someone's actively typing. Verified live with
+  Puppeteer against the real dev server: confirmed Directory renders
+  first (`['Directory','Main Breakdown','Closer SOPs','Setter SOPs']`),
+  that saved values populate their fields correctly and unsaved fields
+  render blank, and that typing into a field is held correctly.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It

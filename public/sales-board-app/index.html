@@ -380,6 +380,18 @@
     margin-top: 12px; padding: 40px 14px; text-align: center; font-size: 12px; color: var(--muted);
     border: 1px dashed var(--pill-border); border-radius: 10px;
   }
+  .directory-list { display: flex; flex-direction: column; gap: 10px; }
+  .directory-row { display: flex; align-items: center; gap: 14px; }
+  .directory-label { flex: 0 0 160px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .directory-input {
+    flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
+    border: 1px solid var(--pill-border); border-radius: 10px; padding: 9px 12px; background: #fff;
+  }
+  .directory-input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  @media (max-width: 560px) {
+    .directory-row { align-items: flex-start; flex-direction: column; gap: 4px; }
+    .directory-label { flex-basis: auto; }
+  }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
     padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -679,6 +691,16 @@
 
   <!-- ================= ONBOARDING ================= -->
   <div class="view" id="view-onboarding">
+    <div class="card sop-section">
+      <div class="card-header">
+        <h2>Directory</h2>
+        <p>Quick links for this offer — everyone on the team can find these in one place.</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-list" id="onb-directory"></div>
+      </div>
+    </div>
+
     <div class="card sop-section">
       <div class="card-header">
         <h2>Main Breakdown</h2>
@@ -2151,6 +2173,27 @@
     setterSops: ["Daily Process", "Responsibilities", "Script", "Handoff Form"],
   };
 
+  // Directory -- a fixed set of link fields (not user-addable/removable
+  // like SOP tabs), one per offer: name on the left, a link/value on the
+  // right that the team fills in.
+  const DIRECTORY_FIELDS = [
+    { key: "offerName", label: "Offer name" },
+    { key: "youtube", label: "Youtube" },
+    { key: "instagram", label: "Instagram" },
+    { key: "adsLibrary", label: "Ads Library" },
+    { key: "pitchDeck", label: "Pitch Deck" },
+    { key: "vslLandingPage", label: "VSL Landing Page" },
+    { key: "confirmationPage", label: "Confirmation Page" },
+  ];
+
+  function normalizeDirectory(raw) {
+    const out = {};
+    DIRECTORY_FIELDS.forEach(f => {
+      out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : "";
+    });
+    return out;
+  }
+
   // A section with no tabs at all (never saved, or the user removed every
   // one) falls back to that section's default set -- otherwise whatever's
   // saved wins, including any tabs the user added, removed, or reordered.
@@ -2169,6 +2212,7 @@
 
   function normalizeOnboarding(raw) {
     return {
+      directory: normalizeDirectory(raw && raw.directory),
       mainBreakdown: normalizeSopSection(raw && raw.mainBreakdown, SOP_DEFAULTS.mainBreakdown),
       closerSops: normalizeSopSection(raw && raw.closerSops, SOP_DEFAULTS.closerSops),
       setterSops: normalizeSopSection(raw && raw.setterSops, SOP_DEFAULTS.setterSops),
@@ -2345,7 +2389,37 @@
     }
   }
 
+  // Builds the row/input DOM once (idempotent via data-built), then on
+  // every call just refreshes each input's value -- skipping whichever
+  // one is currently focused when preserveFocused is set, so a poll
+  // landing mid-keystroke can't overwrite what someone's actively typing
+  // (same class of fix as the SOP textarea/video-url inputs above).
+  function renderDirectory(preserveFocused) {
+    const container = document.getElementById("onb-directory");
+    if (!container.dataset.built) {
+      container.innerHTML = DIRECTORY_FIELDS.map(f => `
+        <div class="directory-row">
+          <span class="directory-label">${f.label}</span>
+          <input type="text" class="directory-input" data-key="${f.key}" placeholder="Add a link…">
+        </div>
+      `).join("");
+      container.querySelectorAll(".directory-input").forEach(input => {
+        input.addEventListener("input", () => {
+          onboarding.directory[input.dataset.key] = input.value;
+          queueSaveOnboarding();
+        });
+      });
+      container.dataset.built = "1";
+    }
+    container.querySelectorAll(".directory-input").forEach(input => {
+      if (!preserveFocused || document.activeElement !== input) {
+        input.value = onboarding.directory[input.dataset.key] || "";
+      }
+    });
+  }
+
   function renderOnboarding(preserveFocused) {
+    renderDirectory(preserveFocused);
     renderSopSection("mainBreakdown", "onb-main-tabs", "onb-main-content", "onb-main-type-toggle", "onb-main-video", preserveFocused);
     renderSopSection("closerSops", "onb-closer-tabs", "onb-closer-content", "onb-closer-type-toggle", "onb-closer-video", preserveFocused);
     renderSopSection("setterSops", "onb-setter-tabs", "onb-setter-content", "onb-setter-type-toggle", "onb-setter-video", preserveFocused);
