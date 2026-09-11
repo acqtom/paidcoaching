@@ -1112,6 +1112,43 @@ in and you'll land on `/dashboard`.
   `.huddle-table` class — fixed by adding the equivalent rule scoped to
   `.huddle-table` too.
 
+  **A third instance of the same poll-vs-edit race**, reported as "Add
+  SOP sometimes randomly deletes what I'm typing in the name" — one more
+  gap the `onboardingSavePending` guard didn't close, since typing a new
+  SOP's not-yet-submitted name never queues a save at all (only
+  submitting does), so the guard was never engaged while it mattered.
+  Two compounding bugs, not one: (1) `renderSopSection()` unconditionally
+  rebuilds the whole tab bar's `innerHTML` — including the "Add SOP" name
+  `<input>`, which has no `value="…"` to restore since the typed text
+  only ever lives in that DOM node, never in `onboarding` — on *every*
+  call, poll-triggered or not, so a poll landing mid-keystroke wiped the
+  input back to blank (or collapsed the form back to the "+ Add SOP"
+  button outright, since `section.adding` isn't part of what
+  `normalizeSopSection()` restores from the server either). (2) A deeper
+  bug the first fix alone would have masked rather than solved: even
+  after skipping that render, `loadUserData()` still swapped
+  `onboarding[key]` for a brand-new object from the server, orphaning
+  the add-form's `submit` handler, which had closed over the *old*
+  `section` reference — submitting would silently push the new tab onto
+  that dead, no-longer-referenced object while `rerender()` read the
+  fresh one, so the tab visually appeared to never get added at all.
+  Fixed both: `renderSopSection()` now returns immediately, before
+  touching any DOM, whenever a poll re-render (`preserveFocused`) finds
+  the add-input currently focused — leaving the half-typed name and open
+  form untouched; and `loadUserData()`'s onboarding guard now also checks
+  `.adding` on all three sections, freezing the whole `onboarding` object
+  (the same treatment as a pending save) for as long as any "Add SOP"
+  form is open anywhere, so its `section` reference can never go stale
+  out from under an in-progress add. Verified by writing a Puppeteer
+  test that races a poll against a half-typed, not-yet-submitted SOP
+  name: confirmed it reproduced the exact reported bug against the
+  pre-fix code (the input vanished entirely, form and all), confirmed
+  both assertions pass with the first fix alone plus a *new* one
+  (submitting afterward silently failed to add the tab — this is what
+  caught bug (2)), and confirmed all three pass — input survives the
+  race, and submitting afterward correctly adds the tab — once both
+  fixes were in place together.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It

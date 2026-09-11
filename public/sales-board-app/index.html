@@ -2021,14 +2021,20 @@
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
-    // Skip while an onboarding edit is queued or still saving -- this runs
-    // on every 8s poll and every window focus, so without this guard a
-    // poll landing between a keystroke and its 600ms debounced save (e.g.
-    // switching back into this tab right after copying a link elsewhere)
-    // would silently replace the in-memory edit with the server's still-
-    // older copy, and the *next* save would then persist that reverted
-    // state, permanently discarding what was just typed.
-    if (!onboardingSavePending) {
+    // Skip while an onboarding edit is queued or still saving, or while
+    // an "Add SOP" name is being typed anywhere -- this runs on every 8s
+    // poll and every window focus, so without this guard a poll landing
+    // between a keystroke and its 600ms debounced save (e.g. switching
+    // back into this tab right after copying a link elsewhere) would
+    // silently replace the in-memory edit with the server's still-older
+    // copy, and the *next* save would then persist that reverted state,
+    // permanently discarding what was just typed. The "Add SOP" case
+    // needs its own check since typing a not-yet-submitted name never
+    // queues a save at all -- without this, swapping out onboarding[key]
+    // out from under an open add-form would orphan its submit handler's
+    // reference to the old section object, silently losing the new tab
+    // the moment it's actually submitted.
+    if (!onboardingSavePending && !onboarding.mainBreakdown.adding && !onboarding.closerSops.adding && !onboarding.setterSops.adding) {
       onboarding = normalizeOnboarding(data.onboarding);
     }
     // Same guard, same reason, for the Daily Huddles worksheet.
@@ -2566,6 +2572,21 @@
     const typeToggleEl = document.getElementById(typeToggleId);
     const videoEl = document.getElementById(videoId);
     const rerender = () => renderSopSection(key, tabsId, contentId, typeToggleId, videoId);
+
+    // Unlike every other field in this section, the "Add SOP" name input
+    // isn't backed by anything in `onboarding` until it's actually
+    // submitted -- the typed text lives only in this DOM node. The tab
+    // bar below rebuilds unconditionally on every render (its own tabs
+    // never hold live-typed state, so that's normally fine), which wiped
+    // this input back to blank the moment a poll (every 8s, or on window
+    // focus) re-ran mid-keystroke. A background poll re-render skips this
+    // whole section entirely while that input is focused, leaving the
+    // half-typed name and the open form exactly as the user left them.
+    const existingAddInput = document.getElementById(`${tabsId}-add-input`);
+    if (preserveFocused && existingAddInput && document.activeElement === existingAddInput) {
+      return;
+    }
+
     const activeTab = section.tabs.find(t => t.id === section.activeId) || section.tabs[0];
 
     const tabsHtml = section.tabs.map(t => `
