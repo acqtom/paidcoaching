@@ -999,6 +999,41 @@ in and you'll land on `/dashboard`.
   that saved values populate their fields correctly and unsaved fields
   render blank, and that typing into a field is held correctly.
 
+  **Fixed a real data-loss bug**, reported as "the Youtube link disappeared
+  right after I pasted it" and "clicking a different SOP a few seconds
+  later jumps back to the one I was on" — both traced to the same root
+  cause. `loadUserData()` runs on every 8-second poll
+  (`setInterval(pollForUpdates, 8000)`) *and* every time the window
+  regains focus (`window.addEventListener("focus", pollForUpdates)` —
+  exactly what fires when someone tabs away to copy a link and switches
+  back to paste it), and it unconditionally reassigned the shared
+  `onboarding` variable to a fresh object built from whatever the server
+  currently had. If that reassignment landed in the roughly 600ms window
+  between a keystroke and its debounced save actually going out, it
+  silently replaced the in-memory edit with the server's older copy —
+  and the *next* debounced save then persisted that reverted state,
+  permanently discarding what was just typed. Separately, switching SOP
+  tabs never called `queueSaveOnboarding()` at all, so `activeId` never
+  reached the server in the first place; *any* poll, race or not, would
+  eventually overwrite it back to whichever tab was last actually saved
+  (`normalizeSopSection()` defaults to `tabs[0]` whenever the saved
+  `activeId` doesn't match).
+
+  Fixed both: the tab-click handler now calls `queueSaveOnboarding()`
+  too, and a new `onboardingSavePending` flag (set the instant an edit
+  queues a save, cleared only once that save actually finishes) guards
+  the reassignment in `loadUserData()` — while a save is pending or in
+  flight, a poll updates deals/closers/setters/accessCode as before but
+  leaves `onboarding` alone, so an in-progress edit can never be
+  clobbered by a poll that just hasn't caught up yet. Verified by
+  reproducing the exact race with Puppeteer against the real dev server
+  (a mocked `/session` endpoint that always returns stale server data,
+  with a manual `window.dispatchEvent(new Event("focus"))` timed to land
+  inside that 600ms window): confirmed the bug reproduced exactly as
+  reported on the pre-fix code (active tab reverted, the pasted Youtube
+  link came back empty, and the *next* save persisted that emptied
+  value), and that all four assertions passed once the fix was restored.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It

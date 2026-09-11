@@ -1943,7 +1943,16 @@
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
-    onboarding = normalizeOnboarding(data.onboarding);
+    // Skip while an onboarding edit is queued or still saving -- this runs
+    // on every 8s poll and every window focus, so without this guard a
+    // poll landing between a keystroke and its 600ms debounced save (e.g.
+    // switching back into this tab right after copying a link elsewhere)
+    // would silently replace the in-memory edit with the server's still-
+    // older copy, and the *next* save would then persist that reverted
+    // state, permanently discarding what was just typed.
+    if (!onboardingSavePending) {
+      onboarding = normalizeOnboarding(data.onboarding);
+    }
     if (data.accessCode) accessCode = data.accessCode;
   }
 
@@ -1987,13 +1996,19 @@
   }
 
   let onboardingSaveTimer = null;
+  // True from the moment an onboarding edit is made until its save
+  // actually finishes (success or failure) -- see the guard in
+  // loadUserData() above for why.
+  let onboardingSavePending = false;
   function queueSaveOnboarding() {
+    onboardingSavePending = true;
     clearTimeout(onboardingSaveTimer);
     onboardingSaveTimer = setTimeout(saveOnboarding, 600);
   }
   async function saveOnboarding() {
     if (!dataReady) {
       showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      onboardingSavePending = false;
       return false;
     }
     try {
@@ -2004,6 +2019,8 @@
       console.error("Failed to save onboarding to server:", e);
       showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
       return false;
+    } finally {
+      onboardingSavePending = false;
     }
   }
 
@@ -2248,8 +2265,14 @@
 
     tabsEl.querySelectorAll(".sop-tab-btn").forEach(btn => {
       btn.addEventListener("click", () => {
+        if (section.activeId === btn.dataset.id) return;
         section.activeId = btn.dataset.id;
         rerender();
+        // Persist which tab is active -- without this, activeId only ever
+        // existed in memory, so the next poll (every 8s, or on window
+        // focus) would fetch the server's still-default activeId and jump
+        // the view back to whatever tab was last actually saved.
+        queueSaveOnboarding();
       });
     });
     tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
