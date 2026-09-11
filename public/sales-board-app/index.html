@@ -2750,35 +2750,52 @@
     });
 
     if (activeTab.type === "video") {
-      contentEl.style.display = "none";
+      contentEl.hidden = true;
+      viewEl.hidden = true;
       videoEl.style.display = "block";
-      videoEl.innerHTML = `
-        <input type="url" class="sop-video-url-input" placeholder="Paste the Loom share link…" value="${(activeTab.videoUrl || "").replace(/"/g, "&quot;")}">
-        <div class="sop-video-frame-wrap"></div>
-      `;
-      const urlInput = videoEl.querySelector(".sop-video-url-input");
-      const frameWrap = videoEl.querySelector(".sop-video-frame-wrap");
-      const renderFrame = () => {
-        const embed = loomEmbedUrl(activeTab.videoUrl);
+
+      // Only rebuilds the actual <iframe> when the video URL genuinely
+      // changed since the last render. Every 8s poll (and every window
+      // focus) re-runs this whole function regardless of what's visible
+      // on screen -- rebuilding the iframe unconditionally on every one
+      // of those, as before, tore down and recreated the embed each
+      // time, which restarts Loom's player from 0:00 mid-playback.
+      const updateVideoFrame = () => {
+        const url = activeTab.videoUrl || "";
+        if (videoEl.dataset.renderedUrl === url) return;
+        const frameWrap = videoEl.querySelector(".sop-video-frame-wrap");
+        const embed = loomEmbedUrl(url);
         frameWrap.innerHTML = embed
           ? `<div class="sop-video-frame"><iframe src="${embed}" allow="fullscreen"></iframe></div>`
           : `<div class="sop-video-empty">Paste a Loom share link above to embed it here.</div>`;
+        videoEl.dataset.renderedUrl = url;
       };
-      renderFrame();
-      // Updates the frame live as they type/paste, without re-rendering the
-      // whole section (which would rebuild this input and drop focus).
-      urlInput.addEventListener("input", () => {
-        activeTab.videoUrl = urlInput.value;
-        queueSaveOnboarding();
-        renderFrame();
-      });
+
+      // The input/frame-wrap DOM itself only needs building once per SOP
+      // tab (tracked via dataset.tabId) -- everything else about this
+      // section re-renders far too often (every tab click, every poll)
+      // to rebuild it every single time.
+      if (videoEl.dataset.tabId !== activeTab.id) {
+        videoEl.innerHTML = `
+          <input type="url" class="sop-video-url-input" placeholder="Paste the Loom share link…">
+          <div class="sop-video-frame-wrap"></div>
+        `;
+        videoEl.dataset.tabId = activeTab.id;
+        delete videoEl.dataset.renderedUrl;
+        videoEl.querySelector(".sop-video-url-input").addEventListener("input", e => {
+          activeTab.videoUrl = e.target.value;
+          queueSaveOnboarding();
+          updateVideoFrame();
+        });
+      }
+
+      const urlInput = videoEl.querySelector(".sop-video-url-input");
+      if (!preserveFocused || document.activeElement !== urlInput) {
+        urlInput.value = activeTab.videoUrl || "";
+      }
+      updateVideoFrame();
     } else {
       videoEl.style.display = "none";
-      // Clears any inline display:none left over from a previous render
-      // as the "video" type above -- an inline style would otherwise
-      // outrank the hidden attribute used below to toggle edit/view mode,
-      // permanently hiding the textarea after switching back to Text.
-      contentEl.style.display = "";
       // Only a background poll re-render (preserveFocused) should ever skip
       // resetting the textarea while it's focused, so a fetch landing
       // mid-keystroke can't yank text out from under active typing. A direct

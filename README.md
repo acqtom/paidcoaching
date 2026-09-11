@@ -1189,6 +1189,38 @@ in and you'll land on `/dashboard`.
   click-to-edit, not just report `hidden: false` while remaining
   invisible underneath a stale inline style.
 
+  **Two more SOP video bugs**, both reported together from one
+  screenshot: the read-only text view stayed visible stacked on top of
+  the video (the Video branch hid the textarea but never touched
+  `viewEl`, the read-only linkified view added for clickable SOP links —
+  fixed by explicitly hiding both `contentEl` and `viewEl`, via the
+  `hidden` attribute now, not the old `style.display`, so it can't
+  reintroduce the stale-inline-style class of bug above). Second, and
+  more serious: playing the embedded Loom video would restart it and cut
+  it off a few seconds in. `videoEl.innerHTML` was being rebuilt from
+  scratch — recreating a brand-new `<iframe>` every time — on *every*
+  render, and this section re-renders on every 8s poll regardless of
+  what's actually on screen, so watching a Loom embedded in the active
+  SOP tab meant its `<iframe>` (and the video state inside it) got torn
+  down and recreated on whatever cadence the poll happened to land on.
+  Fixed with an idempotent-build pattern in the same spirit as
+  `renderPipeline()`'s row-shape check: the input/frame-wrap DOM is only
+  built once per SOP tab (`videoEl.dataset.tabId`), and the `<iframe>`
+  itself is only ever rebuilt when the video URL actually changed from
+  what's currently rendered (`videoEl.dataset.renderedUrl`) — a routine
+  poll re-render with nothing new to show now leaves the existing
+  `<iframe>` completely untouched. Verified live with Puppeteer:
+  confirmed both the view and the textarea are hidden while a tab is in
+  Video mode with only the video showing, that the iframe's `src`
+  correctly resolves to the embed URL; then marked the actual live
+  `<iframe>` DOM node and confirmed that exact same node (not a
+  same-looking replacement) survives three consecutive poll re-renders
+  untouched — proving the video can no longer be restarted by the
+  background sync — while confirming a genuine URL edit still correctly
+  rebuilds it. A separate regression pass confirmed Text ⇄ Video
+  round-tripping (including mid-edit) and click-to-edit still all work
+  together correctly after this change.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It
