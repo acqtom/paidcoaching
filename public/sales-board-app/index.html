@@ -398,6 +398,27 @@
     .directory-label { flex-basis: auto; }
     .directory-row > .directory-input { width: 100%; }
   }
+  select.directory-input { cursor: pointer; }
+  .huddle-table-wrap { overflow-x: auto; }
+  .huddle-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .huddle-table th {
+    text-align: left; padding: 8px 8px; color: var(--muted); font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid var(--card-border); white-space: nowrap;
+  }
+  .huddle-table td { padding: 3px; border-bottom: 1px solid var(--card-border); }
+  .huddle-table tr:last-child td { border-bottom: none; }
+  .huddle-table input {
+    width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
+    border: 1px solid transparent; border-radius: 6px; padding: 7px 8px; background: transparent;
+  }
+  .huddle-table input:hover { background: var(--surface-1); }
+  .huddle-table input:focus { outline: none; border-color: var(--pill-border); background: #fff; }
+  .huddle-table .row-delete-cell { width: 1%; padding-right: 8px; }
+  .huddle-table .row-delete {
+    border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
+    padding: 6px 4px;
+  }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
     padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -456,6 +477,7 @@
     <button class="view-tab" data-view="data">Data</button>
     <button class="view-tab" data-view="team">Add Team</button>
     <button class="view-tab" data-view="onboarding">Onboarding</button>
+    <button class="view-tab" data-view="huddles">Daily Huddles</button>
   </nav>
 
   <div id="sync-banner" class="sync-banner" hidden></div>
@@ -743,6 +765,55 @@
         <div class="sop-type-toggle" id="onb-setter-type-toggle"></div>
         <textarea class="sop-content" id="onb-setter-content" placeholder="Write or paste this SOP's content here…"></textarea>
         <div class="sop-video-editor" id="onb-setter-video" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DAILY HUDDLES ================= -->
+  <div class="view" id="view-huddles">
+    <h2 class="section-title">Daily Huddles</h2>
+    <p class="page-desc">Run through these every day before calls start.</p>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Post-Call Form Accountability</h2>
+        <p>Check back on yesterday's calls — did everyone fill out their post-call form?</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-list" id="huddle-accountability"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Setter Bottleneck Spot-Check (5 min)</h2>
+        <p>ONE rep, ONE bottleneck. Don't fix everyone.</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-list" id="huddle-setter-bottleneck"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Closer Bottleneck Spot-Check (5 min)</h2>
+        <p>ONE rep, ONE bottleneck. Don't fix everyone.</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-list" id="huddle-closer-bottleneck"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Pipeline Check (Daily Numbers)</h2>
+        <p>Fill this in now.</p>
+      </div>
+      <div class="card-body">
+        <div class="huddle-table-wrap">
+          <table class="huddle-table" id="huddle-pipeline-table"></table>
+        </div>
+        <button type="button" class="sop-add-btn" id="huddle-pipeline-add-row">+ Add Row</button>
       </div>
     </div>
   </div>
@@ -1513,6 +1584,7 @@
       btn.classList.add("active");
       document.getElementById("view-" + btn.dataset.view).classList.add("active");
       if (btn.dataset.view === "data") renderDataTable();
+      if (btn.dataset.view === "huddles") renderHuddles();
     });
   });
 
@@ -1959,6 +2031,10 @@
     if (!onboardingSavePending) {
       onboarding = normalizeOnboarding(data.onboarding);
     }
+    // Same guard, same reason, for the Daily Huddles worksheet.
+    if (!huddlesSavePending) {
+      huddles = normalizeHuddles(data.huddles);
+    }
     if (data.accessCode) accessCode = data.accessCode;
   }
 
@@ -2037,6 +2113,7 @@
     renderAll();
     renderTeamTab();
     renderOnboarding();
+    renderHuddles();
   }
 
   // Re-fetches this account's data from the server and re-renders in place —
@@ -2055,6 +2132,7 @@
       renderAll();
       renderTeamTab();
       renderOnboarding(true);
+      renderHuddles(true);
     } catch (e) {
       console.error("Poll for updates failed:", e);
       // Only surface this to the user if we've never successfully loaded --
@@ -2114,12 +2192,14 @@
       CLOSERS = CLOSERS.filter(n => n !== name);
       populateNameSelect(pcfCloserSelect, CLOSERS);
       renderTeamTab();
+      renderHuddles();
       saveNames();
     });
     renderNameList(teamSetterList, SETTERS, name => {
       SETTERS = SETTERS.filter(n => n !== name);
       populateNameSelect(pcfSetterSelect, SETTERS);
       renderTeamTab();
+      renderHuddles();
       saveNames();
     });
     teamDomainValue.textContent = salesAccessUrl;
@@ -2135,6 +2215,7 @@
     input.value = "";
     populateNameSelect(pcfCloserSelect, CLOSERS);
     renderTeamTab();
+    renderHuddles();
     saveNames();
   });
 
@@ -2147,6 +2228,7 @@
     input.value = "";
     populateNameSelect(pcfSetterSelect, SETTERS);
     renderTeamTab();
+    renderHuddles();
     saveNames();
   });
 
@@ -2254,6 +2336,229 @@
   }
 
   let onboarding = normalizeOnboarding(null);
+
+  // ---------------------------------------------------------------------
+  // 10d. DAILY HUDDLES — a fixed daily worksheet, not a per-day history:
+  //      Post-Call Form Accountability (rep roster is *derived* from
+  //      CLOSERS/SETTERS live, not stored, so it always matches Add Team),
+  //      a Setter and a Closer bottleneck spot-check, and a Pipeline Check
+  //      table. The team clears/edits it themselves day to day -- same
+  //      "just a persistent document" model as Onboarding, not an
+  //      automatic-reset system (which would need its own timezone
+  //      handling, the exact class of bug already fixed once this session
+  //      for Today's Cash Collected and the Sales Board's cache key).
+  // ---------------------------------------------------------------------
+  const BOTTLENECK_FIELDS = [
+    { key: "repInFocus", label: "Rep in focus today", type: "select" },
+    { key: "weakNumber", label: "What's the weak number?", type: "text" },
+    { key: "diagnostic", label: "Diagnostic — why is it weak?", type: "text" },
+    { key: "action", label: "Action to take today", type: "text" },
+    { key: "accountableBy", label: "Who's accountable / by when?", type: "text" },
+  ];
+
+  const PIPELINE_COLUMNS = [
+    { key: "prospect", label: "Prospect", placeholder: "Who?" },
+    { key: "rep", label: "Rep", placeholder: "Who?" },
+    { key: "status", label: "Status", placeholder: "Booked?" },
+    { key: "time", label: "Time", placeholder: "If booked" },
+    { key: "source", label: "Source", placeholder: "Where?" },
+    { key: "dealSize", label: "Deal size", placeholder: "$$$?" },
+    { key: "lastContact", label: "Last contact", placeholder: "" },
+    { key: "plan", label: "Plan", placeholder: "Forward action" },
+  ];
+  const PIPELINE_DEFAULT_ROWS = 10;
+
+  function normalizeBottleneck(raw) {
+    const out = {};
+    BOTTLENECK_FIELDS.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
+    return out;
+  }
+
+  function normalizePipelineRow(raw) {
+    const out = { id: (raw && raw.id) || makeId() };
+    PIPELINE_COLUMNS.forEach(c => { out[c.key] = raw && typeof raw[c.key] === "string" ? raw[c.key] : ""; });
+    return out;
+  }
+
+  function normalizeHuddles(raw) {
+    const pipeline = raw && Array.isArray(raw.pipeline) && raw.pipeline.length
+      ? raw.pipeline.map(normalizePipelineRow)
+      : Array.from({ length: PIPELINE_DEFAULT_ROWS }, () => normalizePipelineRow(null));
+    return {
+      accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
+      setterBottleneck: normalizeBottleneck(raw && raw.setterBottleneck),
+      closerBottleneck: normalizeBottleneck(raw && raw.closerBottleneck),
+      pipeline,
+    };
+  }
+
+  let huddles = normalizeHuddles(null);
+  let huddlesSaveTimer = null;
+  // Same guard as onboardingSavePending -- see loadUserData() above.
+  let huddlesSavePending = false;
+  function queueSaveHuddles() {
+    huddlesSavePending = true;
+    clearTimeout(huddlesSaveTimer);
+    huddlesSaveTimer = setTimeout(saveHuddles, 600);
+  }
+  async function saveHuddles() {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      huddlesSavePending = false;
+      return false;
+    }
+    try {
+      await apiPost(savePath(), { huddles });
+      clearSyncError();
+      return true;
+    } catch (e) {
+      console.error("Failed to save huddles to server:", e);
+      showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
+      return false;
+    } finally {
+      huddlesSavePending = false;
+    }
+  }
+
+  function renderAccountability(preserveFocused) {
+    const container = document.getElementById("huddle-accountability");
+    const reps = [...new Set([...CLOSERS, ...SETTERS])];
+    if (reps.length === 0) {
+      container.innerHTML = `<p class="data-table-empty">Add closers or setters from Add Team to track their forms here.</p>`;
+      delete container.dataset.signature;
+      return;
+    }
+    // Rebuilt only when the roster itself changes, not on every render --
+    // a signature string is cheaper than diffing and keeps a poll from
+    // dropping focus on an untouched select just because it re-ran.
+    const signature = reps.join("|");
+    if (container.dataset.signature !== signature) {
+      container.innerHTML = reps.map(name => `
+        <div class="directory-row">
+          <span class="directory-label">${name}</span>
+          <select class="directory-input" data-rep="${name}">
+            <option value="">Not answered</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      `).join("");
+      container.querySelectorAll("select[data-rep]").forEach(sel => {
+        sel.addEventListener("change", () => {
+          huddles.accountability[sel.dataset.rep] = sel.value;
+          queueSaveHuddles();
+        });
+      });
+      container.dataset.signature = signature;
+    }
+    container.querySelectorAll("select[data-rep]").forEach(sel => {
+      if (!preserveFocused || document.activeElement !== sel) {
+        sel.value = huddles.accountability[sel.dataset.rep] || "";
+      }
+    });
+  }
+
+  function renderBottleneck(key, containerId, repList, preserveFocused) {
+    const container = document.getElementById(containerId);
+    const data = huddles[key];
+    if (!container.dataset.built) {
+      container.innerHTML = BOTTLENECK_FIELDS.map(f => `
+        <div class="directory-row">
+          <span class="directory-label">${f.label}</span>
+          ${f.type === "select"
+            ? `<select class="directory-input" data-key="${f.key}"></select>`
+            : `<input type="text" class="directory-input" data-key="${f.key}">`}
+        </div>
+      `).join("");
+      container.querySelectorAll("[data-key]").forEach(el => {
+        el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
+          huddles[key][el.dataset.key] = el.value;
+          queueSaveHuddles();
+        });
+      });
+      container.dataset.built = "1";
+    }
+    const select = container.querySelector('select[data-key="repInFocus"]');
+    if (select && (!preserveFocused || document.activeElement !== select)) {
+      populateNameSelect(select, repList, data.repInFocus);
+    }
+    container.querySelectorAll("input[data-key]").forEach(input => {
+      if (!preserveFocused || document.activeElement !== input) {
+        input.value = data[input.dataset.key] || "";
+      }
+    });
+  }
+
+  function buildPipelineRowHtml(row) {
+    return `<tr data-row-id="${row.id}">
+      ${PIPELINE_COLUMNS.map(c => `<td><input type="text" data-key="${c.key}" placeholder="${c.placeholder}"></td>`).join("")}
+      <td class="row-delete-cell"><button type="button" class="row-delete" data-remove-row="${row.id}" title="Remove row">&times;</button></td>
+    </tr>`;
+  }
+
+  function wirePipelineRow(tr) {
+    const rowId = tr.dataset.rowId;
+    const row = huddles.pipeline.find(r => r.id === rowId);
+    tr.querySelectorAll("input[data-key]").forEach(input => {
+      if (row) input.value = row[input.dataset.key] || "";
+      input.addEventListener("input", () => {
+        const r = huddles.pipeline.find(r => r.id === rowId);
+        if (r) r[input.dataset.key] = input.value;
+        queueSaveHuddles();
+      });
+    });
+    tr.querySelector("[data-remove-row]").addEventListener("click", () => {
+      huddles.pipeline = huddles.pipeline.filter(r => r.id !== rowId);
+      renderPipeline();
+      queueSaveHuddles();
+    });
+  }
+
+  function renderPipeline(preserveFocused) {
+    const table = document.getElementById("huddle-pipeline-table");
+    if (!table.dataset.built) {
+      table.innerHTML = `<thead><tr>${PIPELINE_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}<th></th></tr></thead><tbody></tbody>`;
+      table.dataset.built = "1";
+    }
+    const tbody = table.querySelector("tbody");
+    const currentIds = Array.from(tbody.children).map(tr => tr.dataset.rowId);
+    const targetIds = huddles.pipeline.map(r => r.id);
+    const sameShape = currentIds.length === targetIds.length && currentIds.every((id, i) => id === targetIds[i]);
+
+    if (!sameShape) {
+      // Row added/removed/reordered -- rebuild the body (loses focus in
+      // this rarer case, same tradeoff SOP add/remove already makes).
+      tbody.innerHTML = huddles.pipeline.map(buildPipelineRowHtml).join("");
+      tbody.querySelectorAll("tr").forEach(wirePipelineRow);
+    } else {
+      // Same rows in the same order -- just refresh values, skipping
+      // whichever cell is currently focused (identical guard to every
+      // other input in this file).
+      huddles.pipeline.forEach(row => {
+        const tr = tbody.querySelector(`tr[data-row-id="${row.id}"]`);
+        if (!tr) return;
+        PIPELINE_COLUMNS.forEach(c => {
+          const input = tr.querySelector(`input[data-key="${c.key}"]`);
+          if (input && (!preserveFocused || document.activeElement !== input)) {
+            input.value = row[c.key] || "";
+          }
+        });
+      });
+    }
+  }
+
+  document.getElementById("huddle-pipeline-add-row").addEventListener("click", () => {
+    huddles.pipeline.push(normalizePipelineRow(null));
+    renderPipeline();
+    queueSaveHuddles();
+  });
+
+  function renderHuddles(preserveFocused) {
+    renderAccountability(preserveFocused);
+    renderBottleneck("setterBottleneck", "huddle-setter-bottleneck", SETTERS, preserveFocused);
+    renderBottleneck("closerBottleneck", "huddle-closer-bottleneck", CLOSERS, preserveFocused);
+    renderPipeline(preserveFocused);
+  }
 
   function renderSopSection(key, tabsId, contentId, typeToggleId, videoId, preserveFocused) {
     const section = onboarding[key];

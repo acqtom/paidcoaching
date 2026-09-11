@@ -1055,6 +1055,59 @@ in and you'll land on `/dashboard`.
   link came back empty, and the *next* save persisted that emptied
   value), and that all four assertions passed once the fix was restored.
 
+  A sixth nav tab, **Daily Huddles** (`view-huddles`), is a fixed daily
+  worksheet — not a per-day history; the team clears/edits it themselves,
+  same "just a persistent document" model as Onboarding, deliberately not
+  an automatic-reset-at-midnight system (which would need its own
+  timezone handling, exactly the bug class already fixed twice this
+  session for Today's Cash Collected and the Sales Board's localStorage
+  cache key). Four cards, styled with the same grey `.card` theme as
+  everywhere else in the app rather than the blue/yellow spreadsheet
+  look of the source template it was modeled on:
+
+  **Post-Call Form Accountability** rows are *derived* live from
+  `CLOSERS`/`SETTERS`, not stored as their own list — only each rep's
+  yes/no/blank answer is saved, keyed by name (`huddles.accountability`),
+  so a rep added or removed from Add Team appears or disappears here
+  automatically with zero extra bookkeeping; `renderAccountability()`
+  only rebuilds the row DOM when the roster itself changes (a cheap
+  joined-names signature check) so a poll doesn't drop focus on an
+  untouched dropdown just because it re-ran. **Setter/Closer Bottleneck
+  Spot-Check** are two instances of one generic `renderBottleneck()`
+  (5 fields: a rep-in-focus dropdown populated from that role's own list
+  via the existing `populateNameSelect()`, then three free-text fields)
+  — same function, different `SETTERS`/`CLOSERS` list and storage key.
+  **Pipeline Check (Daily Numbers)** is an 8-column table
+  (`PIPELINE_COLUMNS`) starting with 10 blank rows, with its own
+  **+ Add Row** and a per-row remove button; `renderPipeline()` only
+  rebuilds the `<tbody>` when the actual *set* of row ids changed (a row
+  added/removed/reordered) — otherwise it just refreshes each cell's
+  value in place, skipping whichever one is focused, so typing in one
+  cell survives a poll landing mid-keystroke without losing your place
+  in the table.
+
+  Saved as a new `huddles` key alongside `onboarding` — same generic
+  jsonb merge, no SQL needed — through its own parallel
+  `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
+  deliberately copying the exact `onboardingSavePending` fix above from
+  the start (rather than sharing one flag between two unrelated kinds of
+  data) so this brand-new feature couldn't reintroduce the very race
+  just fixed. Verified live with Puppeteer against the real dev server:
+  confirmed the nav tab and page heading render, that accountability
+  rows exactly match a mocked closers+setters roster, that each
+  bottleneck's rep dropdown only lists its own role, that the pipeline
+  table starts with 10 rows and Add Row/remove-row both work (removing
+  the row actually holding typed data, not just any row), that a full
+  edit across all three sections round-trips correctly into the next
+  save's `huddles` payload, and — reusing the same race-condition
+  harness as the onboarding fix above — that a poll landing mid-keystroke
+  in a bottleneck field doesn't wipe it. A visual pass caught the one
+  real bug: the pipeline table's remove button rendered as an unstyled
+  grey box, since `.row-delete`'s existing styling was scoped to
+  `.data-table .row-delete` and this table uses a separate
+  `.huddle-table` class — fixed by adding the equivalent rule scoped to
+  `.huddle-table` too.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It
