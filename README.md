@@ -1149,6 +1149,46 @@ in and you'll land on `/dashboard`.
   race, and submitting afterward correctly adds the tab — once both
   fixes were in place together.
 
+  **Links pasted into an SOP's body are now clickable.** A `<textarea>`
+  can never render inline markup, so the SOP content area now works as a
+  click-to-edit field: at rest it shows a read-only `sop-content-view`
+  div with any `http(s)://` or `www.` link turned into a real `<a
+  target="_blank" rel="noopener noreferrer">` via a new `linkifyText()`
+  (built on the same `escapeHtml()`-first, only-replace-the-matched-URL
+  approach as `directoryHref()`'s scheme-prefixing, plus trimming
+  trailing sentence punctuation like a period or comma off the link
+  itself); clicking anywhere in it *except* an actual link swaps back to
+  the plain, fully-editable textarea and focuses it, and blurring the
+  textarea swaps back to the freshly-linkified view. The two elements
+  are just shown/hidden via each other's `hidden` attribute — same
+  underlying `activeTab.content` the whole time, never a separate copy
+  that could drift out of sync.
+
+  Two things had to be gotten right for this to actually be safe: (1)
+  the toggle only ever fires off real focus/blur/click events, and the
+  render function only touches visibility while `document.activeElement
+  !== contentEl` — so a poll landing mid-keystroke (`preserveFocused`)
+  can't flip a user out of edit mode while they're typing, extending the
+  exact protection the Add SOP fix above established to this new toggle
+  too. (2) The Video/Loom toggle earlier in this same function sets
+  `contentEl.style.display = "none"` via inline style when a tab is
+  switched to Video — an inline style outranks the `hidden` attribute's
+  UA stylesheet rule, so switching back to Text would otherwise leave
+  the textarea permanently stuck invisible underneath a `hidden = false`
+  that no longer had any visible effect; fixed by resetting
+  `contentEl.style.display = ""` at the top of the Text branch, letting
+  `hidden` govern visibility again. Verified live with Puppeteer:
+  confirmed the view renders both links correctly (comma trimmed off
+  one, `https://` added to the other, `target`/`rel` correct) while the
+  textarea stays hidden; that clicking the view enters edit mode and
+  focuses the textarea; that typing a new link and blurring returns to
+  view mode with that link now clickable *and* correctly saved; that a
+  poll racing a live edit doesn't disturb it; and — specifically to
+  catch bug (2) above — that toggling a tab to Video and back to Text
+  still lets the textarea actually become visible on the next
+  click-to-edit, not just report `hidden: false` while remaining
+  invisible underneath a stale inline style.
+
   The top filter bar (date preset, Call Outcome, Closer, Setter —
   `FILTER_FIELDS`/`renderFilters()`/`passesFilters()`) got a **Source**
   filter for VSL vs. Webinar, sitting right after the date preset. It

@@ -355,6 +355,14 @@
     border: 1px solid var(--pill-border); border-radius: 10px; padding: 14px; resize: vertical; background: #fff;
   }
   .sop-content:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .sop-content-view {
+    width: 100%; min-height: 220px; box-sizing: border-box; font-family: inherit; font-size: 13px;
+    color: var(--text-primary); border: 1px solid var(--pill-border); border-radius: 10px; padding: 14px;
+    background: #fff; white-space: pre-wrap; word-break: break-word; cursor: text;
+  }
+  .sop-content-view a { color: var(--badge-fg); text-decoration: underline; }
+  .sop-content-view a:hover { text-decoration: none; }
+  .sop-content-view-empty { color: var(--muted); }
   .sop-tab-wrap[draggable="true"] { cursor: grab; }
   .sop-tab-wrap.dragging { opacity: 0.4; }
   .sop-tab-wrap.drag-over { box-shadow: inset 2px 0 0 var(--badge-fg); }
@@ -737,7 +745,8 @@
       <div class="card-body">
         <div class="sop-tabs" id="onb-main-tabs"></div>
         <div class="sop-type-toggle" id="onb-main-type-toggle"></div>
-        <textarea class="sop-content" id="onb-main-content" placeholder="Write or paste this SOP's content here…"></textarea>
+        <textarea class="sop-content" id="onb-main-content" placeholder="Write or paste this SOP's content here…" hidden></textarea>
+        <div class="sop-content-view" id="onb-main-content-view"></div>
         <div class="sop-video-editor" id="onb-main-video" style="display:none;"></div>
       </div>
     </div>
@@ -750,7 +759,8 @@
       <div class="card-body">
         <div class="sop-tabs" id="onb-closer-tabs"></div>
         <div class="sop-type-toggle" id="onb-closer-type-toggle"></div>
-        <textarea class="sop-content" id="onb-closer-content" placeholder="Write or paste this SOP's content here…"></textarea>
+        <textarea class="sop-content" id="onb-closer-content" placeholder="Write or paste this SOP's content here…" hidden></textarea>
+        <div class="sop-content-view" id="onb-closer-content-view"></div>
         <div class="sop-video-editor" id="onb-closer-video" style="display:none;"></div>
       </div>
     </div>
@@ -763,7 +773,8 @@
       <div class="card-body">
         <div class="sop-tabs" id="onb-setter-tabs"></div>
         <div class="sop-type-toggle" id="onb-setter-type-toggle"></div>
-        <textarea class="sop-content" id="onb-setter-content" placeholder="Write or paste this SOP's content here…"></textarea>
+        <textarea class="sop-content" id="onb-setter-content" placeholder="Write or paste this SOP's content here…" hidden></textarea>
+        <div class="sop-content-view" id="onb-setter-content-view"></div>
         <div class="sop-video-editor" id="onb-setter-video" style="display:none;"></div>
       </div>
     </div>
@@ -2316,6 +2327,30 @@
     return /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`;
   }
 
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // Turns any http(s):// or www. links inside a plain-text SOP body into
+  // clickable <a> tags for the read-only view (see sop-content-view
+  // below) -- text is escaped first, then only the matched URL substrings
+  // get replaced with markup, so nothing else in the body can break out
+  // of the surrounding text. Trailing punctuation right after a URL
+  // (a period ending a sentence, a comma, a closing paren) is peeled off
+  // the link itself so "see docs.example.com/setup." doesn't swallow the
+  // full stop into the href.
+  const LINK_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+  function linkifyText(text) {
+    return escapeHtml(text).replace(LINK_PATTERN, match => {
+      const trailing = match.match(/[.,;:!?)\]]+$/);
+      const url = trailing ? match.slice(0, -trailing[0].length) : match;
+      const suffix = trailing ? trailing[0] : "";
+      if (!url) return match;
+      const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${suffix}`;
+    });
+  }
+
   // A section with no tabs at all (never saved, or the user removed every
   // one) falls back to that section's default set -- otherwise whatever's
   // saved wins, including any tabs the user added, removed, or reordered.
@@ -2569,6 +2604,7 @@
     const section = onboarding[key];
     const tabsEl = document.getElementById(tabsId);
     const contentEl = document.getElementById(contentId);
+    const viewEl = document.getElementById(`${contentId}-view`);
     const typeToggleEl = document.getElementById(typeToggleId);
     const videoEl = document.getElementById(videoId);
     const rerender = () => renderSopSection(key, tabsId, contentId, typeToggleId, videoId);
@@ -2738,18 +2774,49 @@
       });
     } else {
       videoEl.style.display = "none";
-      contentEl.style.display = "block";
+      // Clears any inline display:none left over from a previous render
+      // as the "video" type above -- an inline style would otherwise
+      // outrank the hidden attribute used below to toggle edit/view mode,
+      // permanently hiding the textarea after switching back to Text.
+      contentEl.style.display = "";
       // Only a background poll re-render (preserveFocused) should ever skip
       // resetting the textarea while it's focused, so a fetch landing
       // mid-keystroke can't yank text out from under active typing. A direct
       // user action -- switching tabs, adding, removing -- always updates it,
       // since that's the whole point of the click.
-      if (!preserveFocused || document.activeElement !== contentEl) {
+      const isEditing = document.activeElement === contentEl;
+      if (!preserveFocused || !isEditing) {
         contentEl.value = activeTab.content || "";
+      }
+      const renderReadOnlyView = () => {
+        viewEl.innerHTML = activeTab.content
+          ? linkifyText(activeTab.content)
+          : `<span class="sop-content-view-empty">Write or paste this SOP's content here…</span>`;
+      };
+      // A plain textarea can't render clickable links inline, so at rest
+      // this shows a read-only linkified view instead; clicking it (a
+      // clicked link itself is excluded, so it can navigate normally)
+      // swaps back to the plain textarea for editing. Only touched while
+      // NOT actively editing, so this can't fight with someone mid-keystroke.
+      if (!isEditing) {
+        contentEl.hidden = true;
+        viewEl.hidden = false;
+        renderReadOnlyView();
       }
       contentEl.oninput = () => {
         activeTab.content = contentEl.value;
         queueSaveOnboarding();
+      };
+      contentEl.onblur = () => {
+        contentEl.hidden = true;
+        viewEl.hidden = false;
+        renderReadOnlyView();
+      };
+      viewEl.onclick = e => {
+        if (e.target.tagName === "A") return;
+        contentEl.hidden = false;
+        viewEl.hidden = true;
+        contentEl.focus();
       };
     }
   }
