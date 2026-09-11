@@ -388,9 +388,15 @@
     border: 1px solid var(--pill-border); border-radius: 10px; padding: 9px 12px; background: #fff;
   }
   .directory-input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .directory-open {
+    flex: none; font-size: 12px; font-weight: 700; color: var(--badge-fg); text-decoration: none;
+    white-space: nowrap; padding: 4px 2px;
+  }
+  .directory-open:hover { text-decoration: underline; }
   @media (max-width: 560px) {
     .directory-row { align-items: flex-start; flex-direction: column; gap: 4px; }
     .directory-label { flex-basis: auto; }
+    .directory-row > .directory-input { width: 100%; }
   }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
@@ -2192,15 +2198,16 @@
 
   // Directory -- a fixed set of link fields (not user-addable/removable
   // like SOP tabs), one per offer: name on the left, a link/value on the
-  // right that the team fills in.
+  // right that the team fills in. isLink: false for Offer name, since
+  // it's a plain label rather than something clickable.
   const DIRECTORY_FIELDS = [
-    { key: "offerName", label: "Offer name" },
-    { key: "youtube", label: "Youtube" },
-    { key: "instagram", label: "Instagram" },
-    { key: "adsLibrary", label: "Ads Library" },
-    { key: "pitchDeck", label: "Pitch Deck" },
-    { key: "vslLandingPage", label: "VSL Landing Page" },
-    { key: "confirmationPage", label: "Confirmation Page" },
+    { key: "offerName", label: "Offer name", isLink: false },
+    { key: "youtube", label: "Youtube", isLink: true },
+    { key: "instagram", label: "Instagram", isLink: true },
+    { key: "adsLibrary", label: "Ads Library", isLink: true },
+    { key: "pitchDeck", label: "Pitch Deck", isLink: true },
+    { key: "vslLandingPage", label: "VSL Landing Page", isLink: true },
+    { key: "confirmationPage", label: "Confirmation Page", isLink: true },
   ];
 
   function normalizeDirectory(raw) {
@@ -2209,6 +2216,16 @@
       out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : "";
     });
     return out;
+  }
+
+  // Directory links are typed as plain text (people paste "youtube.com/@x"
+  // as often as a full URL), but an <a href> needs an absolute URL or the
+  // browser treats it as relative to this very page. Adds https:// only
+  // when the value doesn't already declare a protocol.
+  function directoryHref(value) {
+    const v = (value || "").trim();
+    if (!v) return "";
+    return /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`;
   }
 
   // A section with no tabs at all (never saved, or the user removed every
@@ -2417,26 +2434,43 @@
   // one is currently focused when preserveFocused is set, so a poll
   // landing mid-keystroke can't overwrite what someone's actively typing
   // (same class of fix as the SOP textarea/video-url inputs above).
+  function updateDirectoryOpenLink(container, key, value) {
+    const link = container.querySelector(`.directory-open[data-key="${key}"]`);
+    if (!link) return;
+    const href = directoryHref(value);
+    if (href) {
+      link.href = href;
+      link.hidden = false;
+    } else {
+      link.removeAttribute("href");
+      link.hidden = true;
+    }
+  }
+
   function renderDirectory(preserveFocused) {
     const container = document.getElementById("onb-directory");
     if (!container.dataset.built) {
       container.innerHTML = DIRECTORY_FIELDS.map(f => `
         <div class="directory-row">
           <span class="directory-label">${f.label}</span>
-          <input type="text" class="directory-input" data-key="${f.key}" placeholder="Add a link…">
+          <input type="text" class="directory-input" data-key="${f.key}" placeholder="${f.isLink ? "Add a link…" : "Add a name…"}">
+          ${f.isLink ? `<a class="directory-open" data-key="${f.key}" target="_blank" rel="noopener noreferrer" hidden>Open ↗</a>` : ""}
         </div>
       `).join("");
       container.querySelectorAll(".directory-input").forEach(input => {
         input.addEventListener("input", () => {
           onboarding.directory[input.dataset.key] = input.value;
           queueSaveOnboarding();
+          updateDirectoryOpenLink(container, input.dataset.key, input.value);
         });
       });
       container.dataset.built = "1";
     }
     container.querySelectorAll(".directory-input").forEach(input => {
       if (!preserveFocused || document.activeElement !== input) {
-        input.value = onboarding.directory[input.dataset.key] || "";
+        const value = onboarding.directory[input.dataset.key] || "";
+        input.value = value;
+        updateDirectoryOpenLink(container, input.dataset.key, value);
       }
     });
   }

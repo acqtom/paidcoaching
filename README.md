@@ -999,6 +999,27 @@ in and you'll land on `/dashboard`.
   that saved values populate their fields correctly and unsaved fields
   render blank, and that typing into a field is held correctly.
 
+  Each of the six URL fields (every one except Offer name, which is
+  `isLink: false` on its `DIRECTORY_FIELDS` entry since it's a plain
+  label, not something clickable) now shows an **"Open ↗"** link next to
+  its input, opening in a new tab — added after the initial version
+  shipped as text-only inputs the team had to copy and paste manually.
+  `directoryHref()` prefixes `https://` onto anything without its own
+  scheme already (`www.instagram.com/x` → `https://www.instagram.com/x`)
+  since people paste bare domains as often as full URLs, and a relative
+  `<a href>` would otherwise resolve against this very page instead of
+  navigating anywhere; the input itself keeps showing exactly what was
+  typed, only the link's target gets normalized. The link stays hidden
+  whenever that field is empty, and `updateDirectoryOpenLink()` updates
+  it live on every keystroke (not just after a save completes), so
+  pasting a link makes it immediately clickable. Verified live with
+  Puppeteer: confirmed all six URL fields render a working, correctly-
+  `https://`-prefixed `target="_blank" rel="noopener noreferrer"` link
+  matching their saved value, that Offer name renders no link at all,
+  that an empty field's link stays hidden, and that typing into a
+  previously-empty field makes its link appear immediately with the
+  right href.
+
   **Fixed a real data-loss bug**, reported as "the Youtube link disappeared
   right after I pasted it" and "clicking a different SOP a few seconds
   later jumps back to the one I was on" — both traced to the same root
