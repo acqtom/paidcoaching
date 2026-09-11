@@ -1074,9 +1074,13 @@ in and you'll land on `/dashboard`.
   joined-names signature check) so a poll doesn't drop focus on an
   untouched dropdown just because it re-ran. **Setter/Closer Bottleneck
   Spot-Check** are two instances of one generic `renderBottleneck()`
-  (5 fields: a rep-in-focus dropdown populated from that role's own list
-  via the existing `populateNameSelect()`, then three free-text fields)
-  — same function, different `SETTERS`/`CLOSERS` list and storage key.
+  (4 fields: a rep-in-focus dropdown populated from that role's own list
+  via the existing `populateNameSelect()`, then three free-text fields —
+  a fifth, "Who's accountable / by when?", was removed from
+  `BOTTLENECK_FIELDS` shortly after shipping, dropping it from both
+  sections and their saved data at once since they share this same
+  config array) — same function, different `SETTERS`/`CLOSERS` list and
+  storage key.
   **Pipeline Check (Daily Numbers)** is an 8-column table
   (`PIPELINE_COLUMNS`) starting with 10 blank rows, with its own
   **+ Add Row** and a per-row remove button; `renderPipeline()` only
