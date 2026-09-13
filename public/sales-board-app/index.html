@@ -407,25 +407,43 @@
     .directory-row > .directory-input { width: 100%; }
   }
   select.directory-input { cursor: pointer; }
+  .huddle-pipeline-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .huddle-pipeline-total { text-align: right; flex: none; }
+  .huddle-pipeline-total-label {
+    display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted);
+  }
+  .huddle-pipeline-total-value { display: block; margin-top: 2px; font-size: 20px; font-weight: 700; color: var(--text-primary); }
   .huddle-table-wrap { overflow-x: auto; }
   .huddle-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .huddle-table th {
-    text-align: left; padding: 8px 8px; color: var(--muted); font-weight: 600;
+    text-align: left; padding: 10px 10px; color: var(--muted); font-weight: 600;
     font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
     border-bottom: 1px solid var(--card-border); white-space: nowrap;
   }
-  .huddle-table td { padding: 3px; border-bottom: 1px solid var(--card-border); }
+  .huddle-table td { padding: 8px; border-bottom: 1px solid var(--card-border); vertical-align: top; }
   .huddle-table tr:last-child td { border-bottom: none; }
   .huddle-table input {
-    width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
-    border: 1px solid transparent; border-radius: 6px; padding: 7px 8px; background: transparent;
+    width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px; color: var(--text-primary);
+    border: 1px solid transparent; border-radius: 8px; padding: 14px 10px; background: transparent;
   }
-  .huddle-table input:hover { background: var(--surface-1); }
-  .huddle-table input:focus { outline: none; border-color: var(--pill-border); background: #fff; }
+  .huddle-table textarea.huddle-plan-input {
+    width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px; color: var(--text-primary);
+    border: 1px solid transparent; border-radius: 8px; padding: 14px 10px; background: transparent;
+    min-height: 96px; resize: vertical;
+  }
+  .huddle-table input:hover, .huddle-table textarea:hover { background: var(--surface-1); }
+  .huddle-table input:focus, .huddle-table textarea:focus { outline: none; border-color: var(--pill-border); background: #fff; }
+  .huddle-table .huddle-done-cell { width: 1%; text-align: center; }
+  .huddle-table .huddle-done-checkbox { width: 20px; height: 20px; cursor: pointer; }
   .huddle-table .row-delete-cell { width: 1%; padding-right: 8px; }
   .huddle-table .row-delete {
     border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
     padding: 6px 4px;
+  }
+  @media (max-width: 640px) {
+    .huddle-pipeline-header { flex-direction: column; }
+    .huddle-pipeline-total { text-align: left; }
   }
   .btn-primary {
     background: var(--black); color: #fff; border: none; border-radius: 20px;
@@ -829,9 +847,15 @@
     </div>
 
     <div class="card">
-      <div class="card-header">
-        <h2>Pipeline Check (Daily Numbers)</h2>
-        <p>Fill this in now.</p>
+      <div class="card-header huddle-pipeline-header">
+        <div>
+          <h2>Pipeline Check (Daily Numbers)</h2>
+          <p>Fill this in now.</p>
+        </div>
+        <div class="huddle-pipeline-total">
+          <span class="huddle-pipeline-total-label">Total Pipeline Value</span>
+          <span class="huddle-pipeline-total-value" id="huddle-pipeline-total">$0.00</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="huddle-table-wrap">
@@ -2410,14 +2434,13 @@
   ];
 
   const PIPELINE_COLUMNS = [
-    { key: "prospect", label: "Prospect", placeholder: "Who?" },
     { key: "rep", label: "Rep", placeholder: "Who?" },
+    { key: "prospect", label: "Prospect", placeholder: "Who?" },
     { key: "status", label: "Status", placeholder: "Booked?" },
     { key: "time", label: "Time", placeholder: "If booked" },
-    { key: "source", label: "Source", placeholder: "Where?" },
     { key: "dealSize", label: "Deal size", placeholder: "$$$?" },
     { key: "lastContact", label: "Last contact", placeholder: "" },
-    { key: "plan", label: "Plan", placeholder: "Forward action" },
+    { key: "plan", label: "Plan", placeholder: "Forward action", type: "textarea" },
   ];
   const PIPELINE_DEFAULT_ROWS = 10;
 
@@ -2428,9 +2451,17 @@
   }
 
   function normalizePipelineRow(raw) {
-    const out = { id: (raw && raw.id) || makeId() };
+    const out = { id: (raw && raw.id) || makeId(), done: !!(raw && raw.done) };
     PIPELINE_COLUMNS.forEach(c => { out[c.key] = raw && typeof raw[c.key] === "string" ? raw[c.key] : ""; });
     return out;
+  }
+
+  // Deal size is free text ("$5,000", "5000", etc.) -- strips everything
+  // but digits/decimal/minus before summing, so the total stays useful
+  // even with stray currency symbols or commas.
+  function parseDealSize(value) {
+    const n = parseFloat(String(value || "").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
   }
 
   function normalizeHuddles(raw) {
@@ -2544,8 +2575,13 @@
   }
 
   function buildPipelineRowHtml(row) {
+    const cellsHtml = PIPELINE_COLUMNS.map(c => c.type === "textarea"
+      ? `<td><textarea class="huddle-plan-input" data-key="${c.key}" placeholder="${c.placeholder}"></textarea></td>`
+      : `<td><input type="text" data-key="${c.key}" placeholder="${c.placeholder}"></td>`
+    ).join("");
     return `<tr data-row-id="${row.id}">
-      ${PIPELINE_COLUMNS.map(c => `<td><input type="text" data-key="${c.key}" placeholder="${c.placeholder}"></td>`).join("")}
+      ${cellsHtml}
+      <td class="huddle-done-cell"><input type="checkbox" class="huddle-done-checkbox" data-key="done" title="Done"></td>
       <td class="row-delete-cell"><button type="button" class="row-delete" data-remove-row="${row.id}" title="Remove row">&times;</button></td>
     </tr>`;
   }
@@ -2553,12 +2589,22 @@
   function wirePipelineRow(tr) {
     const rowId = tr.dataset.rowId;
     const row = huddles.pipeline.find(r => r.id === rowId);
-    tr.querySelectorAll("input[data-key]").forEach(input => {
-      if (row) input.value = row[input.dataset.key] || "";
-      input.addEventListener("input", () => {
+    tr.querySelectorAll("input[data-key], textarea[data-key]").forEach(el => {
+      if (el.dataset.key === "done") {
+        if (row) el.checked = !!row.done;
+        el.addEventListener("change", () => {
+          const r = huddles.pipeline.find(r => r.id === rowId);
+          if (r) r.done = el.checked;
+          queueSaveHuddles();
+        });
+        return;
+      }
+      if (row) el.value = row[el.dataset.key] || "";
+      el.addEventListener("input", () => {
         const r = huddles.pipeline.find(r => r.id === rowId);
-        if (r) r[input.dataset.key] = input.value;
+        if (r) r[el.dataset.key] = el.value;
         queueSaveHuddles();
+        if (el.dataset.key === "dealSize") renderPipelineTotal();
       });
     });
     tr.querySelector("[data-remove-row]").addEventListener("click", () => {
@@ -2568,10 +2614,15 @@
     });
   }
 
+  function renderPipelineTotal() {
+    const total = huddles.pipeline.reduce((sum, row) => sum + parseDealSize(row.dealSize), 0);
+    document.getElementById("huddle-pipeline-total").textContent = fmtUSD(total);
+  }
+
   function renderPipeline(preserveFocused) {
     const table = document.getElementById("huddle-pipeline-table");
     if (!table.dataset.built) {
-      table.innerHTML = `<thead><tr>${PIPELINE_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}<th></th></tr></thead><tbody></tbody>`;
+      table.innerHTML = `<thead><tr>${PIPELINE_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}<th>Done</th><th></th></tr></thead><tbody></tbody>`;
       table.dataset.built = "1";
     }
     const tbody = table.querySelector("tbody");
@@ -2592,13 +2643,16 @@
         const tr = tbody.querySelector(`tr[data-row-id="${row.id}"]`);
         if (!tr) return;
         PIPELINE_COLUMNS.forEach(c => {
-          const input = tr.querySelector(`input[data-key="${c.key}"]`);
-          if (input && (!preserveFocused || document.activeElement !== input)) {
-            input.value = row[c.key] || "";
+          const el = tr.querySelector(`[data-key="${c.key}"]`);
+          if (el && (!preserveFocused || document.activeElement !== el)) {
+            el.value = row[c.key] || "";
           }
         });
+        const doneCheckbox = tr.querySelector('[data-key="done"]');
+        if (doneCheckbox) doneCheckbox.checked = !!row.done;
       });
     }
+    renderPipelineTotal();
   }
 
   document.getElementById("huddle-pipeline-add-row").addEventListener("click", () => {

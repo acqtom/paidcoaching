@@ -1143,14 +1143,44 @@ in and you'll land on `/dashboard`.
   sections and their saved data at once since they share this same
   config array) — same function, different `SETTERS`/`CLOSERS` list and
   storage key.
-  **Pipeline Check (Daily Numbers)** is an 8-column table
-  (`PIPELINE_COLUMNS`) starting with 10 blank rows, with its own
-  **+ Add Row** and a per-row remove button; `renderPipeline()` only
-  rebuilds the `<tbody>` when the actual *set* of row ids changed (a row
-  added/removed/reordered) — otherwise it just refreshes each cell's
-  value in place, skipping whichever one is focused, so typing in one
-  cell survives a poll landing mid-keystroke without losing your place
-  in the table.
+  **Pipeline Check (Daily Numbers)** is a table (`PIPELINE_COLUMNS`)
+  starting with 10 blank rows, with its own **+ Add Row** and a per-row
+  remove button; `renderPipeline()` only rebuilds the `<tbody>` when the
+  actual *set* of row ids changed (a row added/removed/reordered) —
+  otherwise it just refreshes each cell's value in place, skipping
+  whichever one is focused, so typing in one cell survives a poll
+  landing mid-keystroke without losing your place in the table. Column
+  order is Rep, Prospect, Status, Time, Deal size, Last contact, Plan
+  (Rep swapped ahead of Prospect and Source dropped entirely shortly
+  after shipping); Plan is a `<textarea>`
+  (`{ key: "plan", ..., type: "textarea" }` — `buildPipelineRowHtml()`
+  and the same-shape refresh branch both just check `c.type ===
+  "textarea"` to pick the right tag, since a plain-text query selector
+  like `[data-key="plan"]` matches either element identically) since a
+  written forward-action plan needs more room than a single line; every
+  row also got noticeably taller (bigger cell padding, 14px font) so the
+  whole table reads more like a form and less like a cramped spreadsheet.
+  A **Done** checkbox column (`row.done`, a real boolean saved alongside
+  the row) rounds it out — `wirePipelineRow()` special-cases
+  `data-key="done"` to bind `change`/`.checked` instead of
+  `input`/`.value`, in the same loop that wires every other cell.
+
+  The card header shows a live **Total Pipeline Value** on the right —
+  `parseDealSize()` strips anything but digits/`.`/`-` from each row's
+  free-text Deal size field (so `"$5,000"` and `5000` both sum
+  correctly) and `renderPipelineTotal()` formats the total with the
+  existing `fmtUSD()` helper. It updates on every keystroke in a Deal
+  size cell (called directly from that cell's own input handler, not
+  just from the next full `renderPipeline()` pass) and again whenever
+  the table re-renders for any other reason, so it's never stale.
+  Verified live with Puppeteer: confirmed the header order, that Source
+  is gone and a Done column exists, that Plan is a real `<textarea>`
+  with the taller `min-height`, that checking Done round-trips into the
+  next save as `done: true`, that the total starts at `$0.00` and
+  updates live and correctly (`$1,500.00` after one row, `$4,000.00`
+  after a second) purely from typing — no save round-trip needed — and
+  that Rep/Prospect save into their correctly-swapped keys with no
+  leftover `source` field. A screenshot caught nothing further wrong.
 
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
