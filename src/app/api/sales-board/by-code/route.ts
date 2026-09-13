@@ -30,6 +30,7 @@ const DEFAULT_STATE = {
   closers: [] as unknown[],
   setters: [] as unknown[],
   onboarding: null as unknown,
+  huddles: null as unknown,
 };
 
 function normalizeCode(raw: string | null) {
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
   if (Array.isArray(body.closers)) patch.closers = body.closers;
   if (Array.isArray(body.setters)) patch.setters = body.setters;
   if (typeof body.onboarding === "object" && body.onboarding !== null) patch.onboarding = body.onboarding;
+  if (typeof body.huddles === "object" && body.huddles !== null) patch.huddles = body.huddles;
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("save_sales_board_by_code", {

@@ -8,6 +8,7 @@ export const DEFAULT_BOARD_DATA: SalesBoardData = {
   setters: [],
   dailyCashTarget: null,
   onboarding: null,
+  huddles: null,
 };
 
 const UNIQUE_VIOLATION = "23505";

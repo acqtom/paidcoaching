@@ -1076,6 +1076,57 @@ in and you'll land on `/dashboard`.
   single static input/link pair directly rather than building rows from
   a fields array.
 
+  **Fixed a severe data-loss bug found right after shipping this card**,
+  reported as "it doesn't save, it deletes after a few seconds." The
+  meeting link itself was never the real problem — every one of the four
+  server routes that save Sales Board data
+  (`/api/sales-board/save`, `/api/sales-boards/save`, and the
+  `/api/sales-board(s)/by-code` pair) had been written, back when
+  `onboarding` was the only opaque JSON blob living alongside
+  `deals`/`closers`/`setters`, to **rebuild the entire `data` column from
+  a fixed, explicitly-named set of fields** (`sales-board(s)/save`) or a
+  **field whitelist** (the by-code pair) — and `huddles` was never added
+  to either when Daily Huddles shipped. The two `/save` routes don't
+  merge at the database level at all; they read the existing row,
+  construct a brand-new object naming only the fields they know about,
+  and overwrite `data` wholesale with it — so **every single save of any
+  kind, to any account, from the moment Daily Huddles shipped, silently
+  erased that account's entire `huddles` object** (meeting link, form
+  accountability, both bottleneck spot-checks, the whole pipeline table)
+  the instant anything else was saved (logging a deal, editing
+  onboarding, adding a team member — anything). This is exactly why it
+  looked like "deletes after a few seconds": type the link, the 600ms
+  debounce fires and saves it correctly in memory, but the *next* save
+  of any kind wipes it from the database, and the poll a few seconds
+  later pulls that now-`huddles`-less row back down over the local copy.
+  The two session routes (`/api/sales-board(s)/session`) had the mirror-
+  image bug on the read side — their response objects also hand-pick
+  named fields and had never been taught about `huddles` either, so even
+  after fixing the write side, a normal admin session would still never
+  see saved Huddles data on the next load.
+
+  Fixed all six spots: `SalesBoardData` (`src/lib/sales-board-state.ts`)
+  gained a `huddles?: unknown` field (mirroring `onboarding`'s existing
+  "opaque, client owns the shape" treatment) plus a `huddles: null`
+  default in both `DEFAULT_SALES_BOARD_DATA` and `DEFAULT_BOARD_DATA`;
+  both `/save` routes' hand-built `next` object now carries `huddles`
+  through the same `body.huddles !== undefined ? body.huddles :
+  (existing.huddles ?? null)` pattern already proven correct for
+  `onboarding` in the very same object literal; both `/by-code` routes'
+  patch whitelist gained the same `typeof body.huddles === "object"`
+  guard already used for `onboarding`; and both `/session` routes' response
+  objects now include `huddles: data.huddles ?? null`. Verified by
+  extracting the exact `next`-object merge logic into an isolated script
+  and asserting `huddles` both updates correctly when it's the thing
+  being saved *and* survives untouched when a completely unrelated save
+  (e.g. just `deals`) goes through — the second case is the one that was
+  actually broken. Deliberately not re-verified with another live write
+  against the real production board already used for by-code debugging
+  earlier in this session, since the fix is a direct, mechanical
+  extension of the already-proven-correct `onboarding` pattern in the
+  same lines, with no remaining design uncertainty to justify touching
+  real customer data a second time.
+
   **Post-Call Form Accountability** rows are *derived* live from
   `CLOSERS`/`SETTERS`, not stored as their own list — only each rep's
   yes/no/blank answer is saved, keyed by name (`huddles.accountability`),

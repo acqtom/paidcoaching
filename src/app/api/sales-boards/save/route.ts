@@ -5,8 +5,8 @@ import type { SalesBoardData } from "@/lib/sales-board-state";
 import { pushSalesBoardMetricsForBoard } from "@/lib/metrics-tracking-state";
 
 // POST ?board=<id> { deals?, closers?, setters?, dailyCashTarget?,
-// onboarding? } -> writes whichever fields are present into one of the
-// logged-in admin's own boards, leaving the rest untouched -- same
+// onboarding?, huddles? } -> writes whichever fields are present into one
+// of the logged-in admin's own boards, leaving the rest untouched -- same
 // partial-save contract as /api/sales-board/save. Whenever `deals` is
 // part of the save, this also recomputes and pushes closing-stage
 // numbers into that *board's own* Metrics Tracking row
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     dailyCashTarget:
       body.dailyCashTarget !== undefined ? body.dailyCashTarget : (existing.dailyCashTarget ?? null),
     onboarding: body.onboarding !== undefined ? body.onboarding : (existing.onboarding ?? null),
+    huddles: body.huddles !== undefined ? body.huddles : (existing.huddles ?? null),
   };
 
   const { error } = await supabase

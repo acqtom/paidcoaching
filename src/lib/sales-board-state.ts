@@ -14,6 +14,10 @@ export type SalesBoardData = {
   // opaque here since only the client (public/sales-board-app/index.html)
   // needs to know its structure or seed default tab labels.
   onboarding?: unknown;
+  // Daily Huddles worksheet (meeting link, post-call accountability,
+  // bottleneck spot-checks, pipeline check) -- same "opaque, client owns
+  // the shape" treatment as onboarding above.
+  huddles?: unknown;
 };
 
 export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
@@ -22,6 +26,7 @@ export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
   setters: [],
   dailyCashTarget: null,
   onboarding: null,
+  huddles: null,
 };
 
 const UNIQUE_VIOLATION = "23505";

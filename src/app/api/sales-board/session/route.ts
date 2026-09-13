@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureSalesBoardRow } from "@/lib/sales-board-state";
 
-// POST (no body needed) -> { deals, closers, setters, onboarding,
+// POST (no body needed) -> { deals, closers, setters, onboarding, huddles,
 // accessCode } for the logged-in portal user. Used both to load data on
 // open and to poll for updates from other devices. Private per account (see
 // supabase/migrations/0006_sales_board_state.sql) -- there's no
@@ -28,6 +28,7 @@ export async function POST() {
       closers: data.closers ?? [],
       setters: data.setters ?? [],
       onboarding: data.onboarding ?? null,
+      huddles: data.huddles ?? null,
       accessCode: row.access_code,
     });
   } catch (e) {

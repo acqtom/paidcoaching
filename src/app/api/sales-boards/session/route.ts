@@ -4,10 +4,11 @@ import { requireAdmin } from "@/lib/require-admin";
 import { DEFAULT_BOARD_DATA } from "@/lib/sales-boards-state";
 import type { SalesBoardData } from "@/lib/sales-board-state";
 
-// POST ?board=<id> -> { deals, closers, setters, onboarding, accessCode }
-// for one of the logged-in admin's own boards -- same response contract
-// as /api/sales-board/session so public/sales-board-app/index.html
-// needs no changes beyond which endpoint it calls (see `urlBoard` there).
+// POST ?board=<id> -> { deals, closers, setters, onboarding, huddles,
+// accessCode } for one of the logged-in admin's own boards -- same
+// response contract as /api/sales-board/session so
+// public/sales-board-app/index.html needs no changes beyond which
+// endpoint it calls (see `urlBoard` there).
 
 export async function POST(request: Request) {
   const boardId = new URL(request.url).searchParams.get("board");
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     closers: data.closers ?? [],
     setters: data.setters ?? [],
     onboarding: data.onboarding ?? null,
+    huddles: data.huddles ?? null,
     accessCode: board.access_code,
   });
 }
