@@ -407,6 +407,13 @@
     .directory-row > .directory-input { width: 100%; }
   }
   select.directory-input { cursor: pointer; }
+  .huddle-meeting-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .huddle-meeting-time { flex: 0 0 130px; }
+  .huddle-meeting-tz { flex: 0 0 210px; }
+  .huddle-meeting-link-input { flex: 1; min-width: 180px; }
+  @media (max-width: 640px) {
+    .huddle-meeting-time, .huddle-meeting-tz, .huddle-meeting-link-input { flex: 1 1 100%; }
+  }
   .huddle-pipeline-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .huddle-pipeline-total { text-align: right; flex: none; }
   .huddle-pipeline-total-label {
@@ -806,11 +813,13 @@
     <div class="card">
       <div class="card-header">
         <h2>Daily Team Meeting</h2>
-        <p>Paste today's meeting link so the team can join in one click.</p>
+        <p>Set today's time and time zone, and paste the link so the team knows exactly when and where to join.</p>
       </div>
       <div class="card-body">
-        <div class="directory-row">
-          <input type="text" class="directory-input" id="huddle-meeting-input" placeholder="Paste today's meeting link…">
+        <div class="huddle-meeting-row">
+          <input type="time" class="directory-input huddle-meeting-time" id="huddle-meeting-time">
+          <select class="directory-input huddle-meeting-tz" id="huddle-meeting-tz"></select>
+          <input type="text" class="directory-input huddle-meeting-link-input" id="huddle-meeting-input" placeholder="Paste today's meeting link…">
           <a class="directory-open" id="huddle-meeting-open" target="_blank" rel="noopener noreferrer" hidden>Open ↗</a>
         </div>
       </div>
@@ -2470,6 +2479,8 @@
       : Array.from({ length: PIPELINE_DEFAULT_ROWS }, () => normalizePipelineRow(null));
     return {
       meetingLink: raw && typeof raw.meetingLink === "string" ? raw.meetingLink : "",
+      meetingTime: raw && typeof raw.meetingTime === "string" ? raw.meetingTime : "",
+      meetingTimezone: raw && typeof raw.meetingTimezone === "string" ? raw.meetingTimezone : "",
       accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
       setterBottleneck: normalizeBottleneck(raw && raw.setterBottleneck),
       closerBottleneck: normalizeBottleneck(raw && raw.closerBottleneck),
@@ -2673,18 +2684,97 @@
     }
   }
 
+  // Same offset-lookup approach as the timezone picker in
+  // daily-kill-list-app/app.js -- separate copy since these are
+  // independent static apps, not a shared module.
+  function tzOffsetMinutes(tz) {
+    try {
+      const raw = ((new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longOffset" }).formatToParts(new Date())
+        .find(p => p.type === "timeZoneName")) || {}).value || "GMT+00:00";
+      const m = raw.match(/GMT([+-])(\d{2}):(\d{2})/);
+      if (!m) return 0;
+      return (m[1] === "-" ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10));
+    } catch (e) { return 0; }
+  }
+
+  function tzOffsetLabel(tz) {
+    try {
+      return ((new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date())
+        .find(p => p.type === "timeZoneName")) || {}).value || "";
+    } catch (e) { return ""; }
+  }
+
+  const MEETING_TZ_FALLBACK = ["Pacific/Midway", "Pacific/Honolulu", "America/Anchorage", "America/Los_Angeles",
+    "America/Denver", "America/Chicago", "America/New_York", "America/Sao_Paulo", "Atlantic/Azores", "UTC",
+    "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Athens", "Europe/Moscow", "Africa/Cairo",
+    "Africa/Johannesburg", "Asia/Dubai", "Asia/Karachi", "Asia/Kolkata", "Asia/Dhaka", "Asia/Bangkok",
+    "Asia/Jakarta", "Asia/Shanghai", "Asia/Singapore", "Asia/Tokyo", "Asia/Seoul", "Australia/Perth",
+    "Australia/Sydney", "Pacific/Auckland", "Pacific/Fiji"];
+
+  function meetingLocalTz() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; }
+  }
+
+  // Full IANA list where supported (modern browsers), sorted west-to-east
+  // by current UTC offset so the dropdown reads like a world clock rather
+  // than an alphabetical wall of city names.
+  function populateMeetingTzSelect(selectEl) {
+    let list = null;
+    try { if (typeof Intl.supportedValuesOf === "function") list = Intl.supportedValuesOf("timeZone").slice(); } catch (e) { /* fall back */ }
+    if (!list || !list.length) list = MEETING_TZ_FALLBACK.slice();
+    const localTz = meetingLocalTz();
+    if (list.indexOf(localTz) === -1) list.push(localTz);
+    list.sort((a, b) => {
+      const oa = tzOffsetMinutes(a), ob = tzOffsetMinutes(b);
+      return oa !== ob ? oa - ob : a.localeCompare(b);
+    });
+    selectEl.innerHTML = list.map(tz => {
+      const city = tz.split("/").pop().replace(/_/g, " ");
+      const label = `${tzOffsetLabel(tz)}  ${city}${tz === localTz ? " ★" : ""}`;
+      return `<option value="${tz}">${label}</option>`;
+    }).join("");
+  }
+
   function renderMeetingLink(preserveFocused) {
-    const input = document.getElementById("huddle-meeting-input");
-    if (!input.dataset.wired) {
-      input.addEventListener("input", () => {
-        huddles.meetingLink = input.value;
-        queueSaveHuddles();
-        updateMeetingLinkOpen(input.value);
-      });
-      input.dataset.wired = "1";
+    const timeInput = document.getElementById("huddle-meeting-time");
+    const tzSelect = document.getElementById("huddle-meeting-tz");
+    const linkInput = document.getElementById("huddle-meeting-input");
+
+    if (!tzSelect.dataset.built) {
+      populateMeetingTzSelect(tzSelect);
+      tzSelect.dataset.built = "1";
     }
-    if (!preserveFocused || document.activeElement !== input) {
-      input.value = huddles.meetingLink || "";
+    if (!timeInput.dataset.wired) {
+      timeInput.addEventListener("input", () => {
+        huddles.meetingTime = timeInput.value;
+        queueSaveHuddles();
+      });
+      timeInput.dataset.wired = "1";
+    }
+    if (!tzSelect.dataset.wired) {
+      tzSelect.addEventListener("change", () => {
+        huddles.meetingTimezone = tzSelect.value;
+        queueSaveHuddles();
+      });
+      tzSelect.dataset.wired = "1";
+    }
+    if (!linkInput.dataset.wired) {
+      linkInput.addEventListener("input", () => {
+        huddles.meetingLink = linkInput.value;
+        queueSaveHuddles();
+        updateMeetingLinkOpen(linkInput.value);
+      });
+      linkInput.dataset.wired = "1";
+    }
+
+    if (!preserveFocused || document.activeElement !== timeInput) {
+      timeInput.value = huddles.meetingTime || "";
+    }
+    if (!preserveFocused || document.activeElement !== tzSelect) {
+      tzSelect.value = huddles.meetingTimezone || meetingLocalTz();
+    }
+    if (!preserveFocused || document.activeElement !== linkInput) {
+      linkInput.value = huddles.meetingLink || "";
     }
     updateMeetingLinkOpen(huddles.meetingLink);
   }

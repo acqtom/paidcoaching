@@ -1066,15 +1066,37 @@ in and you'll land on `/dashboard`.
   look of the source template it was modeled on:
 
   **Daily Team Meeting**, added after the initial version shipped, is
-  the first card on the page — just one field (`huddles.meetingLink`)
-  and an **Open ↗** link next to it, same `directoryHref()`/live-update-
-  on-every-keystroke pattern as Directory's link fields (bare domains
-  get `https://` prefixed for the link's target without touching what's
+  the first card on the page — a link field (`huddles.meetingLink`) with
+  an **Open ↗** next to it, same `directoryHref()`/live-update-on-every-
+  keystroke pattern as Directory's link fields (bare domains get
+  `https://` prefixed for the link's target without touching what's
   actually typed, and the link stays hidden while the field's empty).
   Unlike Directory's fields, there's no separate label row — the card's
   own header already says what it is — so `renderMeetingLink()` wires a
-  single static input/link pair directly rather than building rows from
-  a fields array.
+  handful of static elements directly rather than building rows from a
+  fields array. A native `<input type="time">` and a time zone
+  `<select>` (`huddles.meetingTime`/`meetingTimezone`) sit to the left
+  of the link, added in a follow-up request so the team knows exactly
+  when and where to join, not just where. The time zone picker is a
+  second, independent copy of the exact picker already proven in
+  `daily-kill-list-app/app.js` — full IANA list via
+  `Intl.supportedValuesOf("timeZone")` where supported (with the same
+  30-zone `MEETING_TZ_FALLBACK` list for older browsers), sorted west-to-
+  east by current UTC offset via the same `GMT±HH:MM`-parsing
+  `tzOffsetMinutes()`/`tzOffsetLabel()` pair, and starring whichever zone
+  matches the viewer's own device (`Intl.DateTimeFormat().resolvedOptions().timeZone`)
+  so it's easy to spot without being pre-selected over whatever's
+  actually saved. Not shared code with daily-kill-list-app — these are
+  independent static files with no module system between them, so it's
+  a deliberate, small, self-contained duplication rather than a new
+  cross-file dependency. Verified live with Puppeteer: confirmed the
+  three fields render left-to-right in the requested order (time, time
+  zone, link), that the time zone `<select>` populates with 400+ real
+  IANA zones, that setting a time and zone round-trips correctly into
+  the next save, that a poll racing a live edit doesn't disturb the time
+  field mid-change, and that the link field keeps working unaffected
+  alongside the two new ones. A screenshot confirmed the row reads
+  cleanly (`09:00 AM` / `GMT-4 New York` / the pasted link / Open).
 
   **Fixed a severe data-loss bug found right after shipping this card**,
   reported as "it doesn't save, it deletes after a few seconds." The
