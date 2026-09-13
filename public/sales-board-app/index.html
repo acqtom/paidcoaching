@@ -2694,18 +2694,15 @@
       });
     });
     document.getElementById("huddle-marketing-add-day").addEventListener("click", () => {
-      const today = todayLocalISO();
-      // Clicking again on a day that already has an entry just switches
-      // to it, rather than piling up duplicate same-day entries that
-      // would muddy exactly the pattern-spotting this is for.
-      const existing = mc.entries.find(e => e.date === today);
-      if (existing) {
-        mc.activeId = existing.id;
-      } else {
-        const entry = normalizeMarketingEntry({ date: today });
-        mc.entries.push(entry);
-        mc.activeId = entry.id;
-      }
+      // Always creates a fresh entry, even if one for today already
+      // exists (e.g. the single entry migrated from before "Add New
+      // Day" existed, which has no real original date so it got stamped
+      // with today's) -- a same-day dedupe here previously made the
+      // button silently re-select an already-showing entry instead of
+      // visibly doing anything, which read as "the button is broken."
+      const entry = normalizeMarketingEntry({ date: todayLocalISO() });
+      mc.entries.push(entry);
+      mc.activeId = entry.id;
       rerenderTabs();
       renderMarketingCheck();
       queueSaveHuddles();

@@ -1243,24 +1243,41 @@ in and you'll land on `/dashboard`.
   server's UTC clock — the same fix as Today's Cash Collected, so the
   day stamped matches the day the person clicking it is actually
   having), makes it active, and queues the save, all in one handler.
-  Clicking it again the same day switches to that day's existing entry
-  instead of creating a confusing duplicate. `renderMarketingCheck()`
-  itself barely changed — it now reads/writes whichever entry
-  `activeMarketingEntry()` resolves to instead of a single flat object,
-  but keeps the exact same idempotent-build-once, refresh-values-after
-  structure (and therefore the exact same poll-safety) as before.
-  `normalizeMarketingCheck()` migrates the original flat shape (shipped
-  minutes earlier, before "Add New Day" existed) into a single dated
-  entry rather than discarding whatever might already have been typed
-  in — the date can't be recovered for that entry, so it's stamped with
-  today's date too, same as any other new one. Verified live with
-  Puppeteer: confirmed the old flat shape migrates into one tab with its
-  content intact; that Add New Day creates a second, genuinely blank
-  tab and switches to it; that clicking Add New Day again the same day
-  doesn't duplicate it; that switching between two days shows each
-  day's own independent data, both correctly present in the next save;
-  that removing a day works and switches away cleanly; and that a poll
-  racing a live edit on a freshly-added day doesn't disturb it.
+  `renderMarketingCheck()` itself barely changed — it now reads/writes
+  whichever entry `activeMarketingEntry()` resolves to instead of a
+  single flat object, but keeps the exact same idempotent-build-once,
+  refresh-values-after structure (and therefore the exact same
+  poll-safety) as before. `normalizeMarketingCheck()` migrates the
+  original flat shape (shipped minutes earlier, before "Add New Day"
+  existed) into a single dated entry rather than discarding whatever
+  might already have been typed in — the date can't be recovered for
+  that entry, so it's stamped with today's date too, same as any other
+  new one.
+
+  The first version of this button had a same-day dedupe (clicking it
+  again the same day would switch to that day's existing entry instead
+  of creating a duplicate) — reported back almost immediately as "when I
+  click Add New Day it doesn't add a new day." The migrated entry above
+  is *always* dated today (it has no real original date to preserve),
+  so on anyone's very first click after this shipped, the dedupe found
+  that migrated entry, decided today was already covered, and just
+  silently re-selected the tab already on screen — indistinguishable
+  from the button doing nothing at all. Fixed by dropping the dedupe
+  entirely: "+ Add New Day" now always creates a new entry, full stop,
+  even if one for today already exists. A stray duplicate same-day tab
+  from an accidental double-click is a trivial, visible thing to clean
+  up with the existing per-tab "×"; a button that sometimes silently
+  does nothing is not. Verified live with Puppeteer by reproducing the
+  exact reported scenario (a migrated entry dated today, then clicking
+  Add New Day twice in a row): confirmed the old flat shape migrates
+  into one tab with its content intact; that the *first* click now
+  correctly adds a second, genuinely blank tab (previously the bug this
+  report was about); and that clicking it *again* the same day now
+  correctly adds a *third* tab rather than bailing out. From the version
+  before this fix: confirmed switching between days shows each one's own
+  independent data (all correctly present in the next save), that
+  removing a day works and switches away cleanly, and that a poll racing
+  a live edit on a freshly-added day doesn't disturb it.
 
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
