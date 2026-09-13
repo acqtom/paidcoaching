@@ -430,6 +430,53 @@ in and you'll land on `/dashboard`.
   data alone, which of those old entries were meant for VSL versus
   Webinar, so nothing was auto-migrated.
 
+  A follow-up request added **"Offer Made"** tracking, to separate a real
+  no-close (pitched, and the prospect said no) from a call where no
+  pitch even happened — per explicit direction, neither should count as
+  a genuine close *or* no-close attempt for closing-effectiveness
+  metrics. `dealFieldsFromForm()` computes a third field, `offerMade`,
+  alongside `isCall`/`calendarStatus`: `true` for `Closed/Won/Deposit`
+  (obviously a pitch happened if it closed), the answer to a new
+  **"Offer made?"** yes/no question for `No Close` (`OUTCOME_FORM_CONFIG`
+  — the exact same `type: "yesno"` pattern Disqualified's "Was this a
+  call?" already established, right down to reusing `renderPcfField()`'s
+  existing yesno branch unchanged), and `null` — deliberately not
+  `false` — for every other outcome (Disqualified, No-Show, Cancelled,
+  Rescheduled, Remainder Collection, 2nd CC Call Booked), so a metric
+  built on `offerMade === true` cleanly *excludes* those rather than
+  miscounting "doesn't apply" as an explicit no. Scoped to `No Close`
+  only, per the request's own wording ("on 'no close' you can add...")
+  — Disqualified and 2nd CC Call Booked are call-happened-but-not-closed
+  outcomes too, but whether "offer made" applies to them at all wasn't
+  asked for, so they're left out rather than guessed at; can be extended
+  the same way later if wanted. The KPI grid's old single-tile "Close
+  Rate" row became a 3-tile row: **Offers Made** (a plain count,
+  `rows.filter(d => d.offerMade === true).length`), **Offer Made Close
+  Rate** (`dealsClosed ÷ offersMade` — arguably the truer closing-skill
+  number, uncontaminated by calls where no pitch happened at all), and
+  the original formula relabeled **Total Close Rate** (`dealsClosed ÷
+  callsOnCalendar`, unchanged) now that there are two close rates to
+  tell apart. Deliberately scoped to the Sales Board's own KPI grid
+  only — `offerMade` is not pushed into `metrics_tracking_state` (the
+  separate historical-trend system `pushSalesBoardMetrics()` feeds,
+  documented above), since that wasn't asked for and is a materially
+  bigger addition (its own metric ids, its own per-date history). Old
+  deals logged before this shipped have `offerMade === undefined`, which
+  same as `null` is correctly excluded from Offers Made — so, same
+  caveat as every other newly-added field in this file, the two new
+  tiles will under-report for any date range spanning older data; there
+  is no way to retroactively know whether an old No-Close deal actually
+  had a pitch made. Verified live with Puppeteer end-to-end: confirmed
+  the field appears only on No Close (not Closed, where it's implicit,
+  and not Disqualified); that Yes/No answers save as `true`/`false`
+  correctly; that Closed and Disqualified deals save `true`/`null`
+  respectively with no field shown; that the edit modal correctly
+  pre-fills the answer for an existing No-Close deal; and that all three
+  new/relabeled KPI tiles compute the right numbers together (2 offers
+  made from 4 logged calls, 1 close → 50% Offer Made Close Rate, 25%
+  Total Close Rate) — plus a screenshot confirming the field's placement
+  and hint text, and the new KPI row's layout, both read cleanly.
+
   `wasCall`/`calendarStatus`/`disqualified` all fall back to deriving the
   same value `dealFieldsFromForm()` would have computed from `callOutcome`
   alone, for deals saved before those fields existed — same spirit as

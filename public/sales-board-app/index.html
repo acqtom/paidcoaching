@@ -1452,8 +1452,10 @@
       { id: "kpi-calls", label: "Calls", icon: "phone", sub: "Live calls this period" },
       { id: "kpi-revenue", label: "Total Revenue", icon: "dollar", sub: "Total contract value" }
     ]},
-    { cols: 1, tiles: [
-      { id: "kpi-close-rate", label: "Close Rate", icon: "percent", sub: "Closed ÷ live calls", highlight: true }
+    { cols: 3, tiles: [
+      { id: "kpi-offers-made", label: "Offers Made", icon: "hash", sub: "Calls where an offer/pitch was actually made" },
+      { id: "kpi-offer-close-rate", label: "Offer Made Close Rate", icon: "percent", sub: "Closed ÷ offers made", highlight: true },
+      { id: "kpi-close-rate", label: "Total Close Rate", icon: "percent", sub: "Closed ÷ all calls taken", highlight: true }
     ]},
     { cols: 2, tiles: [
       { id: "kpi-total-show-rate", label: "Total Show Rate", icon: "percent", sub: "All calls booked even DQ's" },
@@ -1633,8 +1635,15 @@
     const callsOnCalendar = callRows.length;
     const dqCalls = rows.filter(d => d.disqualified).length;
     const dealsClosed = rows.filter(d => d.callOutcome === "Closed/Won/Deposit").length;
+    // Only Closed (implicitly) and No Close (via the "Offer made?"
+    // question) ever set offerMade to true/false -- every other outcome
+    // (Disqualified, No-Show, Cancelled, Rescheduled, Remainder
+    // Collection, 2nd CC Call Booked) leaves it null, so === true here
+    // correctly excludes those rather than miscounting them as "no offer."
+    const offersMade = rows.filter(d => d.offerMade === true).length;
 
     const closeRate = callsOnCalendar ? (dealsClosed / callsOnCalendar) * 100 : 0;
+    const offerCloseRate = offersMade ? (dealsClosed / offersMade) * 100 : 0;
     const totalShowRate = callsOnCalendar ? (callsShowed / callsOnCalendar) * 100 : 0;
     const showRate = callsOnCalendar ? (callsShowed / callsOnCalendar) * 100 : 0;
     const cashPerLiveCall = callsShowed ? newCash / callsShowed : 0;
@@ -1652,6 +1661,8 @@
     document.getElementById("kpi-calls").textContent = callsOnCalendar;
     document.getElementById("kpi-revenue").textContent = fmtUSD(totalRevenue);
     document.getElementById("kpi-close-rate").textContent = fmtPct(closeRate);
+    document.getElementById("kpi-offers-made").textContent = offersMade;
+    document.getElementById("kpi-offer-close-rate").textContent = fmtPct(offerCloseRate);
     document.getElementById("kpi-total-show-rate").textContent = fmtPct(totalShowRate);
     document.getElementById("kpi-show-rate").textContent = fmtPct(showRate);
     document.getElementById("kpi-deals").textContent = dealsClosed;
@@ -1699,7 +1710,9 @@
       whyLabel: "Why did this close?"
     },
     "No Close": {
-      fields: [],
+      fields: [
+        { key: "offerMade", type: "yesno", label: "Offer made?", hint: "Select No if no pitch/offer was made on this call — that's tracked separately from a real no-close." }
+      ],
       whyLabel: "Why did you not close this?"
     },
     "Disqualified": {
@@ -1874,6 +1887,19 @@
     const NO_CALL_OUTCOMES = new Set(["Remainder Collection (no call)", "Cancelled", "Rescheduled", "No-Show"]);
     const isCall = NO_CALL_OUTCOMES.has(outcome) ? false : fieldValue(form, "wasCall") !== "no";
 
+    // A closed deal obviously had an offer/pitch made; a "No Close" is the
+    // one outcome where that's genuinely ambiguous (a real no-close where
+    // they pitched and got turned down vs. a call that never got that
+    // far), so it's the only one with the toggle -- same reasoning as
+    // Disqualified being the only outcome with "Was this a call?" above.
+    // null (not false) for every other outcome, so a metric built on this
+    // can cleanly exclude "not applicable" rather than miscounting it as
+    // an explicit no.
+    const offerMade =
+      outcome === "Closed/Won/Deposit" ? true :
+      outcome === "No Close" ? fieldValue(form, "offerMade") !== "no" :
+      null;
+
     return {
       call: form.call.value.trim(),
       closer: form.closer.value.trim(),
@@ -1892,6 +1918,7 @@
       depositCollected: fieldValue(form, "depositCollected") || null,
       dqType: fieldValue(form, "dqType") || null,
       isCall,
+      offerMade,
       cashType,
       calendarStatus,
       disqualified
@@ -1984,6 +2011,7 @@
       if (el && deal[key] != null) el.value = deal[key];
     });
     if (editForm.elements.wasCall) editForm.elements.wasCall.value = deal.isCall === false ? "no" : "yes";
+    if (editForm.elements.offerMade) editForm.elements.offerMade.value = deal.offerMade === false ? "no" : "yes";
     editForm.elements.callNotes.value = deal.callNotes || "";
 
     editModalOverlay.hidden = false;
