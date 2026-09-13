@@ -407,6 +407,8 @@
     .directory-row > .directory-input { width: 100%; }
   }
   select.directory-input { cursor: pointer; }
+  .directory-row textarea.directory-input { min-height: 70px; resize: vertical; }
+  .directory-row:has(textarea) { align-items: flex-start; }
   .huddle-meeting-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .huddle-meeting-time { flex: 0 0 130px; }
   .huddle-meeting-tz { flex: 0 0 210px; }
@@ -441,6 +443,11 @@
   }
   .huddle-table input:hover, .huddle-table textarea:hover { background: var(--surface-1); }
   .huddle-table input:focus, .huddle-table textarea:focus { outline: none; border-color: var(--pill-border); background: #fff; }
+  /* A colspan alone doesn't actually widen a column in an auto-layout
+     table when its content is a flexible width:100% input/textarea --
+     the browser has no reason to expand it, since flexible children
+     assert no minimum size. An explicit width hint does. */
+  .huddle-table th.huddle-col-wide, .huddle-table td.huddle-col-wide { width: 26%; }
   .huddle-table .huddle-done-cell { width: 1%; text-align: center; }
   .huddle-table .huddle-done-checkbox { width: 20px; height: 20px; cursor: pointer; }
   .huddle-table .row-delete-cell { width: 1%; padding-right: 8px; }
@@ -832,6 +839,16 @@
       </div>
       <div class="card-body">
         <div class="directory-list" id="huddle-accountability"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Marketing Check</h2>
+        <p>Debrief yesterday's prospects — what's working, what isn't.</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-list" id="huddle-marketing-check"></div>
       </div>
     </div>
 
@@ -2442,20 +2459,40 @@
     { key: "action", label: "Action to take today", type: "text" },
   ];
 
+  // Not tied to one rep like the bottleneck spot-checks above -- a
+  // general debrief on yesterday's prospects/lead quality. Most fields
+  // are open-ended notes, so they're textareas rather than one-liners;
+  // "Did they watch the pre-call assets?" is the one plain yes/no
+  // question, so it's a select like Post-Call Form Accountability's.
+  const MARKETING_FIELDS = [
+    { key: "situation", label: "Yesterday's Prospects Situation", type: "textarea" },
+    { key: "qualificationAverage", label: "Qualification Average", type: "text" },
+    { key: "motivations", label: "Motivations", type: "textarea" },
+    { key: "struggles", label: "Struggles", type: "textarea" },
+    { key: "whyNotMoveForward", label: "Why They Didn't Move Forward", type: "textarea" },
+    { key: "whatWouldHaveHelped", label: "What Would Have Made Them Move Forward", type: "textarea" },
+    { key: "watchedPreCallAssets", label: "Did They Watch the Pre-Call Assets?", type: "select" },
+  ];
+
   const PIPELINE_COLUMNS = [
     { key: "rep", label: "Rep", placeholder: "Who?" },
     { key: "prospect", label: "Prospect", placeholder: "Who?" },
     { key: "status", label: "Status", placeholder: "Booked?" },
-    { key: "time", label: "Time", placeholder: "If booked" },
     { key: "dealSize", label: "Deal size", placeholder: "$$$?" },
     { key: "lastContact", label: "Last contact", placeholder: "" },
-    { key: "plan", label: "Plan", placeholder: "Forward action", type: "textarea" },
+    { key: "plan", label: "Plan", placeholder: "Forward action", type: "textarea", wide: true },
   ];
   const PIPELINE_DEFAULT_ROWS = 10;
 
   function normalizeBottleneck(raw) {
     const out = {};
     BOTTLENECK_FIELDS.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
+    return out;
+  }
+
+  function normalizeMarketingCheck(raw) {
+    const out = {};
+    MARKETING_FIELDS.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
     return out;
   }
 
@@ -2482,6 +2519,7 @@
       meetingTime: raw && typeof raw.meetingTime === "string" ? raw.meetingTime : "",
       meetingTimezone: raw && typeof raw.meetingTimezone === "string" ? raw.meetingTimezone : "",
       accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
+      marketingCheck: normalizeMarketingCheck(raw && raw.marketingCheck),
       setterBottleneck: normalizeBottleneck(raw && raw.setterBottleneck),
       closerBottleneck: normalizeBottleneck(raw && raw.closerBottleneck),
       pipeline,
@@ -2585,11 +2623,44 @@
     });
   }
 
+  function renderMarketingCheck(preserveFocused) {
+    const container = document.getElementById("huddle-marketing-check");
+    const data = huddles.marketingCheck;
+    if (!container.dataset.built) {
+      container.innerHTML = MARKETING_FIELDS.map(f => {
+        const field = f.type === "textarea"
+          ? `<textarea class="directory-input" data-key="${f.key}"></textarea>`
+          : f.type === "select"
+            ? `<select class="directory-input" data-key="${f.key}">
+                 <option value="">Not answered</option>
+                 <option value="yes">Yes</option>
+                 <option value="no">No</option>
+               </select>`
+            : `<input type="text" class="directory-input" data-key="${f.key}">`;
+        return `<div class="directory-row"><span class="directory-label">${f.label}</span>${field}</div>`;
+      }).join("");
+      container.querySelectorAll("[data-key]").forEach(el => {
+        el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
+          huddles.marketingCheck[el.dataset.key] = el.value;
+          queueSaveHuddles();
+        });
+      });
+      container.dataset.built = "1";
+    }
+    container.querySelectorAll("[data-key]").forEach(el => {
+      if (!preserveFocused || document.activeElement !== el) {
+        el.value = data[el.dataset.key] || "";
+      }
+    });
+  }
+
   function buildPipelineRowHtml(row) {
-    const cellsHtml = PIPELINE_COLUMNS.map(c => c.type === "textarea"
-      ? `<td><textarea class="huddle-plan-input" data-key="${c.key}" placeholder="${c.placeholder}"></textarea></td>`
-      : `<td><input type="text" data-key="${c.key}" placeholder="${c.placeholder}"></td>`
-    ).join("");
+    const cellsHtml = PIPELINE_COLUMNS.map(c => {
+      const tdClass = c.wide ? ` class="huddle-col-wide"` : "";
+      return c.type === "textarea"
+        ? `<td${tdClass}><textarea class="huddle-plan-input" data-key="${c.key}" placeholder="${c.placeholder}"></textarea></td>`
+        : `<td${tdClass}><input type="text" data-key="${c.key}" placeholder="${c.placeholder}"></td>`;
+    }).join("");
     return `<tr data-row-id="${row.id}">
       ${cellsHtml}
       <td class="huddle-done-cell"><input type="checkbox" class="huddle-done-checkbox" data-key="done" title="Done"></td>
@@ -2633,7 +2704,7 @@
   function renderPipeline(preserveFocused) {
     const table = document.getElementById("huddle-pipeline-table");
     if (!table.dataset.built) {
-      table.innerHTML = `<thead><tr>${PIPELINE_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}<th>Done</th><th></th></tr></thead><tbody></tbody>`;
+      table.innerHTML = `<thead><tr>${PIPELINE_COLUMNS.map(c => `<th${c.wide ? ` class="huddle-col-wide"` : ""}>${c.label}</th>`).join("")}<th>Done</th><th></th></tr></thead><tbody></tbody>`;
       table.dataset.built = "1";
     }
     const tbody = table.querySelector("tbody");
@@ -2782,6 +2853,7 @@
   function renderHuddles(preserveFocused) {
     renderMeetingLink(preserveFocused);
     renderAccountability(preserveFocused);
+    renderMarketingCheck(preserveFocused);
     renderBottleneck("setterBottleneck", "huddle-setter-bottleneck", SETTERS, preserveFocused);
     renderBottleneck("closerBottleneck", "huddle-closer-bottleneck", CLOSERS, preserveFocused);
     renderPipeline(preserveFocused);

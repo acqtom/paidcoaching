@@ -1172,16 +1172,27 @@ in and you'll land on `/dashboard`.
   otherwise it just refreshes each cell's value in place, skipping
   whichever one is focused, so typing in one cell survives a poll
   landing mid-keystroke without losing your place in the table. Column
-  order is Rep, Prospect, Status, Time, Deal size, Last contact, Plan
-  (Rep swapped ahead of Prospect and Source dropped entirely shortly
-  after shipping); Plan is a `<textarea>`
-  (`{ key: "plan", ..., type: "textarea" }` — `buildPipelineRowHtml()`
-  and the same-shape refresh branch both just check `c.type ===
-  "textarea"` to pick the right tag, since a plain-text query selector
-  like `[data-key="plan"]` matches either element identically) since a
-  written forward-action plan needs more room than a single line; every
-  row also got noticeably taller (bigger cell padding, 14px font) so the
-  whole table reads more like a form and less like a cramped spreadsheet.
+  order is Rep, Prospect, Status, Deal size, Last contact, Plan (Rep
+  swapped ahead of Prospect, Source dropped entirely, and Time removed
+  outright — all in follow-up requests shortly after shipping); Plan is
+  a `<textarea>` (`{ key: "plan", ..., type: "textarea" }` —
+  `buildPipelineRowHtml()` and the same-shape refresh branch both just
+  check `c.type === "textarea"` to pick the right tag, since a plain-text
+  query selector like `[data-key="plan"]` matches either element
+  identically) since a written forward-action plan needs more room than
+  a single line; every row also got noticeably taller (bigger cell
+  padding, 14px font) so the whole table reads more like a form and less
+  like a cramped spreadsheet. Plan is also visibly wider than every
+  other column (`{ ..., wide: true }` → a `huddle-col-wide` class →
+  `width: 26%` in CSS) — the first attempt used `colspan="2"` instead,
+  which looked identical in the markup but rendered *no wider than a
+  normal column* once actually measured, since none of these table's
+  cells have any real intrinsic content width (every one holds a
+  flexible `width:100%` input/textarea), so a browser's auto table
+  layout has nothing forcing a colspanned cell to actually claim two
+  columns' worth of space — an explicit CSS width is a real,
+  measurable hint the same auto-layout algorithm actually honors, where
+  colspan alone was not.
   A **Done** checkbox column (`row.done`, a real boolean saved alongside
   the row) rounds it out — `wirePipelineRow()` special-cases
   `data-key="done"` to bind `change`/`.checked` instead of
@@ -1203,6 +1214,26 @@ in and you'll land on `/dashboard`.
   after a second) purely from typing — no save round-trip needed — and
   that Rep/Prospect save into their correctly-swapped keys with no
   leftover `source` field. A screenshot caught nothing further wrong.
+
+  **Marketing Check**, added in the same follow-up request, sits right
+  after Post-Call Form Accountability — a general debrief on yesterday's
+  prospects/lead quality, not tied to one specific rep the way the two
+  Bottleneck Spot-Checks are. `renderMarketingCheck()` is structurally
+  the same idempotent-build/field-array pattern as `renderBottleneck()`,
+  just without a rep-select field, over its own `MARKETING_FIELDS`: six
+  open-ended textareas (Yesterday's Prospects Situation, Motivations,
+  Struggles, Why They Didn't Move Forward, What Would Have Made Them
+  Move Forward — since these read like written reflection, not short
+  answers), one plain text field (Qualification Average), and one
+  yes/no `<select>` (Did They Watch the Pre-Call Assets? — the one
+  actual yes/no question in the set, same options markup as Post-Call
+  Form Accountability's own dropdown). Saved as `huddles.marketingCheck`.
+  Verified live with Puppeteer: confirmed all seven fields render with
+  the exact requested labels in order, that each has the right control
+  type (textarea/text/select), that the card sits immediately after
+  Post-Call Form Accountability, that a full fill-in round-trips
+  correctly into the next save, and that a poll racing a live edit
+  doesn't disturb it.
 
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
