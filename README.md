@@ -1218,22 +1218,49 @@ in and you'll land on `/dashboard`.
   **Marketing Check**, added in the same follow-up request, sits right
   after Post-Call Form Accountability — a general debrief on yesterday's
   prospects/lead quality, not tied to one specific rep the way the two
-  Bottleneck Spot-Checks are. `renderMarketingCheck()` is structurally
-  the same idempotent-build/field-array pattern as `renderBottleneck()`,
-  just without a rep-select field, over its own `MARKETING_FIELDS`: six
+  Bottleneck Spot-Checks are. Its seven fields (`MARKETING_FIELDS`): six
   open-ended textareas (Yesterday's Prospects Situation, Motivations,
   Struggles, Why They Didn't Move Forward, What Would Have Made Them
   Move Forward — since these read like written reflection, not short
   answers), one plain text field (Qualification Average), and one
   yes/no `<select>` (Did They Watch the Pre-Call Assets? — the one
   actual yes/no question in the set, same options markup as Post-Call
-  Form Accountability's own dropdown). Saved as `huddles.marketingCheck`.
-  Verified live with Puppeteer: confirmed all seven fields render with
-  the exact requested labels in order, that each has the right control
-  type (textarea/text/select), that the card sits immediately after
-  Post-Call Form Accountability, that a full fill-in round-trips
-  correctly into the next save, and that a poll racing a live edit
-  doesn't disturb it.
+  Form Accountability's own dropdown).
+
+  A follow-up request added **"Add New Day"**, so the marketing team can
+  build a history and spot patterns rather than one set of fields
+  getting overwritten forever. `huddles.marketingCheck` changed shape
+  from a flat field object to `{ entries: [...], activeId }` — a tab bar
+  (`renderMarketingTabs()`, reusing the exact `.sop-tabs`/`.sop-tab-wrap`/
+  `.sop-tab-remove` classes and per-tab "×" already established for
+  Onboarding's SOP tabs, so it looks and behaves like something the team
+  already knows) with one tab per day, auto-labeled from its `date` via
+  the existing `fmtDayLabel()` rather than a typed name — unlike Add SOP,
+  there's no name-entry step at all, so the entire class of "typed but
+  not yet submitted" bug fixed for Add SOP earlier doesn't apply here:
+  clicking "+ Add New Day" synchronously creates the entry, stamps it
+  with `todayLocalISO()` (the browser's own local calendar day, not the
+  server's UTC clock — the same fix as Today's Cash Collected, so the
+  day stamped matches the day the person clicking it is actually
+  having), makes it active, and queues the save, all in one handler.
+  Clicking it again the same day switches to that day's existing entry
+  instead of creating a confusing duplicate. `renderMarketingCheck()`
+  itself barely changed — it now reads/writes whichever entry
+  `activeMarketingEntry()` resolves to instead of a single flat object,
+  but keeps the exact same idempotent-build-once, refresh-values-after
+  structure (and therefore the exact same poll-safety) as before.
+  `normalizeMarketingCheck()` migrates the original flat shape (shipped
+  minutes earlier, before "Add New Day" existed) into a single dated
+  entry rather than discarding whatever might already have been typed
+  in — the date can't be recovered for that entry, so it's stamped with
+  today's date too, same as any other new one. Verified live with
+  Puppeteer: confirmed the old flat shape migrates into one tab with its
+  content intact; that Add New Day creates a second, genuinely blank
+  tab and switches to it; that clicking Add New Day again the same day
+  doesn't duplicate it; that switching between two days shows each
+  day's own independent data, both correctly present in the next save;
+  that removing a day works and switches away cleanly; and that a poll
+  racing a live edit on a freshly-added day doesn't disturb it.
 
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel

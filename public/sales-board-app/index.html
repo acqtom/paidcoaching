@@ -845,9 +845,10 @@
     <div class="card">
       <div class="card-header">
         <h2>Marketing Check</h2>
-        <p>Debrief yesterday's prospects — what's working, what isn't.</p>
+        <p>Debrief yesterday's prospects — what's working, what isn't. Add a new day to spot patterns over time.</p>
       </div>
       <div class="card-body">
+        <div class="sop-tabs" id="huddle-marketing-tabs"></div>
         <div class="directory-list" id="huddle-marketing-check"></div>
       </div>
     </div>
@@ -2490,10 +2491,35 @@
     return out;
   }
 
-  function normalizeMarketingCheck(raw) {
-    const out = {};
+  // Local calendar day, not the server's UTC clock -- same fix as
+  // Today's Cash Collected, so "Add New Day" stamps the day the person
+  // clicking it is actually having, not whatever UTC happens to be.
+  function todayLocalISO() {
+    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  }
+
+  function normalizeMarketingEntry(raw) {
+    const out = { id: (raw && raw.id) || makeId(), date: (raw && typeof raw.date === "string" && raw.date) || todayLocalISO() };
     MARKETING_FIELDS.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
     return out;
+  }
+
+  function normalizeMarketingCheck(raw) {
+    let entries;
+    if (raw && Array.isArray(raw.entries) && raw.entries.length) {
+      entries = raw.entries.map(normalizeMarketingEntry);
+    } else if (raw && typeof raw === "object" && MARKETING_FIELDS.some(f => typeof raw[f.key] === "string" && raw[f.key])) {
+      // Migrates the original single-day shape (shipped just before "Add
+      // New Day" existed) into one dated entry, so anything already
+      // typed in isn't silently lost by this shape change.
+      entries = [normalizeMarketingEntry(raw)];
+    } else {
+      entries = [normalizeMarketingEntry(null)];
+    }
+    const activeId = raw && raw.activeId && entries.some(e => e.id === raw.activeId)
+      ? raw.activeId
+      : entries[entries.length - 1].id;
+    return { entries, activeId };
   }
 
   function normalizePipelineRow(raw) {
@@ -2623,9 +2649,72 @@
     });
   }
 
+  function activeMarketingEntry() {
+    const mc = huddles.marketingCheck;
+    return mc.entries.find(e => e.id === mc.activeId) || mc.entries[mc.entries.length - 1];
+  }
+
+  // Tab bar mirrors the SOP tabs in Onboarding (same classes, same
+  // "×" per-tab remove) -- one tab per day, auto-labeled from its date
+  // rather than a typed name, so "Add New Day" needs no name-entry step
+  // at all (the whole class of "typed but not yet submitted" bug fixed
+  // for Add SOP earlier doesn't apply here -- there's nothing to type).
+  function renderMarketingTabs() {
+    const tabsEl = document.getElementById("huddle-marketing-tabs");
+    const mc = huddles.marketingCheck;
+    const rerenderTabs = () => renderMarketingTabs();
+
+    const tabsHtml = mc.entries.map(e => `
+      <span class="sop-tab-wrap${e.id === mc.activeId ? " active" : ""}" data-tab-id="${e.id}">
+        <button type="button" class="sop-tab-btn" data-id="${e.id}">${fmtDayLabel(e.date)}</button>
+        <button type="button" class="sop-tab-remove${mc.entries.length > 1 ? "" : " sop-tab-remove-hidden"}" data-remove="${e.id}" title="Remove this day">&times;</button>
+      </span>
+    `).join("");
+    tabsEl.innerHTML = tabsHtml + `<button type="button" class="sop-add-btn" id="huddle-marketing-add-day">+ Add New Day</button>`;
+
+    tabsEl.querySelectorAll(".sop-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (mc.activeId === btn.dataset.id) return;
+        mc.activeId = btn.dataset.id;
+        rerenderTabs();
+        renderMarketingCheck();
+        queueSaveHuddles();
+      });
+    });
+    tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (mc.entries.length <= 1) return;
+        const id = btn.dataset.remove;
+        mc.entries = mc.entries.filter(en => en.id !== id);
+        if (mc.activeId === id) mc.activeId = mc.entries[mc.entries.length - 1].id;
+        rerenderTabs();
+        renderMarketingCheck();
+        queueSaveHuddles();
+      });
+    });
+    document.getElementById("huddle-marketing-add-day").addEventListener("click", () => {
+      const today = todayLocalISO();
+      // Clicking again on a day that already has an entry just switches
+      // to it, rather than piling up duplicate same-day entries that
+      // would muddy exactly the pattern-spotting this is for.
+      const existing = mc.entries.find(e => e.date === today);
+      if (existing) {
+        mc.activeId = existing.id;
+      } else {
+        const entry = normalizeMarketingEntry({ date: today });
+        mc.entries.push(entry);
+        mc.activeId = entry.id;
+      }
+      rerenderTabs();
+      renderMarketingCheck();
+      queueSaveHuddles();
+    });
+  }
+
   function renderMarketingCheck(preserveFocused) {
     const container = document.getElementById("huddle-marketing-check");
-    const data = huddles.marketingCheck;
+    const data = activeMarketingEntry();
     if (!container.dataset.built) {
       container.innerHTML = MARKETING_FIELDS.map(f => {
         const field = f.type === "textarea"
@@ -2641,7 +2730,8 @@
       }).join("");
       container.querySelectorAll("[data-key]").forEach(el => {
         el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
-          huddles.marketingCheck[el.dataset.key] = el.value;
+          const entry = activeMarketingEntry();
+          if (entry) entry[el.dataset.key] = el.value;
           queueSaveHuddles();
         });
       });
@@ -2853,6 +2943,7 @@
   function renderHuddles(preserveFocused) {
     renderMeetingLink(preserveFocused);
     renderAccountability(preserveFocused);
+    renderMarketingTabs();
     renderMarketingCheck(preserveFocused);
     renderBottleneck("setterBottleneck", "huddle-setter-bottleneck", SETTERS, preserveFocused);
     renderBottleneck("closerBottleneck", "huddle-closer-bottleneck", CLOSERS, preserveFocused);
