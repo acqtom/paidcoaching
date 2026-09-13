@@ -1061,9 +1061,20 @@ in and you'll land on `/dashboard`.
   an automatic-reset-at-midnight system (which would need its own
   timezone handling, exactly the bug class already fixed twice this
   session for Today's Cash Collected and the Sales Board's localStorage
-  cache key). Four cards, styled with the same grey `.card` theme as
+  cache key). Five cards, styled with the same grey `.card` theme as
   everywhere else in the app rather than the blue/yellow spreadsheet
   look of the source template it was modeled on:
+
+  **Daily Team Meeting**, added after the initial version shipped, is
+  the first card on the page — just one field (`huddles.meetingLink`)
+  and an **Open ↗** link next to it, same `directoryHref()`/live-update-
+  on-every-keystroke pattern as Directory's link fields (bare domains
+  get `https://` prefixed for the link's target without touching what's
+  actually typed, and the link stays hidden while the field's empty).
+  Unlike Directory's fields, there's no separate label row — the card's
+  own header already says what it is — so `renderMeetingLink()` wires a
+  single static input/link pair directly rather than building rows from
+  a fields array.
 
   **Post-Call Form Accountability** rows are *derived* live from
   `CLOSERS`/`SETTERS`, not stored as their own list — only each rep's

@@ -787,6 +787,19 @@
 
     <div class="card">
       <div class="card-header">
+        <h2>Daily Team Meeting</h2>
+        <p>Paste today's meeting link so the team can join in one click.</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-row">
+          <input type="text" class="directory-input" id="huddle-meeting-input" placeholder="Paste today's meeting link…">
+          <a class="directory-open" id="huddle-meeting-open" target="_blank" rel="noopener noreferrer" hidden>Open ↗</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
         <h2>Post-Call Form Accountability</h2>
         <p>Check back on yesterday's calls — did everyone fill out their post-call form?</p>
       </div>
@@ -2425,6 +2438,7 @@
       ? raw.pipeline.map(normalizePipelineRow)
       : Array.from({ length: PIPELINE_DEFAULT_ROWS }, () => normalizePipelineRow(null));
     return {
+      meetingLink: raw && typeof raw.meetingLink === "string" ? raw.meetingLink : "",
       accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
       setterBottleneck: normalizeBottleneck(raw && raw.setterBottleneck),
       closerBottleneck: normalizeBottleneck(raw && raw.closerBottleneck),
@@ -2593,7 +2607,36 @@
     queueSaveHuddles();
   });
 
+  function updateMeetingLinkOpen(value) {
+    const link = document.getElementById("huddle-meeting-open");
+    const href = directoryHref(value);
+    if (href) {
+      link.href = href;
+      link.hidden = false;
+    } else {
+      link.removeAttribute("href");
+      link.hidden = true;
+    }
+  }
+
+  function renderMeetingLink(preserveFocused) {
+    const input = document.getElementById("huddle-meeting-input");
+    if (!input.dataset.wired) {
+      input.addEventListener("input", () => {
+        huddles.meetingLink = input.value;
+        queueSaveHuddles();
+        updateMeetingLinkOpen(input.value);
+      });
+      input.dataset.wired = "1";
+    }
+    if (!preserveFocused || document.activeElement !== input) {
+      input.value = huddles.meetingLink || "";
+    }
+    updateMeetingLinkOpen(huddles.meetingLink);
+  }
+
   function renderHuddles(preserveFocused) {
+    renderMeetingLink(preserveFocused);
     renderAccountability(preserveFocused);
     renderBottleneck("setterBottleneck", "huddle-setter-bottleneck", SETTERS, preserveFocused);
     renderBottleneck("closerBottleneck", "huddle-closer-bottleneck", CLOSERS, preserveFocused);
