@@ -298,6 +298,20 @@
     padding: 2px; opacity: 0.6; font-family: inherit;
   }
   .name-remove-btn:hover { opacity: 1; }
+  .huddle-sales-process { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--card-border); }
+  .huddle-sales-process > .directory-label { display: block; margin-bottom: 10px; }
+  .huddle-sales-process-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .huddle-sales-process-empty { font-size: 12px; color: var(--muted); }
+  .huddle-sales-process-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+    border: 1px solid var(--pill-border); border-radius: 10px; background: #fff;
+  }
+  .huddle-sales-process-item input[type="checkbox"] { flex: none; width: 18px; height: 18px; cursor: pointer; }
+  .huddle-sales-process-item span { flex: 1; font-size: 13px; color: var(--text-primary); }
+  .huddle-sales-process-item.done span { color: var(--muted); text-decoration: line-through; }
+  .huddle-sales-process-item .row-delete {
+    flex: none; border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
+  }
 
   .key-row + .key-row { margin-top: 18px; }
   .key-row-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
@@ -850,6 +864,14 @@
       <div class="card-body">
         <div class="sop-tabs" id="huddle-marketing-tabs"></div>
         <div class="directory-list" id="huddle-marketing-check"></div>
+        <div class="huddle-sales-process">
+          <span class="directory-label">Sales Process Check</span>
+          <div class="huddle-sales-process-list" id="huddle-sales-process-list"></div>
+          <form class="name-add-form" id="huddle-sales-process-add-form">
+            <input type="text" id="huddle-sales-process-input" placeholder="Add a step in the sales process…" required>
+            <button type="submit">Add</button>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -2462,9 +2484,11 @@
 
   // Not tied to one rep like the bottleneck spot-checks above -- a
   // general debrief on yesterday's prospects/lead quality. Most fields
-  // are open-ended notes, so they're textareas rather than one-liners;
-  // "Did they watch the pre-call assets?" is the one plain yes/no
-  // question, so it's a select like Post-Call Form Accountability's.
+  // are open-ended notes, so they're textareas rather than one-liners.
+  // The Sales Process Check below (a free-form, addable checklist) is a
+  // separate, per-entry list rather than one of these fixed fields --
+  // it replaced a fixed "Did they watch the pre-call assets?" yes/no
+  // question shortly after shipping.
   const MARKETING_FIELDS = [
     { key: "situation", label: "Yesterday's Prospects Situation", type: "textarea" },
     { key: "qualificationAverage", label: "Qualification Average", type: "text" },
@@ -2472,7 +2496,6 @@
     { key: "struggles", label: "Struggles", type: "textarea" },
     { key: "whyNotMoveForward", label: "Why They Didn't Move Forward", type: "textarea" },
     { key: "whatWouldHaveHelped", label: "What Would Have Made Them Move Forward", type: "textarea" },
-    { key: "watchedPreCallAssets", label: "Did They Watch the Pre-Call Assets?", type: "select" },
   ];
 
   const PIPELINE_COLUMNS = [
@@ -2498,9 +2521,20 @@
     return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
 
+  function normalizeSalesProcessItem(raw) {
+    return {
+      id: (raw && raw.id) || makeId(),
+      label: raw && typeof raw.label === "string" ? raw.label : "",
+      done: !!(raw && raw.done),
+    };
+  }
+
   function normalizeMarketingEntry(raw) {
     const out = { id: (raw && raw.id) || makeId(), date: (raw && typeof raw.date === "string" && raw.date) || todayLocalISO() };
     MARKETING_FIELDS.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
+    out.salesProcessChecks = raw && Array.isArray(raw.salesProcessChecks)
+      ? raw.salesProcessChecks.map(normalizeSalesProcessItem)
+      : [];
     return out;
   }
 
@@ -2739,7 +2773,60 @@
         el.value = data[el.dataset.key] || "";
       }
     });
+    renderSalesProcessCheck();
   }
+
+  // Free-form, addable checklist for whichever day is active -- unlike
+  // MARKETING_FIELDS above, the set of steps isn't fixed; each is typed
+  // in via the add-form below and lives entirely in that one entry's
+  // own salesProcessChecks array, so different days can track different
+  // steps. Rebuilds the whole list on every call (no live-typed state
+  // lives in these checkbox rows themselves, so unlike a text field
+  // there's nothing here a poll could interrupt mid-edit -- the add
+  // form's own input is a separate, never-rebuilt element, same as
+  // Add Team's closer/setter inputs).
+  function renderSalesProcessCheck() {
+    const listEl = document.getElementById("huddle-sales-process-list");
+    const items = activeMarketingEntry().salesProcessChecks;
+    if (!items.length) {
+      listEl.innerHTML = `<p class="huddle-sales-process-empty">No sales process steps added yet.</p>`;
+      return;
+    }
+    listEl.innerHTML = items.map(item => `
+      <div class="huddle-sales-process-item${item.done ? " done" : ""}">
+        <input type="checkbox" data-id="${item.id}" ${item.done ? "checked" : ""}>
+        <span>${escapeHtml(item.label)}</span>
+        <button type="button" class="row-delete" data-remove="${item.id}" title="Remove">&times;</button>
+      </div>
+    `).join("");
+    listEl.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", () => {
+        const item = activeMarketingEntry().salesProcessChecks.find(i => i.id === cb.dataset.id);
+        if (item) item.done = cb.checked;
+        cb.closest(".huddle-sales-process-item").classList.toggle("done", cb.checked);
+        queueSaveHuddles();
+      });
+    });
+    listEl.querySelectorAll("[data-remove]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const entry = activeMarketingEntry();
+        entry.salesProcessChecks = entry.salesProcessChecks.filter(i => i.id !== btn.dataset.remove);
+        renderSalesProcessCheck();
+        queueSaveHuddles();
+      });
+    });
+  }
+
+  document.getElementById("huddle-sales-process-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("huddle-sales-process-input");
+    const label = input.value.trim();
+    if (!label) return;
+    activeMarketingEntry().salesProcessChecks.push(normalizeSalesProcessItem({ label }));
+    input.value = "";
+    renderSalesProcessCheck();
+    queueSaveHuddles();
+  });
 
   function buildPipelineRowHtml(row) {
     const cellsHtml = PIPELINE_COLUMNS.map(c => {

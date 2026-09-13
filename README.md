@@ -1218,14 +1218,34 @@ in and you'll land on `/dashboard`.
   **Marketing Check**, added in the same follow-up request, sits right
   after Post-Call Form Accountability — a general debrief on yesterday's
   prospects/lead quality, not tied to one specific rep the way the two
-  Bottleneck Spot-Checks are. Its seven fields (`MARKETING_FIELDS`): six
+  Bottleneck Spot-Checks are. Its six fields (`MARKETING_FIELDS`): five
   open-ended textareas (Yesterday's Prospects Situation, Motivations,
   Struggles, Why They Didn't Move Forward, What Would Have Made Them
   Move Forward — since these read like written reflection, not short
-  answers), one plain text field (Qualification Average), and one
-  yes/no `<select>` (Did They Watch the Pre-Call Assets? — the one
-  actual yes/no question in the set, same options markup as Post-Call
-  Form Accountability's own dropdown).
+  answers) and one plain text field (Qualification Average).
+
+  A **Sales Process Check** — a free-form, addable checklist, not one of
+  the fixed fields above — replaced an initial "Did they watch the
+  pre-call assets?" yes/no question shortly after shipping, per a
+  follow-up asking for the ability to name any step of the sales
+  process and tick whether it happened. Each dated entry gets its own
+  independent `salesProcessChecks` array (`{ id, label, done }` per
+  step, `normalizeSalesProcessItem()`), typed in through a plain
+  `name-add-form` (the exact same add-a-name pattern as Add Team's
+  closer/setter inputs) and rendered as a checkbox + label + remove
+  button per row (`renderSalesProcessCheck()`); checking one off dims
+  and strikes through its label. This list rebuilds in full on every
+  render — unlike a text field, a checkbox row holds no live-typed state
+  a poll could interrupt mid-edit, and the add-form's own input is a
+  separate, never-rebuilt element (same reasoning as Add Team's inputs),
+  so there was no need for the preserveFocused treatment every other
+  editable field in this app needs. Verified live with Puppeteer:
+  confirmed the old yes/no field is gone; that adding, checking off, and
+  removing a step all work and round-trip into the next save with the
+  right `label`/`done` values; that the checked row gets the dimmed/
+  struck-through styling; that a different day's checklist starts
+  genuinely empty (independent per entry, not shared); and that a poll
+  racing a half-typed step name in the add-input doesn't touch it.
 
   A follow-up request added **"Add New Day"**, so the marketing team can
   build a history and spot patterns rather than one set of fields
