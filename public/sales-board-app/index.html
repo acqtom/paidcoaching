@@ -2734,7 +2734,19 @@
       // with today's) -- a same-day dedupe here previously made the
       // button silently re-select an already-showing entry instead of
       // visibly doing anything, which read as "the button is broken."
-      const entry = normalizeMarketingEntry({ date: todayLocalISO() });
+      //
+      // The Sales Process Check *steps* carry over from whichever day
+      // was most recently created (a copy, with fresh ids and done
+      // reset to false -- a new day starts unticked) so the list
+      // doesn't need retyping every day; editing today's copy (renaming,
+      // adding, or removing a step) never reaches back and changes an
+      // already-created day's own frozen copy, only what gets copied
+      // into whatever day is created *next*.
+      const previous = mc.entries[mc.entries.length - 1];
+      const carriedSteps = previous
+        ? previous.salesProcessChecks.map(item => ({ id: makeId(), label: item.label, done: false }))
+        : [];
+      const entry = normalizeMarketingEntry({ date: todayLocalISO(), salesProcessChecks: carriedSteps });
       mc.entries.push(entry);
       mc.activeId = entry.id;
       rerenderTabs();

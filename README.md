@@ -1243,9 +1243,31 @@ in and you'll land on `/dashboard`.
   confirmed the old yes/no field is gone; that adding, checking off, and
   removing a step all work and round-trip into the next save with the
   right `label`/`done` values; that the checked row gets the dimmed/
-  struck-through styling; that a different day's checklist starts
-  genuinely empty (independent per entry, not shared); and that a poll
-  racing a half-typed step name in the add-input doesn't touch it.
+  struck-through styling; and that a poll racing a half-typed step name
+  in the add-input doesn't touch it.
+
+  A follow-up request changed how a new day's checklist starts: rather
+  than always empty, the *steps* now carry over from whichever day was
+  most recently created, so the list doesn't need retyping every
+  morning — but each day still owns a fully independent copy the moment
+  it's created, so editing today (renaming, adding, or removing a step,
+  or just ticking one off) can never reach back and change an
+  already-created day's own frozen snapshot. The "Add New Day" handler
+  now copies the previous entry's `salesProcessChecks` into the new one
+  with fresh ids (`makeId()` per item, so the two days' rows are never
+  secretly the same object) and every `done` reset to `false` — a new
+  day starts with the same checklist but nothing ticked yet. Whatever a
+  day's list looks like *at the moment the next day is created* is what
+  carries forward, so an edit made today does flow into tomorrow once
+  tomorrow's entry actually gets created, without ever rewriting
+  anything already in the past. Verified live with Puppeteer: confirmed
+  a new day inherits the previous day's exact step labels, all
+  unchecked; that editing the new day (removing one step, adding
+  another, checking one off) leaves the earlier day completely
+  untouched when switching back to it, both days' independent states
+  correctly present in the next save; and that a third day, created
+  after editing the second, correctly carries forward the *second* day's
+  edited list rather than the first day's original one.
 
   A follow-up request added **"Add New Day"**, so the marketing team can
   build a history and spot patterns rather than one set of fields
