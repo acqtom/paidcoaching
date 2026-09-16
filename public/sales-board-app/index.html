@@ -469,6 +469,7 @@
     border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
     padding: 6px 4px;
   }
+  .huddle-table-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
   @media (max-width: 640px) {
     .huddle-pipeline-header { flex-direction: column; }
     .huddle-pipeline-total { text-align: left; }
@@ -911,6 +912,19 @@
           <table class="huddle-table" id="huddle-pipeline-table"></table>
         </div>
         <button type="button" class="sop-add-btn" id="huddle-pipeline-add-row">+ Add Row</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Students Due to Close Soon</h2>
+        <p>Track prospects who need a specific follow-up before they go cold.</p>
+      </div>
+      <div class="card-body">
+        <div class="huddle-table-wrap">
+          <table class="huddle-table" id="huddle-close-soon-table"></table>
+        </div>
+        <button type="button" class="sop-add-btn" id="huddle-close-soon-add-row">+ Add Row</button>
       </div>
     </div>
   </div>
@@ -2590,6 +2604,18 @@
     return out;
   }
 
+  const CLOSE_SOON_COLUMNS = [
+    { key: "prospect", label: "Prospect", placeholder: "Who?" },
+    { key: "followUpDate", label: "Date to Follow Up", type: "date" },
+    { key: "whyNotClosed", label: "Why They Didn't Close", placeholder: "Reason…" },
+  ];
+
+  function normalizeCloseSoonRow(raw) {
+    const out = { id: (raw && raw.id) || makeId() };
+    CLOSE_SOON_COLUMNS.forEach(c => { out[c.key] = raw && typeof raw[c.key] === "string" ? raw[c.key] : ""; });
+    return out;
+  }
+
   // Deal size is free text ("$5,000", "5000", etc.) -- strips everything
   // but digits/decimal/minus before summing, so the total stays useful
   // even with stray currency symbols or commas.
@@ -2602,6 +2628,7 @@
     const pipeline = raw && Array.isArray(raw.pipeline) && raw.pipeline.length
       ? raw.pipeline.map(normalizePipelineRow)
       : Array.from({ length: PIPELINE_DEFAULT_ROWS }, () => normalizePipelineRow(null));
+    const closeSoon = raw && Array.isArray(raw.closeSoon) ? raw.closeSoon.map(normalizeCloseSoonRow) : [];
     return {
       meetingLink: raw && typeof raw.meetingLink === "string" ? raw.meetingLink : "",
       meetingTime: raw && typeof raw.meetingTime === "string" ? raw.meetingTime : "",
@@ -2611,6 +2638,7 @@
       setterBottleneck: normalizeBottleneck(raw && raw.setterBottleneck),
       closerBottleneck: normalizeBottleneck(raw && raw.closerBottleneck),
       pipeline,
+      closeSoon,
     };
   }
 
@@ -2957,6 +2985,75 @@
     queueSaveHuddles();
   });
 
+  // Students Due to Close Soon -- a persistent (not per-day) list, same
+  // shape/idempotent-build pattern as the Pipeline Check table just
+  // above, minus the Done checkbox and Total value that table has.
+  function buildCloseSoonRowHtml(row) {
+    const cellsHtml = CLOSE_SOON_COLUMNS.map(c =>
+      `<td><input type="${c.type === "date" ? "date" : "text"}" data-key="${c.key}" placeholder="${c.placeholder || ""}"></td>`
+    ).join("");
+    return `<tr data-row-id="${row.id}">
+      ${cellsHtml}
+      <td class="row-delete-cell"><button type="button" class="row-delete" data-remove-row="${row.id}" title="Remove row">&times;</button></td>
+    </tr>`;
+  }
+
+  function wireCloseSoonRow(tr) {
+    const rowId = tr.dataset.rowId;
+    const row = huddles.closeSoon.find(r => r.id === rowId);
+    tr.querySelectorAll("input[data-key]").forEach(input => {
+      if (row) input.value = row[input.dataset.key] || "";
+      input.addEventListener("input", () => {
+        const r = huddles.closeSoon.find(r => r.id === rowId);
+        if (r) r[input.dataset.key] = input.value;
+        queueSaveHuddles();
+      });
+    });
+    tr.querySelector("[data-remove-row]").addEventListener("click", () => {
+      huddles.closeSoon = huddles.closeSoon.filter(r => r.id !== rowId);
+      renderCloseSoon();
+      queueSaveHuddles();
+    });
+  }
+
+  function renderCloseSoon(preserveFocused) {
+    const table = document.getElementById("huddle-close-soon-table");
+    if (!table.dataset.built) {
+      table.innerHTML = `<thead><tr>${CLOSE_SOON_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}<th></th></tr></thead><tbody></tbody>`;
+      table.dataset.built = "1";
+    }
+    const tbody = table.querySelector("tbody");
+    if (!huddles.closeSoon.length) {
+      tbody.innerHTML = `<tr><td class="huddle-table-empty" colspan="${CLOSE_SOON_COLUMNS.length + 1}">No prospects added yet.</td></tr>`;
+      return;
+    }
+    const currentIds = Array.from(tbody.children).map(tr => tr.dataset.rowId);
+    const targetIds = huddles.closeSoon.map(r => r.id);
+    const sameShape = currentIds.length === targetIds.length && currentIds.every((id, i) => id === targetIds[i]);
+
+    if (!sameShape) {
+      tbody.innerHTML = huddles.closeSoon.map(buildCloseSoonRowHtml).join("");
+      tbody.querySelectorAll("tr").forEach(wireCloseSoonRow);
+    } else {
+      huddles.closeSoon.forEach(row => {
+        const tr = tbody.querySelector(`tr[data-row-id="${row.id}"]`);
+        if (!tr) return;
+        CLOSE_SOON_COLUMNS.forEach(c => {
+          const el = tr.querySelector(`[data-key="${c.key}"]`);
+          if (el && (!preserveFocused || document.activeElement !== el)) {
+            el.value = row[c.key] || "";
+          }
+        });
+      });
+    }
+  }
+
+  document.getElementById("huddle-close-soon-add-row").addEventListener("click", () => {
+    huddles.closeSoon.push(normalizeCloseSoonRow(null));
+    renderCloseSoon();
+    queueSaveHuddles();
+  });
+
   function updateMeetingLinkOpen(value) {
     const link = document.getElementById("huddle-meeting-open");
     const href = directoryHref(value);
@@ -3072,6 +3169,7 @@
     renderBottleneck("setterBottleneck", "huddle-setter-bottleneck", SETTERS, preserveFocused);
     renderBottleneck("closerBottleneck", "huddle-closer-bottleneck", CLOSERS, preserveFocused);
     renderPipeline(preserveFocused);
+    renderCloseSoon(preserveFocused);
   }
 
   function renderSopSection(key, tabsId, contentId, typeToggleId, videoId, preserveFocused) {

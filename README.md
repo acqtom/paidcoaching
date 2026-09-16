@@ -1368,6 +1368,33 @@ in and you'll land on `/dashboard`.
   removing a day works and switches away cleanly, and that a poll racing
   a live edit on a freshly-added day doesn't disturb it.
 
+  **Students Due to Close Soon**, added in a follow-up request, sits
+  right below Pipeline Check as its own card — a persistent (not per-day
+  dated, unlike Marketing Check) table for tracking specific prospects
+  who need a follow-up before they go cold: Prospect, Date to Follow Up
+  (a native `<input type="date">`, the first date picker in this table —
+  every other free-text table column in this app takes whatever format
+  someone types), and Why They Didn't Close. Structurally it's Pipeline
+  Check's exact pattern copied over (`CLOSE_SOON_COLUMNS`,
+  `normalizeCloseSoonRow()`, `buildCloseSoonRowHtml()`,
+  `wireCloseSoonRow()`, `renderCloseSoon()` — same idempotent same-shape
+  check so typing in one cell survives a poll, same **+ Add Row**/per-row
+  remove), just without Pipeline's Done checkbox or Total value, since
+  neither was asked for here. The one deliberate difference from
+  Pipeline: this table starts completely *empty* with a "No prospects
+  added yet." message (`.huddle-table-empty`, a new class since Pipeline
+  itself has no empty state — it always seeds 10 rows) rather than
+  Pipeline's 10 pre-seeded blank rows, since this is a curated escalation
+  list that only ever holds however many specific people actually need
+  one, not a fixed daily quota to fill in. Verified live with Puppeteer:
+  confirmed the card's position and header labels, that it starts empty
+  with the empty-state message, that the date field is a real date
+  input, that adding/filling/removing rows all round-trip correctly into
+  the next save (including that removing a row removes the *right* one,
+  not just any), and that a poll racing a live edit doesn't disturb it —
+  plus a screenshot confirming it reads cleanly against the same grey
+  card theme as everywhere else.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
