@@ -1733,6 +1733,78 @@ in and you'll land on `/dashboard`.
   plus a screenshot confirming both columns read cleanly alongside the
   other computed pace columns.
 
+  **Target % was reported wrong and reverted back to manual** — the
+  `Weekly Target ÷ Monthly Target` formula didn't match what was
+  actually wanted, so rather than guess at a different formula, `target
+  Percent` was added to `REP_NUMBERS_STATIC_FIELDS` and its `<td>` went
+  back to being a plain `<input data-field="targetPercent">`, the same
+  fixed-across-weeks treatment as Daily KPI/Weekly Target/Monthly
+  Target. `updateRepComputedCells()` no longer touches it at all. Actual
+  % was left as-is (`Weekly Pace ÷ Monthly Target × 100`) pending
+  confirmation that its formula is the one actually wanted. Verified
+  live with Puppeteer: confirmed Target % is a real `<input>` again (the
+  `[data-computed="targetPercent"]` cell no longer exists) and does
+  *not* auto-fill when Weekly/Monthly Target are typed; that a typed
+  Target % value persists across switching to a new week, same as the
+  other static target fields; and that Actual % still computes
+  correctly and independently of Target % — plus a screenshot showing
+  the manual `30%` Target % next to a correctly-computed `0%` Actual %.
+
+  **Actual % turned out to mean something entirely different than
+  "vs. Monthly Target"** — asked directly what the calculation should
+  be, the answer was a set of specific conversion rates between *pairs*
+  of built-in metrics (e.g. Setter "Dials" row = Dials ÷ Connections,
+  "Bookings" row = Dials ÷ Bookings, "Total closes" row = Bookings ÷
+  Total closes; Closer "Pitches"/"2nd calls booked"/"Closed" rows are
+  all Calls taken ÷ that row's own metric), with "Calls shown"/"Calls
+  taken" on the Closer side both measured against "calls booked" — which
+  turned out to only exist on the Setter side (its "Bookings / triages"
+  metric), and since this data model has no link between a specific
+  setter and a specific closer, that numerator is the *whole team's*
+  Bookings, summed across every setter, not any one person's.
+
+  This is genuinely a fixed lookup table, not a general formula —
+  `REP_RATE_FORMULAS` is keyed by role then by the *built-in* metric id
+  (`dials`, `bookings`, `callsShown`, etc.), each entry naming a
+  numerator and denominator that's either another metric id on the same
+  rep's own rows, or `{ team: "bookings" }` meaning "summed across every
+  setter." A metric with no entry (Connections, Est commission, or
+  anything added through the "+" form, which gets a fresh generated id
+  the table can't know about) shows `--` instead of a percentage, rather
+  than a misleading `0%`. `computeWeeklyPace(row)` was pulled out of
+  `updateRepComputedCells()` as its own function so the same pace math
+  could be reused to look up *other* rows' Weekly Pace —
+  `metricWeeklyPaceFor(role, repName, metricId)` for a same-rep lookup,
+  `teamWeeklyPaceSum(role, metricId)` summed across `SETTERS`/`CLOSERS`
+  for the team-wide case — and `updateRepComputedCells()` now takes
+  `role`/`repName` alongside `tr`/`row` so it can resolve these lookups.
+
+  Because a single keystroke can now change a *different* row's Actual %
+  (typing into Dials affects Bookings' and Total closes' rows on the
+  same rep) or even a different table's (typing into any setter's
+  Bookings affects every closer's Calls shown/Calls taken, through the
+  team-wide sum), `wireRepScorecardRows()`'s input handler no longer
+  calls `updateRepComputedCells()` for just its own row -- it calls
+  `renderRepDailyNumbers(true)` instead, which refreshes both
+  scorecards' computed cells in one pass (the existing `preserveFocused`
+  guard keeps the input being typed into from losing focus). This is a
+  broader refresh than before, but the tables are small enough that it's
+  not noticeable, and it was simpler and more obviously correct than
+  hand-tracking which cells any given metric change could affect.
+
+  Verified live with Puppeteer: entered Dials `100`/`100`, Connections
+  `50`, Bookings `20`, Total closes `5` for one setter and confirmed
+  Actual % reads exactly `200%`/`500%`/`400%` on the Dials/Bookings/
+  Total closes rows and `--` on Connections/Est commission; entered
+  Calls shown `10`, Calls taken `8`, Pitches `4`, 2nd calls booked `2`,
+  Closed `1` for one closer against that same team's Bookings total and
+  confirmed `200%`/`250%`/`200%`/`400%`/`800%` respectively; and — the
+  cross-table case — confirmed that increasing that setter's Bookings
+  further changed the closer's Calls shown Actual % live, without
+  touching the Closer Scorecard directly, from `200%` to `266.7%` —
+  plus a screenshot of both scorecards with their rates lined up
+  against the numbers that produced them.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

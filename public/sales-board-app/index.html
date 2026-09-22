@@ -2773,12 +2773,16 @@
     { key: "sun", label: "Sun", offset: 6 },
   ];
   const REP_NUMBERS_DAY_KEYS = REP_NUMBERS_DAYS.map(d => d.key);
-  // dailyKpi/monthlyTarget/weeklyTarget are targets, not weekly actuals
-  // -- they stay the same no matter which week is showing. Only the
-  // Mon-Sun day values are per-week (see normalizeRepMetricRow below).
-  // weeklyTarget used to be computed (monthlyTarget / 4) rather than
-  // stored; it's a manually-typed target like the other two now.
-  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "weeklyTarget", "monthlyTarget"];
+  // dailyKpi/monthlyTarget/weeklyTarget/targetPercent are targets, not
+  // weekly actuals -- they stay the same no matter which week is
+  // showing. Only the Mon-Sun day values are per-week (see
+  // normalizeRepMetricRow below). weeklyTarget used to be computed
+  // (monthlyTarget / 4) rather than stored; it's a manually-typed target
+  // like the other two now. targetPercent was tried as an automated
+  // Weekly Target ÷ Monthly Target calculation and corrected back to
+  // manual -- the computed number didn't match what was wanted, so it's
+  // typed directly instead, same as the other three.
+  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "weeklyTarget", "monthlyTarget", "targetPercent"];
 
   // Metrics are addable/removable per scorecard via the "+" next to the
   // Metric column header and drag-to-reorder on each row (see
@@ -3371,23 +3375,8 @@
     return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
   }
 
-  // Daily Pace = average of whichever Mon-Sun cells actually have a value
-  // (not divided by 7 flat), so pace reflects real performance so far
-  // rather than being diluted by days that just haven't happened yet.
-  // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4 -- the
-  // exact formulas worked out from the reference sheet's own numbers.
-  // Weekly Target used to be computed the same way (Monthly Target ÷ 4)
-  // but is a manually-typed field now (see REP_NUMBERS_STATIC_FIELDS),
-  // so it's no longer touched here. Target %/Actual % are both new,
-  // automated (not typed) columns expressed against Monthly Target:
-  // Target % = Weekly Target as a fraction of Monthly Target (a sanity
-  // check that the weekly target lines up with the monthly one), Actual
-  // % = the computed Weekly Pace as a fraction of Monthly Target (how
-  // this week's real pace compares to the month's goal). Both read 0%
-  // when Monthly Target is blank/zero rather than dividing by zero.
-  function updateRepComputedCells(tr, row) {
-    const isCurrency = tr.dataset.currency === "1";
-    const weekRow = (row.weeks && row.weeks[repDailyNumbers.activeWeekId]) || {};
+  function computeWeeklyPace(row) {
+    const weekRow = (row && row.weeks && row.weeks[repDailyNumbers.activeWeekId]) || {};
     const enteredDayValues = REP_NUMBERS_DAYS
       .map(d => weekRow[d.key])
       .filter(v => v !== "" && v != null)
@@ -3395,18 +3384,81 @@
     const dailyPace = enteredDayValues.length
       ? enteredDayValues.reduce((a, b) => a + b, 0) / enteredDayValues.length
       : 0;
-    const weeklyPace = dailyPace * 7;
+    return dailyPace * 7;
+  }
+
+  // Actual % is a conversion rate between two specific built-in metrics
+  // (e.g. Setter "Dials" row = Dials ÷ Connections, Closer "Pitches" row
+  // = Calls taken ÷ Pitches), not a generic formula -- hardcoded by the
+  // built-in metric id since those are the only ids whose meaning is
+  // known in advance. A custom metric added through "+" has no entry
+  // here and simply shows no rate ("--"). `num`/`den` are each either a
+  // metric id read from this same rep's own rows, or `{ team: metricId
+  // }` meaning "summed across every setter" -- only the Closer Scorecard
+  // uses that, for "calls booked", which the team tracks only on the
+  // Setter side (there's no per-closer link to a specific setter's
+  // bookings in this data model, so every closer's rate is measured
+  // against the whole team's total).
+  const REP_RATE_FORMULAS = {
+    setters: {
+      dials: { num: "dials", den: "connections" },
+      bookings: { num: "dials", den: "bookings" },
+      totalCloses: { num: "bookings", den: "totalCloses" },
+    },
+    closers: {
+      callsShown: { num: { team: "bookings" }, den: "callsShown" },
+      callsTaken: { num: { team: "bookings" }, den: "callsTaken" },
+      pitches: { num: "callsTaken", den: "pitches" },
+      secondCallsBooked: { num: "callsTaken", den: "secondCallsBooked" },
+      closed: { num: "callsTaken", den: "closed" },
+    },
+  };
+
+  function metricWeeklyPaceFor(role, repName, metricId) {
+    const section = repDailyNumbers[role];
+    const row = section[repName] && section[repName][metricId];
+    return computeWeeklyPace(row);
+  }
+
+  function teamWeeklyPaceSum(role, metricId) {
+    const names = role === "setters" ? SETTERS : CLOSERS;
+    return names.reduce((sum, name) => sum + metricWeeklyPaceFor(role, name, metricId), 0);
+  }
+
+  function resolveRatePart(part, role, repName) {
+    return typeof part === "object" ? teamWeeklyPaceSum("setters", part.team) : metricWeeklyPaceFor(role, repName, part);
+  }
+
+  // Returns null (no rate defined for this metric -- renders as "--")
+  // or a percentage number.
+  function computeActualPercent(role, repName, metricId) {
+    const formula = REP_RATE_FORMULAS[role] && REP_RATE_FORMULAS[role][metricId];
+    if (!formula) return null;
+    const numerator = resolveRatePart(formula.num, role, repName);
+    const denominator = resolveRatePart(formula.den, role, repName);
+    return denominator ? (numerator / denominator) * 100 : 0;
+  }
+
+  // Daily Pace = average of whichever Mon-Sun cells actually have a value
+  // (not divided by 7 flat), so pace reflects real performance so far
+  // rather than being diluted by days that just haven't happened yet.
+  // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4 -- the
+  // exact formulas worked out from the reference sheet's own numbers.
+  // Weekly Target used to be computed the same way (Monthly Target ÷ 4)
+  // but is a manually-typed field now (see REP_NUMBERS_STATIC_FIELDS),
+  // so it's no longer touched here -- Target % is the same story (tried
+  // as Weekly Target ÷ Monthly Target, corrected back to manual).
+  function updateRepComputedCells(tr, row, role, repName) {
+    const isCurrency = tr.dataset.currency === "1";
+    const weeklyPace = computeWeeklyPace(row);
+    const dailyPace = weeklyPace / 7;
     const monthlyPace = weeklyPace * 4;
-    const monthlyTargetNum = parseDealSize(row.monthlyTarget);
-    const weeklyTargetNum = parseDealSize(row.weeklyTarget);
-    const targetPercent = monthlyTargetNum ? (weeklyTargetNum / monthlyTargetNum) * 100 : 0;
-    const actualPercent = monthlyTargetNum ? (weeklyPace / monthlyTargetNum) * 100 : 0;
+    const actualPercent = computeActualPercent(role, repName, tr.dataset.metric);
 
     tr.querySelector('[data-computed="dailyPace"]').textContent = fmtPaceNumber(dailyPace, isCurrency);
     tr.querySelector('[data-computed="weeklyPace"]').textContent = fmtPaceNumber(weeklyPace, isCurrency);
     tr.querySelector('[data-computed="monthlyPace"]').textContent = fmtPaceNumber(monthlyPace, isCurrency);
-    tr.querySelector('[data-computed="targetPercent"]').textContent = fmtPercentNumber(targetPercent);
-    tr.querySelector('[data-computed="actualPercent"]').textContent = fmtPercentNumber(actualPercent);
+    tr.querySelector('[data-computed="actualPercent"]').textContent = actualPercent === null ? "—" : fmtPercentNumber(actualPercent);
   }
 
   // Rep names come straight from CLOSERS/SETTERS unescaped, same as
@@ -3435,7 +3487,7 @@
         <td class="rep-numbers-computed" data-computed="monthlyPace">0</td>
         <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="weeklyTarget"></td>
         <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="monthlyTarget"></td>
-        <td class="rep-numbers-computed" data-computed="targetPercent">0%</td>
+        <td><input type="text" class="rep-numbers-input" data-field="targetPercent" placeholder="%"></td>
         <td class="rep-numbers-computed" data-computed="actualPercent">0%</td>
       </tr>
     `).join("");
@@ -3459,7 +3511,14 @@
           } else {
             row[field] = input.value;
           }
-          updateRepComputedCells(tr, row);
+          // A single keystroke can change more than this one row's own
+          // computed cells -- Actual % pulls from *other* metric rows
+          // (same rep, e.g. Dials feeds Bookings' rate) and, for the
+          // Closer Scorecard, from every setter's Bookings total. A full
+          // refresh (focus-preserving, so this input doesn't lose focus
+          // mid-keystroke) is simplest and correct rather than tracking
+          // which other cells any given field could affect.
+          renderRepDailyNumbers(true);
           queueSaveRepDailyNumbers();
         });
       });
@@ -3640,7 +3699,7 @@
         const el = tr.querySelector(`[data-field="${key}"]`);
         if (el && (!preserveFocused || document.activeElement !== el)) el.value = weekRow[key] || "";
       });
-      updateRepComputedCells(tr, row);
+      updateRepComputedCells(tr, row, role, repName);
     });
   }
 
