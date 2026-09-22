@@ -480,8 +480,41 @@
   }
   .rep-numbers-table input.rep-numbers-input:hover { background: var(--surface-1); }
   .rep-numbers-table input.rep-numbers-input:focus { outline: none; border-color: var(--pill-border); background: #fff; }
+  .rep-numbers-table input.rep-numbers-kpi-input {
+    font-weight: 700; color: #b8860b; border: 1px solid #d4af37; background: #fdf8ec;
+  }
+  .rep-numbers-table input.rep-numbers-kpi-input:hover { background: #fbf1d6; }
+  .rep-numbers-table input.rep-numbers-kpi-input:focus { border-color: #b8860b; background: #fff; }
   .rep-numbers-table .rep-numbers-computed {
     color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; padding-right: 16px;
+  }
+  .rep-metrics-manager { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--card-border); }
+  .rep-metrics-manager .directory-label { display: block; margin-bottom: 10px; }
+  .rep-metrics-list {
+    list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .rep-metric-pill {
+    display: flex; align-items: center; gap: 6px; background: var(--badge-bg);
+    border-radius: 20px; padding: 4px 8px 4px 12px;
+  }
+  .rep-metric-label-input {
+    border: none; background: none; font-family: inherit; font-size: 12px; font-weight: 600;
+    color: var(--badge-fg); width: 150px; padding: 4px 0;
+  }
+  .rep-metric-label-input:focus { outline: none; text-decoration: underline; }
+  .rep-metric-currency-toggle {
+    display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--badge-fg); cursor: pointer;
+  }
+  .rep-metric-remove {
+    border: none; background: none; color: var(--badge-fg); cursor: pointer; font-size: 13px; line-height: 1;
+    padding: 2px; opacity: 0.6; font-family: inherit;
+  }
+  .rep-metric-remove:hover { opacity: 1; }
+  .name-add-form .rep-metric-currency-toggle {
+    flex: none; color: var(--text-primary); font-weight: 600;
+  }
+  .name-add-form .rep-metric-currency-toggle input {
+    flex: none; width: auto; min-width: 0; border: none; background: none; padding: 0;
   }
   @media (max-width: 640px) {
     .huddle-pipeline-header { flex-direction: column; }
@@ -953,6 +986,15 @@
         <h2>Setter Scorecard</h2>
       </div>
       <div class="card-body">
+        <div class="rep-metrics-manager">
+          <span class="directory-label">Metrics tracked</span>
+          <ul class="rep-metrics-list" id="rep-numbers-setter-metrics-list"></ul>
+          <form class="name-add-form" id="rep-numbers-setter-metrics-add-form">
+            <input type="text" id="rep-numbers-setter-metrics-input" placeholder="New metric name">
+            <label class="rep-metric-currency-toggle"><input type="checkbox" id="rep-numbers-setter-metrics-currency"> $</label>
+            <button type="submit">Add</button>
+          </form>
+        </div>
         <div class="huddle-table-wrap">
           <table class="huddle-table rep-numbers-table" id="rep-numbers-setter-table"></table>
         </div>
@@ -964,6 +1006,15 @@
         <h2>Closer Scorecard</h2>
       </div>
       <div class="card-body">
+        <div class="rep-metrics-manager">
+          <span class="directory-label">Metrics tracked</span>
+          <ul class="rep-metrics-list" id="rep-numbers-closer-metrics-list"></ul>
+          <form class="name-add-form" id="rep-numbers-closer-metrics-add-form">
+            <input type="text" id="rep-numbers-closer-metrics-input" placeholder="New metric name">
+            <label class="rep-metric-currency-toggle"><input type="checkbox" id="rep-numbers-closer-metrics-currency"> $</label>
+            <button type="submit">Add</button>
+          </form>
+        </div>
         <div class="huddle-table-wrap">
           <table class="huddle-table rep-numbers-table" id="rep-numbers-closer-table"></table>
         </div>
@@ -2704,21 +2755,42 @@
   ];
   const REP_NUMBERS_ENTRY_FIELDS = ["dailyKpi", ...REP_NUMBERS_DAYS.map(d => d.key), "monthlyTarget"];
 
-  const SETTER_METRICS = [
-    { key: "dials", label: "Dials" },
-    { key: "connections", label: "Connections (calls answered)" },
-    { key: "bookings", label: "Bookings / triages" },
-    { key: "totalCloses", label: "Total closes" },
-    { key: "estCommission", label: "Est commission", isCurrency: true },
+  // Metrics are now addable/editable/removable per scorecard (see the
+  // Metrics pill list above each table), so the list itself lives in
+  // saved state rather than being a fixed constant -- these are only the
+  // seed values for a board that's never customized them. `id` doubles
+  // as the old hardcoded key every metric used before this was
+  // editable, so already-saved per-rep data for these five/six keeps
+  // resolving to the same rows; only a metric added through the "+"
+  // form gets a fresh makeId() id.
+  const DEFAULT_SETTER_METRICS = [
+    { id: "dials", label: "Dials" },
+    { id: "connections", label: "Connections (calls answered)" },
+    { id: "bookings", label: "Bookings / triages" },
+    { id: "totalCloses", label: "Total closes" },
+    { id: "estCommission", label: "Est commission", isCurrency: true },
   ];
-  const CLOSER_METRICS = [
-    { key: "callsShown", label: "Calls shown" },
-    { key: "callsTaken", label: "Calls taken" },
-    { key: "pitches", label: "Pitches" },
-    { key: "secondCallsBooked", label: "2nd calls booked" },
-    { key: "closed", label: "Closed" },
-    { key: "estCommission", label: "Est commission", isCurrency: true },
+  const DEFAULT_CLOSER_METRICS = [
+    { id: "callsShown", label: "Calls shown" },
+    { id: "callsTaken", label: "Calls taken" },
+    { id: "pitches", label: "Pitches" },
+    { id: "secondCallsBooked", label: "2nd calls booked" },
+    { id: "closed", label: "Closed" },
+    { id: "estCommission", label: "Est commission", isCurrency: true },
   ];
+
+  function normalizeRepMetric(raw) {
+    return {
+      id: (raw && typeof raw.id === "string" && raw.id) || makeId(),
+      label: raw && typeof raw.label === "string" ? raw.label : "",
+      isCurrency: !!(raw && raw.isCurrency),
+    };
+  }
+
+  function normalizeRepMetricsList(raw, defaults) {
+    const list = raw && Array.isArray(raw) && raw.length ? raw : defaults;
+    return list.map(normalizeRepMetric);
+  }
 
   function normalizeRepMetricRow(raw) {
     const out = {};
@@ -2728,7 +2800,7 @@
 
   // Sparse on purpose -- only reps/metrics someone has actually typed
   // into exist in here at all; renderRepScorecard() below treats a
-  // missing rep or metric key as an all-blank row rather than requiring
+  // missing rep or metric id as an all-blank row rather than requiring
   // every possible combination to be pre-populated.
   function normalizeRepSection(raw) {
     const out = {};
@@ -2737,8 +2809,8 @@
         const metrics = raw[repName];
         if (!metrics || typeof metrics !== "object") return;
         out[repName] = {};
-        Object.keys(metrics).forEach(metricKey => {
-          out[repName][metricKey] = normalizeRepMetricRow(metrics[metricKey]);
+        Object.keys(metrics).forEach(metricId => {
+          out[repName][metricId] = normalizeRepMetricRow(metrics[metricId]);
         });
       });
     }
@@ -2747,6 +2819,8 @@
 
   function normalizeRepDailyNumbers(raw) {
     return {
+      setterMetrics: normalizeRepMetricsList(raw && raw.setterMetrics, DEFAULT_SETTER_METRICS),
+      closerMetrics: normalizeRepMetricsList(raw && raw.closerMetrics, DEFAULT_CLOSER_METRICS),
       setters: normalizeRepSection(raw && raw.setters),
       closers: normalizeRepSection(raw && raw.closers),
     };
@@ -3252,10 +3326,10 @@
   // gets interpolated in this app (admin-only, trusted input).
   function buildRepBlockHtml(repName, metrics) {
     return metrics.map((metric, i) => `
-      <tr data-rep="${repName}" data-metric="${metric.key}"${metric.isCurrency ? ' data-currency="1"' : ""}>
+      <tr data-rep="${repName}" data-metric="${metric.id}"${metric.isCurrency ? ' data-currency="1"' : ""}>
         <td class="rep-numbers-name-cell">${i === 0 ? repName : ""}</td>
         <td class="rep-numbers-metric-cell">${metric.label}</td>
-        <td><input type="text" class="rep-numbers-input" data-field="dailyKpi"></td>
+        <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="dailyKpi"></td>
         ${REP_NUMBERS_DAYS.map(d => `<td><input type="text" class="rep-numbers-input" data-field="${d.key}"></td>`).join("")}
         <td class="rep-numbers-computed" data-computed="dailyPace">0</td>
         <td class="rep-numbers-computed" data-computed="weeklyPace">0</td>
@@ -3269,14 +3343,14 @@
   function wireRepScorecardRows(tbody, role) {
     tbody.querySelectorAll("tr[data-rep]").forEach(tr => {
       const repName = tr.dataset.rep;
-      const metricKey = tr.dataset.metric;
+      const metricId = tr.dataset.metric;
       tr.querySelectorAll("input[data-field]").forEach(input => {
         input.addEventListener("input", () => {
           const section = repDailyNumbers[role];
           if (!section[repName]) section[repName] = {};
-          if (!section[repName][metricKey]) section[repName][metricKey] = normalizeRepMetricRow(null);
-          section[repName][metricKey][input.dataset.field] = input.value;
-          updateRepComputedCells(tr, section[repName][metricKey]);
+          if (!section[repName][metricId]) section[repName][metricId] = normalizeRepMetricRow(null);
+          section[repName][metricId][input.dataset.field] = input.value;
+          updateRepComputedCells(tr, section[repName][metricId]);
           queueSaveRepDailyNumbers();
         });
       });
@@ -3302,18 +3376,35 @@
       return;
     }
 
-    const signature = repNames.join("|");
+    // Rebuilding needs to happen for a roster change (a rep added or
+    // removed) *or* a metrics change (added/removed, not a label rename
+    // -- see below) -- so the signature covers both rep names and metric
+    // ids together.
+    const signature = `${repNames.join("|")}::${metrics.map(m => m.id).join("|")}`;
     if (tbody.dataset.repSignature !== signature) {
       tbody.innerHTML = repNames.map(repName => buildRepBlockHtml(repName, metrics)).join("");
       wireRepScorecardRows(tbody, role);
       tbody.dataset.repSignature = signature;
     }
 
+    // A metric's label or $-formatting can change (via the pill list
+    // above) without the row set itself changing shape, so this refresh
+    // pass keeps both in sync on every render regardless of whether a
+    // rebuild happened above.
+    const metricsById = {};
+    metrics.forEach(m => { metricsById[m.id] = m; });
+
     const section = repDailyNumbers[role];
     tbody.querySelectorAll("tr[data-rep]").forEach(tr => {
       const repName = tr.dataset.rep;
-      const metricKey = tr.dataset.metric;
-      const row = (section[repName] && section[repName][metricKey]) || normalizeRepMetricRow(null);
+      const metricId = tr.dataset.metric;
+      const metric = metricsById[metricId];
+      if (metric) {
+        tr.querySelector(".rep-numbers-metric-cell").textContent = metric.label;
+        if (metric.isCurrency) tr.dataset.currency = "1";
+        else delete tr.dataset.currency;
+      }
+      const row = (section[repName] && section[repName][metricId]) || normalizeRepMetricRow(null);
       REP_NUMBERS_ENTRY_FIELDS.forEach(key => {
         const el = tr.querySelector(`[data-field="${key}"]`);
         if (el && (!preserveFocused || document.activeElement !== el)) {
@@ -3324,10 +3415,99 @@
     });
   }
 
-  function renderRepDailyNumbers(preserveFocused) {
-    renderRepScorecard("setters", SETTERS, SETTER_METRICS, "rep-numbers-setter-table", preserveFocused);
-    renderRepScorecard("closers", CLOSERS, CLOSER_METRICS, "rep-numbers-closer-table", preserveFocused);
+  function metricsListKeyFor(role) {
+    return role === "setters" ? "setterMetrics" : "closerMetrics";
   }
+
+  // Idempotent-build pill list (same pattern as everything else in this
+  // file that's typed into): only rebuilt when the *set* of metric ids
+  // changes, so renaming a metric or toggling its $ checkbox never
+  // rebuilds the DOM out from under whichever pill is focused.
+  function renderMetricsManager(role, listId, preserveFocused) {
+    const listEl = document.getElementById(listId);
+    const metrics = repDailyNumbers[metricsListKeyFor(role)];
+    const signature = metrics.map(m => m.id).join("|");
+
+    if (listEl.dataset.signature !== signature) {
+      listEl.innerHTML = metrics.map(m => `
+        <span class="rep-metric-pill">
+          <input type="text" class="rep-metric-label-input" data-metric-id="${m.id}">
+          <label class="rep-metric-currency-toggle" title="Show this metric's pace/target as a dollar amount">
+            <input type="checkbox" data-currency-for="${m.id}"> $
+          </label>
+          <button type="button" class="rep-metric-remove" data-remove-metric="${m.id}" title="Remove this metric">&times;</button>
+        </span>
+      `).join("");
+
+      listEl.querySelectorAll(".rep-metric-label-input").forEach(input => {
+        input.addEventListener("input", () => {
+          const metric = repDailyNumbers[metricsListKeyFor(role)].find(m => m.id === input.dataset.metricId);
+          if (metric) metric.label = input.value;
+          renderRepDailyNumbers(true);
+          queueSaveRepDailyNumbers();
+        });
+      });
+      listEl.querySelectorAll("[data-currency-for]").forEach(cb => {
+        cb.addEventListener("change", () => {
+          const metric = repDailyNumbers[metricsListKeyFor(role)].find(m => m.id === cb.dataset.currencyFor);
+          if (metric) metric.isCurrency = cb.checked;
+          renderRepDailyNumbers();
+          queueSaveRepDailyNumbers();
+        });
+      });
+      listEl.querySelectorAll("[data-remove-metric]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const key = metricsListKeyFor(role);
+          repDailyNumbers[key] = repDailyNumbers[key].filter(m => m.id !== btn.dataset.removeMetric);
+          renderRepDailyNumbers();
+          queueSaveRepDailyNumbers();
+        });
+      });
+      listEl.dataset.signature = signature;
+    }
+
+    metrics.forEach(m => {
+      const input = listEl.querySelector(`[data-metric-id="${m.id}"]`);
+      if (input && (!preserveFocused || document.activeElement !== input)) {
+        input.value = m.label;
+      }
+      const cb = listEl.querySelector(`[data-currency-for="${m.id}"]`);
+      if (cb) cb.checked = m.isCurrency;
+    });
+  }
+
+  function renderRepDailyNumbers(preserveFocused) {
+    renderMetricsManager("setters", "rep-numbers-setter-metrics-list", preserveFocused);
+    renderMetricsManager("closers", "rep-numbers-closer-metrics-list", preserveFocused);
+    renderRepScorecard("setters", SETTERS, repDailyNumbers.setterMetrics, "rep-numbers-setter-table", preserveFocused);
+    renderRepScorecard("closers", CLOSERS, repDailyNumbers.closerMetrics, "rep-numbers-closer-table", preserveFocused);
+  }
+
+  document.getElementById("rep-numbers-setter-metrics-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("rep-numbers-setter-metrics-input");
+    const currencyCb = document.getElementById("rep-numbers-setter-metrics-currency");
+    const label = input.value.trim();
+    if (!label) return;
+    repDailyNumbers.setterMetrics.push(normalizeRepMetric({ label, isCurrency: currencyCb.checked }));
+    input.value = "";
+    currencyCb.checked = false;
+    renderRepDailyNumbers();
+    queueSaveRepDailyNumbers();
+  });
+
+  document.getElementById("rep-numbers-closer-metrics-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("rep-numbers-closer-metrics-input");
+    const currencyCb = document.getElementById("rep-numbers-closer-metrics-currency");
+    const label = input.value.trim();
+    if (!label) return;
+    repDailyNumbers.closerMetrics.push(normalizeRepMetric({ label, isCurrency: currencyCb.checked }));
+    input.value = "";
+    currencyCb.checked = false;
+    renderRepDailyNumbers();
+    queueSaveRepDailyNumbers();
+  });
 
   function updateMeetingLinkOpen(value) {
     const link = document.getElementById("huddle-meeting-open");

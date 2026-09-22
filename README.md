@@ -1402,10 +1402,12 @@ in and you'll land on `/dashboard`.
   scorecards, Setter and Closer, each a table of rows *derived* live from
   `SETTERS`/`CLOSERS` — same "the roster is the source of truth, nothing
   duplicated into a separate stored name list" approach as Post-Call Form
-  Accountability — with one block of fixed metric rows per rep (Setter:
-  Dials, Connections (calls answered), Bookings / triages, Total closes,
-  Est commission; Closer: Calls shown, Calls taken, Pitches, 2nd calls
-  booked, Closed, Est commission — `SETTER_METRICS`/`CLOSER_METRICS`),
+  Accountability — with one block of metric rows per rep, seeded from a
+  default list (Setter: Dials, Connections (calls answered), Bookings /
+  triages, Total closes, Est commission; Closer: Calls shown, Calls
+  taken, Pitches, 2nd calls booked, Closed, Est commission —
+  `DEFAULT_SETTER_METRICS`/`DEFAULT_CLOSER_METRICS`) but editable/
+  addable/removable per board (see below),
   the rep's name shown once per block rather than repeated down every
   row, matching the reference screenshot. `renderRepScorecard(role,
   repNames, metrics, tableId, preserveFocused)` is one generic function
@@ -1475,6 +1477,60 @@ in and you'll land on `/dashboard`.
   than getting stuck wide — plus a full screenshot at that viewport
   confirming it now reads as a proper full-width scorecard rather than
   a cramped little card.
+
+  **Metrics became editable/addable per board**, plus the Daily KPI
+  column got bold/gold styling, both from the same follow-up request.
+  Each scorecard's metric list (`repDailyNumbers.setterMetrics`/
+  `closerMetrics`) moved from a hardcoded constant to normal saved state
+  — `normalizeRepMetric()`/`normalizeRepMetricsList()` shape each entry
+  as `{ id, label, isCurrency }`, falling back to the
+  `DEFAULT_SETTER_METRICS`/`DEFAULT_CLOSER_METRICS` list (still keyed by
+  the original hardcoded strings like `dials`/`estCommission` as their
+  `id`, not fresh generated ids) whenever a board has no metrics saved
+  yet, so every already-saved per-rep number keeps resolving under the
+  same key it always did. A small pill-list UI (`renderMetricsManager()`)
+  sits above each scorecard's table: one pill per metric with an inline
+  label input, a `$` checkbox to mark it as a currency metric (drives the
+  existing `data-currency="1"` prefixing already built for Est
+  commission), and a remove button, plus an add-metric form below the
+  list. `buildRepBlockHtml()` now keys each row's `data-metric` off
+  `metric.id` instead of a hardcoded key. `renderRepScorecard()`'s
+  idempotent-build signature now covers *both* the roster and the
+  metrics list's ids together, so adding or removing a metric correctly
+  triggers a full table rebuild while a pure label rename or `$` toggle
+  does not; those non-shape-changing edits instead sync live through a
+  small per-row pass on every render that looks the row's metric up by
+  id and refreshes its displayed label text and `data-currency`
+  attribute in place — otherwise a rename made in the pill list would
+  never show up in the table without a page reload.
+
+  The pill list's label input reuses the exact same poll-vs-edit
+  protection already established for every other "type to rename
+  something" flow in this file: `renderMetricsManager()`'s
+  `preserveFocused` guard skips overwriting whichever pill input
+  currently has focus, so a poll landing mid-rename can't revert
+  half-typed text. Daily KPI inputs got a new `rep-numbers-kpi-input`
+  class (`font-weight: 700; color: #b8860b; border: 1px solid #d4af37;`
+  plus a pale gold `:hover`/`:focus` background) — applied only to the
+  Daily KPI column, not the Mon-Sun day inputs or Monthly Target, per
+  the request to make that one column stand out as the number reps
+  should be hitting *today*.
+
+  Verified live with Puppeteer (server responses stubbed via request
+  interception so the test didn't need a real login or Supabase data):
+  confirmed a board with old-style saved data (`dials`/`estCommission`
+  keys, no `setterMetrics`/`closerMetrics` saved) still renders its
+  existing numbers correctly under the default metric list; that the
+  Daily KPI inputs (and only those) carry the gold styling, confirmed
+  via computed `color`/`border-color`/`font-weight`; that adding a new
+  metric immediately adds a matching table row; that renaming a metric
+  in the pill list live-updates the table's metric-cell text without a
+  rebuild, and that value survives a simulated `pollForUpdates()` call
+  fired mid-rename rather than getting wiped; that checking a metric's
+  `$` box sets `data-currency="1"` on its row; and that removing a
+  metric drops its row and the removal round-trips into the next save
+  payload — plus a full-page screenshot confirming the pill lists and
+  gold KPI column read cleanly against the rest of the page.
 
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
