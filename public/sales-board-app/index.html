@@ -47,6 +47,7 @@
     -webkit-font-smoothing: antialiased;
   }
   .app { max-width: 1400px; margin: 0 auto; padding: 28px 28px 72px; }
+  .app.app-wide { max-width: none; padding-left: 20px; padding-right: 20px; }
 
   /* --- view switcher --- */
   .view-switcher { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
@@ -470,17 +471,17 @@
     padding: 6px 4px;
   }
   .huddle-table-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
-  .rep-numbers-table th, .rep-numbers-table td { white-space: nowrap; }
-  .rep-numbers-table .rep-numbers-name-cell { font-weight: 700; color: var(--text-primary); vertical-align: middle; padding-left: 14px; }
-  .rep-numbers-table .rep-numbers-metric-cell { color: var(--text-secondary); font-size: 13px; white-space: normal; min-width: 160px; }
+  .rep-numbers-table th, .rep-numbers-table td { white-space: nowrap; padding: 13px 10px; }
+  .rep-numbers-table .rep-numbers-name-cell { font-weight: 700; color: var(--text-primary); vertical-align: middle; padding-left: 16px; font-size: 14px; }
+  .rep-numbers-table .rep-numbers-metric-cell { color: var(--text-secondary); font-size: 14px; white-space: normal; min-width: 210px; }
   .rep-numbers-table input.rep-numbers-input {
-    width: 64px; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
-    border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; background: transparent; text-align: right;
+    width: 82px; box-sizing: border-box; font-family: inherit; font-size: 14px; color: var(--text-primary);
+    border: 1px solid transparent; border-radius: 6px; padding: 9px 10px; background: transparent; text-align: right;
   }
   .rep-numbers-table input.rep-numbers-input:hover { background: var(--surface-1); }
   .rep-numbers-table input.rep-numbers-input:focus { outline: none; border-color: var(--pill-border); background: #fff; }
   .rep-numbers-table .rep-numbers-computed {
-    color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; padding-right: 12px;
+    color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; padding-right: 16px;
   }
   @media (max-width: 640px) {
     .huddle-pipeline-header { flex-direction: column; }
@@ -1746,6 +1747,11 @@
       document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("view-" + btn.dataset.view).classList.add("active");
+      // Rep Daily Numbers is a wide, many-column table -- the app's
+      // normal centered 1400px column squeezes it into cramped, tiny
+      // cells, so this one view gets to use the full browser width
+      // instead, same as none of the other views need to.
+      document.querySelector(".app").classList.toggle("app-wide", btn.dataset.view === "rep-numbers");
       if (btn.dataset.view === "data") renderDataTable();
       if (btn.dataset.view === "huddles") renderHuddles();
       if (btn.dataset.view === "rep-numbers") renderRepDailyNumbers();

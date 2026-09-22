@@ -1453,6 +1453,29 @@ in and you'll land on `/dashboard`.
   a poll racing a live edit doesn't disturb it — plus a screenshot
   confirming the whole page reads cleanly against the reference layout.
 
+  **Fixed a real cramping problem reported right after shipping**: every
+  view in this app shares one `.app` wrapper capped at
+  `max-width: 1400px` and centered, which works fine for every other
+  page's content but squeezed this one 15-column table into tiny,
+  hard-to-read cells with barely any room to breathe. Rather than widen
+  `.app` globally (which would have affected every other view's layout
+  too, unasked for), the view-tab click handler now toggles an
+  `app-wide` class on `.app` on/off exactly when switching into or out
+  of Rep Daily Numbers — `.app.app-wide { max-width: none; }` lets just
+  this one view use the full browser width, while every other page
+  keeps its normal centered 1400px column. The table itself also got
+  noticeably roomier cells (14px font, ~13px cell padding, 82px-wide day
+  inputs, a 210px-minimum Metric column) to match. Verified live with
+  Puppeteer at a realistic 1920px desktop viewport: confirmed the
+  Dashboard view's width stays capped at 1400px, that Rep Daily Numbers'
+  width expands to the full 1920px viewport, that the page needs
+  *neither* outer horizontal scroll *nor* the table's own inner
+  `overflow-x` scroll to see every column, and that switching back to
+  Dashboard correctly reverts `.app` to its normal capped width rather
+  than getting stuck wide — plus a full screenshot at that viewport
+  confirming it now reads as a proper full-width scorecard rather than
+  a cramped little card.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
