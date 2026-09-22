@@ -1805,6 +1805,53 @@ in and you'll land on `/dashboard`.
   plus a screenshot of both scorecards with their rates lined up
   against the numbers that produced them.
 
+  **Both the direction of every rate and which row it belonged on were
+  backwards, plus Target % went automatic again** — reported with a
+  concrete example (Connection Rate on 8 connections off 30 dials should
+  read `8/30 = 26.6%`) that exposed two compounding mistakes: every rate
+  had been built as *(the earlier funnel stage) ÷ (this row's own
+  metric)* — e.g. Dials ÷ Connections, shown on the Dials row — when it
+  should be the reciprocal, *(this row's own metric) ÷ (the earlier
+  stage)*, shown on the row it's actually rating. So `dials` was dropped
+  from `REP_RATE_DENOMINATORS` entirely (Dials is the top of the funnel
+  -- nothing precedes it to rate it against, so it shows `--`) and every
+  remaining entry became just a denominator lookup instead of a
+  numerator/denominator pair, since the numerator is now always the
+  row's own already-computed value: Setter `connections`/`bookings` both
+  → `dials`, `totalCloses` → `bookings`; Closer `pitches`/
+  `secondCallsBooked`/`closed` all → `callsTaken`, `callsShown`/
+  `callsTaken` both → the team-wide `{ team: "bookings" }` sum, all
+  unchanged from before since only the direction, not the pairing, was
+  wrong.
+
+  Target % also went back to automatic, now reusing this exact same
+  `REP_RATE_DENOMINATORS` table rather than a new one — the same metric
+  pairing, just resolved against `monthlyTarget` values
+  (`metricMonthlyTargetFor()`) instead of Weekly Pace
+  (`metricWeeklyPaceFor()`). `computeActualPercent()` and the never-built
+  equivalent target function were collapsed into one
+  `computeRatePercent(role, repName, metricId, ownValue, valueGetter)`,
+  parameterized by which value-getter to use, so both columns share one
+  lookup and one null-handling path (no entry → `null` → renders `--`)
+  instead of duplicating the same branching logic twice. Target %'s
+  `<td>` went back from a manual `<input>` to a
+  `.rep-numbers-computed` cell, and `targetPercent` came back out of
+  `REP_NUMBERS_STATIC_FIELDS` since nothing is typed into it anymore.
+
+  Verified live with Puppeteer using the exact numbers from the report:
+  Dials `30`, Connections `8` (single day each, so the same ×7
+  weekly-pace scaling applies to both and cancels out of the ratio)
+  produced Connections Actual % of `26.7%` (the correctly-rounded form
+  of `8/30`); Bookings `5` and Total closes `1` cascaded to `16.7%` and
+  `20%`; Dials and Est commission both showed `--`; Monthly Targets of
+  Dials `100`/Connections `25`/Bookings `10` produced Target % of
+  `25%`/`10%` on those rows while Total closes correctly showed `0%`
+  (a rate *does* exist for it, its own Monthly Target was just left
+  blank) rather than `--`; and confirmed the Target % cell is a
+  computed `<td>` again, not an `<input>` — plus a screenshot showing
+  the full corrected Setter Scorecard with Dials reading `--` and every
+  other rate matching hand-calculated expectations.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

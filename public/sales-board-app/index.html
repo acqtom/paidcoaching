@@ -2778,11 +2778,9 @@
   // showing. Only the Mon-Sun day values are per-week (see
   // normalizeRepMetricRow below). weeklyTarget used to be computed
   // (monthlyTarget / 4) rather than stored; it's a manually-typed target
-  // like the other two now. targetPercent was tried as an automated
-  // Weekly Target ÷ Monthly Target calculation and corrected back to
-  // manual -- the computed number didn't match what was wanted, so it's
-  // typed directly instead, same as the other three.
-  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "weeklyTarget", "monthlyTarget", "targetPercent"];
+  // like the other two now. Target %/Actual % are both computed (see
+  // REP_RATE_DENOMINATORS below) so they aren't in this list.
+  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "weeklyTarget", "monthlyTarget"];
 
   // Metrics are addable/removable per scorecard via the "+" next to the
   // Metric column header and drag-to-reorder on each row (see
@@ -3387,56 +3385,73 @@
     return dailyPace * 7;
   }
 
-  // Actual % is a conversion rate between two specific built-in metrics
-  // (e.g. Setter "Dials" row = Dials ÷ Connections, Closer "Pitches" row
-  // = Calls taken ÷ Pitches), not a generic formula -- hardcoded by the
-  // built-in metric id since those are the only ids whose meaning is
-  // known in advance. A custom metric added through "+" has no entry
-  // here and simply shows no rate ("--"). `num`/`den` are each either a
+  // Every rate is (this row's own metric) ÷ (one specific other metric),
+  // e.g. Setter "Connections" row = Connections ÷ Dials (8 connections
+  // off 30 dials = 26.6%), Closer "Pitches" row = Pitches ÷ Calls taken
+  // -- so only the denominator needs naming here, keyed by the built-in
+  // metric id since those are the only ids whose meaning is known in
+  // advance. Dials has no entry (nothing precedes it to rate it
+  // against) and neither does Est commission (a $ amount, not a count).
+  // A custom metric added through "+" also has no entry and simply
+  // shows no rate ("--") for the same reason. A denominator is either a
   // metric id read from this same rep's own rows, or `{ team: metricId
-  // }` meaning "summed across every setter" -- only the Closer Scorecard
-  // uses that, for "calls booked", which the team tracks only on the
-  // Setter side (there's no per-closer link to a specific setter's
-  // bookings in this data model, so every closer's rate is measured
-  // against the whole team's total).
-  const REP_RATE_FORMULAS = {
+  // }` meaning "summed across every setter" -- only the Closer
+  // Scorecard's Calls shown/Calls taken use that, for "calls booked",
+  // which the team tracks only on the Setter side (there's no
+  // per-closer link to a specific setter's bookings in this data model,
+  // so every closer's rate is measured against the whole team's total).
+  // Target % and Actual % both read this same table -- Target % divides
+  // Monthly Target values, Actual % divides Weekly Pace values -- so a
+  // metric's rate pairing only has to be defined once.
+  const REP_RATE_DENOMINATORS = {
     setters: {
-      dials: { num: "dials", den: "connections" },
-      bookings: { num: "dials", den: "bookings" },
-      totalCloses: { num: "bookings", den: "totalCloses" },
+      connections: "dials",
+      bookings: "dials",
+      totalCloses: "bookings",
     },
     closers: {
-      callsShown: { num: { team: "bookings" }, den: "callsShown" },
-      callsTaken: { num: { team: "bookings" }, den: "callsTaken" },
-      pitches: { num: "callsTaken", den: "pitches" },
-      secondCallsBooked: { num: "callsTaken", den: "secondCallsBooked" },
-      closed: { num: "callsTaken", den: "closed" },
+      callsShown: { team: "bookings" },
+      callsTaken: { team: "bookings" },
+      pitches: "callsTaken",
+      secondCallsBooked: "callsTaken",
+      closed: "callsTaken",
     },
   };
 
-  function metricWeeklyPaceFor(role, repName, metricId) {
+  function metricRowFor(role, repName, metricId) {
     const section = repDailyNumbers[role];
-    const row = section[repName] && section[repName][metricId];
-    return computeWeeklyPace(row);
+    return section[repName] && section[repName][metricId];
   }
 
-  function teamWeeklyPaceSum(role, metricId) {
+  function metricWeeklyPaceFor(role, repName, metricId) {
+    return computeWeeklyPace(metricRowFor(role, repName, metricId));
+  }
+
+  function metricMonthlyTargetFor(role, repName, metricId) {
+    const row = metricRowFor(role, repName, metricId);
+    return parseDealSize(row && row.monthlyTarget);
+  }
+
+  function sumAcrossReps(role, metricId, valueGetter) {
     const names = role === "setters" ? SETTERS : CLOSERS;
-    return names.reduce((sum, name) => sum + metricWeeklyPaceFor(role, name, metricId), 0);
+    return names.reduce((sum, name) => sum + valueGetter(role, name, metricId), 0);
   }
 
-  function resolveRatePart(part, role, repName) {
-    return typeof part === "object" ? teamWeeklyPaceSum("setters", part.team) : metricWeeklyPaceFor(role, repName, part);
+  function resolveRateDenominator(denSpec, role, repName, valueGetter) {
+    return typeof denSpec === "object"
+      ? sumAcrossReps("setters", denSpec.team, valueGetter)
+      : valueGetter(role, repName, denSpec);
   }
 
   // Returns null (no rate defined for this metric -- renders as "--")
-  // or a percentage number.
-  function computeActualPercent(role, repName, metricId) {
-    const formula = REP_RATE_FORMULAS[role] && REP_RATE_FORMULAS[role][metricId];
-    if (!formula) return null;
-    const numerator = resolveRatePart(formula.num, role, repName);
-    const denominator = resolveRatePart(formula.den, role, repName);
-    return denominator ? (numerator / denominator) * 100 : 0;
+  // or a percentage number. `valueGetter` is whichever of
+  // metricWeeklyPaceFor/metricMonthlyTargetFor matches `ownValue`, so
+  // the same denominator lookup works for both Actual % and Target %.
+  function computeRatePercent(role, repName, metricId, ownValue, valueGetter) {
+    const denSpec = REP_RATE_DENOMINATORS[role] && REP_RATE_DENOMINATORS[role][metricId];
+    if (!denSpec) return null;
+    const denominator = resolveRateDenominator(denSpec, role, repName, valueGetter);
+    return denominator ? (ownValue / denominator) * 100 : 0;
   }
 
   // Daily Pace = average of whichever Mon-Sun cells actually have a value
@@ -3445,19 +3460,21 @@
   // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4 -- the
   // exact formulas worked out from the reference sheet's own numbers.
   // Weekly Target used to be computed the same way (Monthly Target ÷ 4)
-  // but is a manually-typed field now (see REP_NUMBERS_STATIC_FIELDS),
-  // so it's no longer touched here -- Target % is the same story (tried
-  // as Weekly Target ÷ Monthly Target, corrected back to manual).
+  // but is a manually-typed field now (see REP_NUMBERS_STATIC_FIELDS).
   function updateRepComputedCells(tr, row, role, repName) {
     const isCurrency = tr.dataset.currency === "1";
     const weeklyPace = computeWeeklyPace(row);
     const dailyPace = weeklyPace / 7;
     const monthlyPace = weeklyPace * 4;
-    const actualPercent = computeActualPercent(role, repName, tr.dataset.metric);
+    const monthlyTargetNum = parseDealSize(row.monthlyTarget);
+    const metricId = tr.dataset.metric;
+    const targetPercent = computeRatePercent(role, repName, metricId, monthlyTargetNum, metricMonthlyTargetFor);
+    const actualPercent = computeRatePercent(role, repName, metricId, weeklyPace, metricWeeklyPaceFor);
 
     tr.querySelector('[data-computed="dailyPace"]').textContent = fmtPaceNumber(dailyPace, isCurrency);
     tr.querySelector('[data-computed="weeklyPace"]').textContent = fmtPaceNumber(weeklyPace, isCurrency);
     tr.querySelector('[data-computed="monthlyPace"]').textContent = fmtPaceNumber(monthlyPace, isCurrency);
+    tr.querySelector('[data-computed="targetPercent"]').textContent = targetPercent === null ? "—" : fmtPercentNumber(targetPercent);
     tr.querySelector('[data-computed="actualPercent"]').textContent = actualPercent === null ? "—" : fmtPercentNumber(actualPercent);
   }
 
@@ -3487,7 +3504,7 @@
         <td class="rep-numbers-computed" data-computed="monthlyPace">0</td>
         <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="weeklyTarget"></td>
         <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="monthlyTarget"></td>
-        <td><input type="text" class="rep-numbers-input" data-field="targetPercent" placeholder="%"></td>
+        <td class="rep-numbers-computed" data-computed="targetPercent">0%</td>
         <td class="rep-numbers-computed" data-computed="actualPercent">0%</td>
       </tr>
     `).join("");
