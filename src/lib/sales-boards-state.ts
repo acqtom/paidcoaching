@@ -9,6 +9,7 @@ export const DEFAULT_BOARD_DATA: SalesBoardData = {
   dailyCashTarget: null,
   onboarding: null,
   huddles: null,
+  repDailyNumbers: null,
 };
 
 const UNIQUE_VIOLATION = "23505";

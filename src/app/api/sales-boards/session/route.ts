@@ -5,8 +5,8 @@ import { DEFAULT_BOARD_DATA } from "@/lib/sales-boards-state";
 import type { SalesBoardData } from "@/lib/sales-board-state";
 
 // POST ?board=<id> -> { deals, closers, setters, onboarding, huddles,
-// accessCode } for one of the logged-in admin's own boards -- same
-// response contract as /api/sales-board/session so
+// repDailyNumbers, accessCode } for one of the logged-in admin's own
+// boards -- same response contract as /api/sales-board/session so
 // public/sales-board-app/index.html needs no changes beyond which
 // endpoint it calls (see `urlBoard` there).
 
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     setters: data.setters ?? [],
     onboarding: data.onboarding ?? null,
     huddles: data.huddles ?? null,
+    repDailyNumbers: data.repDailyNumbers ?? null,
     accessCode: board.access_code,
   });
 }

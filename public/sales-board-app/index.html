@@ -470,6 +470,18 @@
     padding: 6px 4px;
   }
   .huddle-table-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+  .rep-numbers-table th, .rep-numbers-table td { white-space: nowrap; }
+  .rep-numbers-table .rep-numbers-name-cell { font-weight: 700; color: var(--text-primary); vertical-align: middle; padding-left: 14px; }
+  .rep-numbers-table .rep-numbers-metric-cell { color: var(--text-secondary); font-size: 13px; white-space: normal; min-width: 160px; }
+  .rep-numbers-table input.rep-numbers-input {
+    width: 64px; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
+    border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; background: transparent; text-align: right;
+  }
+  .rep-numbers-table input.rep-numbers-input:hover { background: var(--surface-1); }
+  .rep-numbers-table input.rep-numbers-input:focus { outline: none; border-color: var(--pill-border); background: #fff; }
+  .rep-numbers-table .rep-numbers-computed {
+    color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; padding-right: 12px;
+  }
   @media (max-width: 640px) {
     .huddle-pipeline-header { flex-direction: column; }
     .huddle-pipeline-total { text-align: left; }
@@ -533,6 +545,7 @@
     <button class="view-tab" data-view="team">Add Team</button>
     <button class="view-tab" data-view="onboarding">Onboarding</button>
     <button class="view-tab" data-view="huddles">Daily Huddles</button>
+    <button class="view-tab" data-view="rep-numbers">Rep Daily Numbers</button>
   </nav>
 
   <div id="sync-banner" class="sync-banner" hidden></div>
@@ -925,6 +938,34 @@
           <table class="huddle-table" id="huddle-close-soon-table"></table>
         </div>
         <button type="button" class="sop-add-btn" id="huddle-close-soon-add-row">+ Add Row</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REP DAILY NUMBERS ================= -->
+  <div class="view" id="view-rep-numbers">
+    <h2 class="section-title">Rep Daily Numbers</h2>
+    <p class="page-desc">Daily KPIs, pace, and targets for every setter and closer.</p>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Setter Scorecard</h2>
+      </div>
+      <div class="card-body">
+        <div class="huddle-table-wrap">
+          <table class="huddle-table rep-numbers-table" id="rep-numbers-setter-table"></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Closer Scorecard</h2>
+      </div>
+      <div class="card-body">
+        <div class="huddle-table-wrap">
+          <table class="huddle-table rep-numbers-table" id="rep-numbers-closer-table"></table>
+        </div>
       </div>
     </div>
   </div>
@@ -1707,6 +1748,7 @@
       document.getElementById("view-" + btn.dataset.view).classList.add("active");
       if (btn.dataset.view === "data") renderDataTable();
       if (btn.dataset.view === "huddles") renderHuddles();
+      if (btn.dataset.view === "rep-numbers") renderRepDailyNumbers();
     });
   });
 
@@ -2180,6 +2222,10 @@
     if (!huddlesSavePending) {
       huddles = normalizeHuddles(data.huddles);
     }
+    // Same guard, same reason, for Rep Daily Numbers.
+    if (!repDailyNumbersSavePending) {
+      repDailyNumbers = normalizeRepDailyNumbers(data.repDailyNumbers);
+    }
     if (data.accessCode) accessCode = data.accessCode;
   }
 
@@ -2259,6 +2305,7 @@
     renderTeamTab();
     renderOnboarding();
     renderHuddles();
+    renderRepDailyNumbers();
   }
 
   // Re-fetches this account's data from the server and re-renders in place —
@@ -2278,6 +2325,7 @@
       renderTeamTab();
       renderOnboarding(true);
       renderHuddles(true);
+      renderRepDailyNumbers(true);
     } catch (e) {
       console.error("Poll for updates failed:", e);
       // Only surface this to the user if we've never successfully loaded --
@@ -2338,6 +2386,7 @@
       populateNameSelect(pcfCloserSelect, CLOSERS);
       renderTeamTab();
       renderHuddles();
+      renderRepDailyNumbers();
       saveNames();
     });
     renderNameList(teamSetterList, SETTERS, name => {
@@ -2345,6 +2394,7 @@
       populateNameSelect(pcfSetterSelect, SETTERS);
       renderTeamTab();
       renderHuddles();
+      renderRepDailyNumbers();
       saveNames();
     });
     teamDomainValue.textContent = salesAccessUrl;
@@ -2361,6 +2411,7 @@
     populateNameSelect(pcfCloserSelect, CLOSERS);
     renderTeamTab();
     renderHuddles();
+    renderRepDailyNumbers();
     saveNames();
   });
 
@@ -2374,6 +2425,7 @@
     populateNameSelect(pcfSetterSelect, SETTERS);
     renderTeamTab();
     renderHuddles();
+    renderRepDailyNumbers();
     saveNames();
   });
 
@@ -2624,6 +2676,76 @@
     return Number.isFinite(n) ? n : 0;
   }
 
+  // ---------------------------------------------------------------------
+  // 11. REP DAILY NUMBERS — a Setter Scorecard and a Closer Scorecard, one
+  //     block of rows per rep (derived live from CLOSERS/SETTERS, same as
+  //     Post-Call Form Accountability), each metric row tracking a Daily
+  //     KPI, Mon-Sun daily entries, and a Monthly Target -- everything
+  //     else (Daily/Weekly/Monthly pace, Weekly Target) is computed, never
+  //     stored. Persistent, not per-day dated like Marketing Check --
+  //     the team just overwrites the same week's cells as needed, same
+  //     "simple flat document" model as Pipeline Check/Students Due to
+  //     Close Soon.
+  // ---------------------------------------------------------------------
+  const REP_NUMBERS_DAYS = [
+    { key: "mon", label: "Mon" },
+    { key: "tues", label: "Tues" },
+    { key: "wed", label: "Wed" },
+    { key: "thurs", label: "Thurs" },
+    { key: "fri", label: "Fri" },
+    { key: "sat", label: "Sat" },
+    { key: "sun", label: "Sun" },
+  ];
+  const REP_NUMBERS_ENTRY_FIELDS = ["dailyKpi", ...REP_NUMBERS_DAYS.map(d => d.key), "monthlyTarget"];
+
+  const SETTER_METRICS = [
+    { key: "dials", label: "Dials" },
+    { key: "connections", label: "Connections (calls answered)" },
+    { key: "bookings", label: "Bookings / triages" },
+    { key: "totalCloses", label: "Total closes" },
+    { key: "estCommission", label: "Est commission", isCurrency: true },
+  ];
+  const CLOSER_METRICS = [
+    { key: "callsShown", label: "Calls shown" },
+    { key: "callsTaken", label: "Calls taken" },
+    { key: "pitches", label: "Pitches" },
+    { key: "secondCallsBooked", label: "2nd calls booked" },
+    { key: "closed", label: "Closed" },
+    { key: "estCommission", label: "Est commission", isCurrency: true },
+  ];
+
+  function normalizeRepMetricRow(raw) {
+    const out = {};
+    REP_NUMBERS_ENTRY_FIELDS.forEach(k => { out[k] = raw && typeof raw[k] === "string" ? raw[k] : ""; });
+    return out;
+  }
+
+  // Sparse on purpose -- only reps/metrics someone has actually typed
+  // into exist in here at all; renderRepScorecard() below treats a
+  // missing rep or metric key as an all-blank row rather than requiring
+  // every possible combination to be pre-populated.
+  function normalizeRepSection(raw) {
+    const out = {};
+    if (raw && typeof raw === "object") {
+      Object.keys(raw).forEach(repName => {
+        const metrics = raw[repName];
+        if (!metrics || typeof metrics !== "object") return;
+        out[repName] = {};
+        Object.keys(metrics).forEach(metricKey => {
+          out[repName][metricKey] = normalizeRepMetricRow(metrics[metricKey]);
+        });
+      });
+    }
+    return out;
+  }
+
+  function normalizeRepDailyNumbers(raw) {
+    return {
+      setters: normalizeRepSection(raw && raw.setters),
+      closers: normalizeRepSection(raw && raw.closers),
+    };
+  }
+
   function normalizeHuddles(raw) {
     const pipeline = raw && Array.isArray(raw.pipeline) && raw.pipeline.length
       ? raw.pipeline.map(normalizePipelineRow)
@@ -2667,6 +2789,35 @@
       return false;
     } finally {
       huddlesSavePending = false;
+    }
+  }
+
+  let repDailyNumbers = normalizeRepDailyNumbers(null);
+  let repDailyNumbersSaveTimer = null;
+  // Same guard as onboardingSavePending/huddlesSavePending -- see
+  // loadUserData() above.
+  let repDailyNumbersSavePending = false;
+  function queueSaveRepDailyNumbers() {
+    repDailyNumbersSavePending = true;
+    clearTimeout(repDailyNumbersSaveTimer);
+    repDailyNumbersSaveTimer = setTimeout(saveRepDailyNumbers, 600);
+  }
+  async function saveRepDailyNumbers() {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      repDailyNumbersSavePending = false;
+      return false;
+    }
+    try {
+      await apiPost(savePath(), { repDailyNumbers });
+      clearSyncError();
+      return true;
+    } catch (e) {
+      console.error("Failed to save rep daily numbers to server:", e);
+      showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
+      return false;
+    } finally {
+      repDailyNumbersSavePending = false;
     }
   }
 
@@ -3053,6 +3204,124 @@
     renderCloseSoon();
     queueSaveHuddles();
   });
+
+  // n/a formats as "0" (or "$0" for currency rows) rather than blank, so
+  // an untouched metric row still reads as a real zero, not a rendering
+  // glitch.
+  function fmtPaceNumber(n, isCurrency) {
+    const safe = Number.isFinite(n) ? n : 0;
+    const rounded = Math.round(safe * 10) / 10;
+    const formatted = rounded.toLocaleString("en-US", { maximumFractionDigits: 1 });
+    return isCurrency ? `$${formatted}` : formatted;
+  }
+
+  // Daily Pace = average of whichever Mon-Sun cells actually have a value
+  // (not divided by 7 flat), so pace reflects real performance so far
+  // rather than being diluted by days that just haven't happened yet.
+  // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4, Weekly
+  // Target = Monthly Target ÷ 4 -- the exact formulas worked out from the
+  // reference sheet's own numbers.
+  function updateRepComputedCells(tr, row) {
+    const isCurrency = tr.dataset.currency === "1";
+    const enteredDayValues = REP_NUMBERS_DAYS
+      .map(d => row[d.key])
+      .filter(v => v !== "" && v != null)
+      .map(parseDealSize);
+    const dailyPace = enteredDayValues.length
+      ? enteredDayValues.reduce((a, b) => a + b, 0) / enteredDayValues.length
+      : 0;
+    const weeklyPace = dailyPace * 7;
+    const monthlyPace = weeklyPace * 4;
+    const weeklyTarget = parseDealSize(row.monthlyTarget) / 4;
+
+    tr.querySelector('[data-computed="dailyPace"]').textContent = fmtPaceNumber(dailyPace, isCurrency);
+    tr.querySelector('[data-computed="weeklyPace"]').textContent = fmtPaceNumber(weeklyPace, isCurrency);
+    tr.querySelector('[data-computed="monthlyPace"]').textContent = fmtPaceNumber(monthlyPace, isCurrency);
+    tr.querySelector('[data-computed="weeklyTarget"]').textContent = fmtPaceNumber(weeklyTarget, isCurrency);
+  }
+
+  // Rep names come straight from CLOSERS/SETTERS unescaped, same as
+  // populateNameSelect()'s own <option value="${n}"> elsewhere in this
+  // file -- consistent with how every other team-roster name already
+  // gets interpolated in this app (admin-only, trusted input).
+  function buildRepBlockHtml(repName, metrics) {
+    return metrics.map((metric, i) => `
+      <tr data-rep="${repName}" data-metric="${metric.key}"${metric.isCurrency ? ' data-currency="1"' : ""}>
+        <td class="rep-numbers-name-cell">${i === 0 ? repName : ""}</td>
+        <td class="rep-numbers-metric-cell">${metric.label}</td>
+        <td><input type="text" class="rep-numbers-input" data-field="dailyKpi"></td>
+        ${REP_NUMBERS_DAYS.map(d => `<td><input type="text" class="rep-numbers-input" data-field="${d.key}"></td>`).join("")}
+        <td class="rep-numbers-computed" data-computed="dailyPace">0</td>
+        <td class="rep-numbers-computed" data-computed="weeklyPace">0</td>
+        <td class="rep-numbers-computed" data-computed="monthlyPace">0</td>
+        <td class="rep-numbers-computed" data-computed="weeklyTarget">0</td>
+        <td><input type="text" class="rep-numbers-input" data-field="monthlyTarget"></td>
+      </tr>
+    `).join("");
+  }
+
+  function wireRepScorecardRows(tbody, role) {
+    tbody.querySelectorAll("tr[data-rep]").forEach(tr => {
+      const repName = tr.dataset.rep;
+      const metricKey = tr.dataset.metric;
+      tr.querySelectorAll("input[data-field]").forEach(input => {
+        input.addEventListener("input", () => {
+          const section = repDailyNumbers[role];
+          if (!section[repName]) section[repName] = {};
+          if (!section[repName][metricKey]) section[repName][metricKey] = normalizeRepMetricRow(null);
+          section[repName][metricKey][input.dataset.field] = input.value;
+          updateRepComputedCells(tr, section[repName][metricKey]);
+          queueSaveRepDailyNumbers();
+        });
+      });
+    });
+  }
+
+  function renderRepScorecard(role, repNames, metrics, tableId, preserveFocused) {
+    const table = document.getElementById(tableId);
+    if (!table.dataset.built) {
+      table.innerHTML = `<thead><tr>
+        <th>Name</th><th>Metric</th><th>Daily KPI</th>
+        ${REP_NUMBERS_DAYS.map(d => `<th>${d.label}</th>`).join("")}
+        <th>Daily pace</th><th>Weekly pace</th><th>Monthly pace</th><th>Weekly Target</th><th>Monthly Target</th>
+      </tr></thead><tbody></tbody>`;
+      table.dataset.built = "1";
+    }
+    const tbody = table.querySelector("tbody");
+    const totalCols = 3 + REP_NUMBERS_DAYS.length + 5;
+
+    if (!repNames.length) {
+      tbody.innerHTML = `<tr><td class="huddle-table-empty" colspan="${totalCols}">Add ${role} from Add Team to track their numbers here.</td></tr>`;
+      delete tbody.dataset.repSignature;
+      return;
+    }
+
+    const signature = repNames.join("|");
+    if (tbody.dataset.repSignature !== signature) {
+      tbody.innerHTML = repNames.map(repName => buildRepBlockHtml(repName, metrics)).join("");
+      wireRepScorecardRows(tbody, role);
+      tbody.dataset.repSignature = signature;
+    }
+
+    const section = repDailyNumbers[role];
+    tbody.querySelectorAll("tr[data-rep]").forEach(tr => {
+      const repName = tr.dataset.rep;
+      const metricKey = tr.dataset.metric;
+      const row = (section[repName] && section[repName][metricKey]) || normalizeRepMetricRow(null);
+      REP_NUMBERS_ENTRY_FIELDS.forEach(key => {
+        const el = tr.querySelector(`[data-field="${key}"]`);
+        if (el && (!preserveFocused || document.activeElement !== el)) {
+          el.value = row[key] || "";
+        }
+      });
+      updateRepComputedCells(tr, row);
+    });
+  }
+
+  function renderRepDailyNumbers(preserveFocused) {
+    renderRepScorecard("setters", SETTERS, SETTER_METRICS, "rep-numbers-setter-table", preserveFocused);
+    renderRepScorecard("closers", CLOSERS, CLOSER_METRICS, "rep-numbers-closer-table", preserveFocused);
+  }
 
   function updateMeetingLinkOpen(value) {
     const link = document.getElementById("huddle-meeting-open");

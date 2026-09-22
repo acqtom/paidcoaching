@@ -1395,6 +1395,64 @@ in and you'll land on `/dashboard`.
   plus a screenshot confirming it reads cleanly against the same grey
   card theme as everywhere else.
 
+  **Rep Daily Numbers**, a follow-up request, is a whole new nav tab and
+  page (`view-rep-numbers`) — not another card inside Daily Huddles, so
+  it's its own top-level key, `repDailyNumbers`, a sibling of
+  `onboarding`/`huddles` rather than living inside either. Two
+  scorecards, Setter and Closer, each a table of rows *derived* live from
+  `SETTERS`/`CLOSERS` — same "the roster is the source of truth, nothing
+  duplicated into a separate stored name list" approach as Post-Call Form
+  Accountability — with one block of fixed metric rows per rep (Setter:
+  Dials, Connections (calls answered), Bookings / triages, Total closes,
+  Est commission; Closer: Calls shown, Calls taken, Pitches, 2nd calls
+  booked, Closed, Est commission — `SETTER_METRICS`/`CLOSER_METRICS`),
+  the rep's name shown once per block rather than repeated down every
+  row, matching the reference screenshot. `renderRepScorecard(role,
+  repNames, metrics, tableId, preserveFocused)` is one generic function
+  parameterized for both scorecards, same pattern as
+  `renderBottleneck()`; its idempotent-build check is keyed on the
+  roster's own names (`repNames.join("|")` as a signature) rather than
+  row ids, since the "shape" here is which reps exist, not a
+  user-addable row list like Pipeline Check.
+
+  Each metric row has three kinds of cell: manually-typed inputs (Daily
+  KPI, Mon/Tues/Wed/Thurs/Fri/Sat/Sun, Monthly Target — free text, parsed
+  with the same `parseDealSize()` already used for Pipeline's Deal size,
+  so `"$4,700"` and `4700` both work), and four *computed*, read-only
+  cells that are never themselves stored: **Daily Pace** is the average
+  of whichever Mon-Sun cells actually have something in them (not
+  divided by a flat 7), so pace reflects real performance so far rather
+  than being diluted by days that haven't happened yet; **Weekly Pace**
+  = Daily Pace × 7; **Monthly Pace** = Weekly Pace × 4; **Weekly Target**
+  = Monthly Target ÷ 4. These are exactly the formulas reverse-engineered
+  from a reference spreadsheet's own numbers (dials reading `166 / 1,162
+  / 4,6xx` — `166 × 7 = 1,162`, `× 4 = 4,648`; a `$4,700` monthly target
+  paired with `84`/`21` daily/weekly figures). `updateRepComputedCells()`
+  recomputes all four from a row's current values on every keystroke, not
+  just on save, so pace updates live as numbers are typed. A per-row
+  `data-currency="1"` attribute (set on Est commission's `<tr>` only) has
+  `fmtPaceNumber()` prefix all four computed cells with `$`; every other
+  metric's computed cells render as plain numbers.
+
+  Wired into all four save/session/by-code routes and both `SalesBoardData`
+  defaults files from the start (8 touch points total) — a new top-level
+  field being missed in exactly these spots is the precise bug already
+  found and fixed once this session for `huddles` (every save silently
+  wiping it), so this shipped with `repDailyNumbers` in every one of
+  those places from the first commit rather than as an afterthought.
+  Verified live with Puppeteer: confirmed the nav tab and both tables'
+  headers/rows render correctly derived from a mocked roster (rep name
+  shown once per block, correct metric labels in order); that entering a
+  single day's dials figure produces the *exact* reference numbers
+  (`166` → `1,162` → `4,648`); that Daily Pace correctly averages
+  *multiple* entered days rather than dividing by 7 (`166` and `160` →
+  `163`, not `46.6`); that Weekly Target correctly derives from Monthly
+  Target (`84` → `21`); that Est commission's computed cells show a `$`
+  prefix while every other metric's don't; that a full edit round-trips
+  correctly into the next save under the right rep/metric keys; and that
+  a poll racing a live edit doesn't disturb it — plus a screenshot
+  confirming the whole page reads cleanly against the reference layout.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
