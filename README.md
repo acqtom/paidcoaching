@@ -1532,6 +1532,82 @@ in and you'll land on `/dashboard`.
   payload — plus a full-page screenshot confirming the pill lists and
   gold KPI column read cleanly against the rest of the page.
 
+  **Reps became addable per scorecard, and the single fixed week became
+  multiple real, dated weeks**, both from a further follow-up request.
+  A "+" form now sits in each scorecard's `card-header` (`rep-numbers-
+  setter-add-form`/`-closer-add-form`) — typing a name and submitting
+  calls the exact same `addTeamMember(role, name)` the Add Team tab's
+  own forms now call too (the three forms were consolidated onto one
+  function rather than duplicating the push-to-`CLOSERS`/`SETTERS`-plus-
+  five-re-renders sequence a third time). This means a rep added from
+  Rep Daily Numbers lands in the same roster used by Add Team, Post Call
+  Form, and Pipeline/Bottleneck — there's no separate name list to drift
+  out of sync — and shows up instantly as a new row in this page's own
+  table. Renaming a rep was explicitly **ruled out** of this round after
+  discussing it — rep names are used as keys across Post Call Form
+  entries, deals, and huddles, and a same-page-only rename would silently
+  orphan a rep's history everywhere else, so it was dropped rather than
+  shipped half-safe.
+
+  The single Mon-Sun row per rep only ever represented "the current
+  week" implicitly; multiple weeks needed to actually exist as distinct,
+  datable records. `repDailyNumbers` gained `weeks` (an array of
+  `{ id, weekStart }`, `weekStart` always a Monday via
+  `mondayOfLocalWeek()` — the same local-calendar-day approach as
+  `todayLocalISO()`, not UTC) and `activeWeekId`, shared by both
+  scorecards via one tab bar (`renderRepNumbersWeekTabs()`, id
+  `rep-numbers-week-tabs`) above both cards — switching weeks re-renders
+  both tables together, and "+ Add New Week" always creates the week
+  right after whichever is currently latest (`addDaysISO(latest.
+  weekStart, 7)`), so there's no date picker to build. This tab bar is
+  the exact same pattern as Marketing Check's day tabs
+  (`renderMarketingTabs()`): `.sop-tab-wrap`/`.sop-tab-btn`/`.sop-tab-
+  remove`/`.sop-add-btn`, a remove button hidden via `.sop-tab-remove-
+  hidden` when only one week is left (can't remove the last one), full
+  rebuild on every render since tabs hold no inputs to lose focus from.
+
+  Only the Mon-Sun day values are per-week now — `dailyKpi` and
+  `monthlyTarget` stay one level up on the row itself
+  (`REP_NUMBERS_STATIC_FIELDS`), since those are targets that don't
+  reset every week, not weekly actuals. A row's shape is now `{ dailyKpi,
+  monthlyTarget, weeks: { [weekId]: { mon, tues, ... } } }`.
+  `wireRepScorecardRows()` checks `REP_NUMBERS_DAY_KEYS.includes(field)`
+  to decide whether a keystroke writes into `row.weeks[activeWeekId]` or
+  onto the row directly, and `updateRepComputedCells()` reads its Mon-Sun
+  values from `row.weeks[repDailyNumbers.activeWeekId]` rather than the
+  row itself. A row saved before this shape existed has its Mon-Sun
+  values flat on the row with no `weeks` object at all —
+  `normalizeRepMetricRow(raw, defaultWeekId)` detects that and migrates
+  it into `defaultWeekId` (the earliest week, since that's the one week
+  that existed at the time), so nothing already typed in disappears the
+  first time an old board loads under this shape.
+
+  The day columns' headers ("Mon", "Tues", etc.) were previously bare
+  weekday names with no way to tell which actual week they belonged to
+  once more than one existed — each header cell is now a stacked
+  three-line `.rep-numbers-day-header` (month on top, weekday abbreviation,
+  date below), computed per column from the active week's `weekStart` via
+  `addDaysISO()`/`fmtDayHeaderParts()`. Since the header depends on
+  whichever week is active, `renderRepScorecard()` now rebuilds the
+  `<thead>` on every render instead of only once (cheap, and a header
+  has no inputs to lose focus from) while the `<tbody>`'s idempotent
+  rebuild-signature check is unchanged.
+
+  Verified live with Puppeteer (server responses stubbed via request
+  interception, same approach as above): confirmed legacy flat per-day
+  data migrates correctly into the current week on first load; that the
+  day headers show the correct month/weekday/date for this week's
+  Monday; that "+ Add New Week" creates the following week and switching
+  to it shows blank Mon-Sun inputs while Daily KPI stays populated
+  (shared, not per-week); that typing into the new week and switching
+  back to week one leaves week one's numbers untouched, then switching
+  forward again shows what was just typed; that adding a rep via the "+"
+  form on Setter Scorecard immediately adds a row to that table *and*
+  shows up in the Add Team tab's roster; and that the save payload's
+  `activeWeekId` and `weeks` array round-trip correctly — plus a
+  full-page screenshot confirming the week tabs, add-rep controls, and
+  new stacked day headers all read cleanly together.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

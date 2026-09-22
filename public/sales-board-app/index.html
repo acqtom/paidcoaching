@@ -488,6 +488,24 @@
   .rep-numbers-table .rep-numbers-computed {
     color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; padding-right: 16px;
   }
+  .rep-numbers-day-header { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .rep-numbers-day-month { font-size: 9px; color: var(--muted); font-weight: 600; }
+  .rep-numbers-day-name { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+  .rep-numbers-day-date { font-size: 10px; color: var(--muted); }
+  .rep-numbers-week-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .rep-numbers-week-bar .directory-label { margin: 0; }
+  .rep-numbers-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .rep-numbers-add-rep-form { display: flex; gap: 6px; }
+  .rep-numbers-add-rep-form input {
+    width: 140px; font-family: inherit; font-size: 12px; color: var(--text-primary);
+    border: 1px solid var(--pill-border); border-radius: 8px; padding: 7px 10px; background: #fff;
+  }
+  .rep-numbers-add-rep-form input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
+  .rep-numbers-add-rep-form button {
+    background: var(--black); color: #fff; border: none; border-radius: 8px;
+    width: 30px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; line-height: 1;
+  }
+  .rep-numbers-add-rep-form button:hover { opacity: 0.9; }
   .rep-metrics-manager { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--card-border); }
   .rep-metrics-manager .directory-label { display: block; margin-bottom: 10px; }
   .rep-metrics-list {
@@ -981,9 +999,18 @@
     <h2 class="section-title">Rep Daily Numbers</h2>
     <p class="page-desc">Daily KPIs, pace, and targets for every setter and closer.</p>
 
+    <div class="rep-numbers-week-bar">
+      <span class="directory-label">Week</span>
+      <div class="sop-tabs" id="rep-numbers-week-tabs"></div>
+    </div>
+
     <div class="card">
-      <div class="card-header">
+      <div class="card-header rep-numbers-card-header">
         <h2>Setter Scorecard</h2>
+        <form class="rep-numbers-add-rep-form" id="rep-numbers-setter-add-form">
+          <input type="text" id="rep-numbers-setter-add-input" placeholder="Add rep name">
+          <button type="submit" title="Add a new setter">+</button>
+        </form>
       </div>
       <div class="card-body">
         <div class="rep-metrics-manager">
@@ -1002,8 +1029,12 @@
     </div>
 
     <div class="card">
-      <div class="card-header">
+      <div class="card-header rep-numbers-card-header">
         <h2>Closer Scorecard</h2>
+        <form class="rep-numbers-add-rep-form" id="rep-numbers-closer-add-form">
+          <input type="text" id="rep-numbers-closer-add-input" placeholder="Add rep name">
+          <button type="submit" title="Add a new closer">+</button>
+        </form>
       </div>
       <div class="card-body">
         <div class="rep-metrics-manager">
@@ -2458,18 +2489,32 @@
     teamCodeValue.textContent = accessCode || "…";
   }
 
+  // Shared by the Add Team forms and the "+" add-rep form on each Rep
+  // Daily Numbers scorecard -- adding a rep from either place adds them
+  // to the same CLOSERS/SETTERS roster (the single source of truth used
+  // everywhere else in this app), rather than a separate name list that
+  // could drift out of sync with Post Call Form/Add Team.
+  function addTeamMember(role, name) {
+    if (role === "closers") {
+      if (!CLOSERS.includes(name)) CLOSERS.push(name);
+      populateNameSelect(pcfCloserSelect, CLOSERS);
+    } else {
+      if (!SETTERS.includes(name)) SETTERS.push(name);
+      populateNameSelect(pcfSetterSelect, SETTERS);
+    }
+    renderTeamTab();
+    renderHuddles();
+    renderRepDailyNumbers();
+    saveNames();
+  }
+
   document.getElementById("team-closer-form").addEventListener("submit", e => {
     e.preventDefault();
     const input = document.getElementById("team-closer-input");
     const name = input.value.trim();
     if (!name) return;
-    if (!CLOSERS.includes(name)) CLOSERS.push(name);
     input.value = "";
-    populateNameSelect(pcfCloserSelect, CLOSERS);
-    renderTeamTab();
-    renderHuddles();
-    renderRepDailyNumbers();
-    saveNames();
+    addTeamMember("closers", name);
   });
 
   document.getElementById("team-setter-form").addEventListener("submit", e => {
@@ -2477,13 +2522,26 @@
     const input = document.getElementById("team-setter-input");
     const name = input.value.trim();
     if (!name) return;
-    if (!SETTERS.includes(name)) SETTERS.push(name);
     input.value = "";
-    populateNameSelect(pcfSetterSelect, SETTERS);
-    renderTeamTab();
-    renderHuddles();
-    renderRepDailyNumbers();
-    saveNames();
+    addTeamMember("setters", name);
+  });
+
+  document.getElementById("rep-numbers-setter-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("rep-numbers-setter-add-input");
+    const name = input.value.trim();
+    if (!name) return;
+    input.value = "";
+    addTeamMember("setters", name);
+  });
+
+  document.getElementById("rep-numbers-closer-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("rep-numbers-closer-add-input");
+    const name = input.value.trim();
+    if (!name) return;
+    input.value = "";
+    addTeamMember("closers", name);
   });
 
   async function copyToClipboard(text, btn) {
@@ -2672,6 +2730,23 @@
     return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
 
+  function addDaysISO(iso, days) {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  }
+
+  // Rep Daily Numbers weeks always start on Monday -- this walks a given
+  // local date back (or forward, for Sunday) to that week's Monday, so
+  // "this week" always means the same thing regardless of which day of
+  // the week someone opens the page on.
+  function mondayOfLocalWeek(iso) {
+    const d = new Date(iso + "T00:00:00");
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    return addDaysISO(iso, diff);
+  }
+
   function normalizeSalesProcessItem(raw) {
     return {
       id: (raw && raw.id) || makeId(),
@@ -2745,15 +2820,19 @@
   //     Close Soon.
   // ---------------------------------------------------------------------
   const REP_NUMBERS_DAYS = [
-    { key: "mon", label: "Mon" },
-    { key: "tues", label: "Tues" },
-    { key: "wed", label: "Wed" },
-    { key: "thurs", label: "Thurs" },
-    { key: "fri", label: "Fri" },
-    { key: "sat", label: "Sat" },
-    { key: "sun", label: "Sun" },
+    { key: "mon", label: "Mon", offset: 0 },
+    { key: "tues", label: "Tues", offset: 1 },
+    { key: "wed", label: "Wed", offset: 2 },
+    { key: "thurs", label: "Thurs", offset: 3 },
+    { key: "fri", label: "Fri", offset: 4 },
+    { key: "sat", label: "Sat", offset: 5 },
+    { key: "sun", label: "Sun", offset: 6 },
   ];
-  const REP_NUMBERS_ENTRY_FIELDS = ["dailyKpi", ...REP_NUMBERS_DAYS.map(d => d.key), "monthlyTarget"];
+  const REP_NUMBERS_DAY_KEYS = REP_NUMBERS_DAYS.map(d => d.key);
+  // dailyKpi/monthlyTarget are targets, not weekly actuals -- they stay
+  // the same no matter which week is showing. Only the Mon-Sun day
+  // values are per-week (see normalizeRepMetricRow below).
+  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "monthlyTarget"];
 
   // Metrics are now addable/editable/removable per scorecard (see the
   // Metrics pill list above each table), so the list itself lives in
@@ -2792,9 +2871,29 @@
     return list.map(normalizeRepMetric);
   }
 
-  function normalizeRepMetricRow(raw) {
+  function normalizeRepWeekRow(raw) {
     const out = {};
-    REP_NUMBERS_ENTRY_FIELDS.forEach(k => { out[k] = raw && typeof raw[k] === "string" ? raw[k] : ""; });
+    REP_NUMBERS_DAY_KEYS.forEach(k => { out[k] = raw && typeof raw[k] === "string" ? raw[k] : ""; });
+    return out;
+  }
+
+  // `weeks` holds each week's Mon-Sun actuals keyed by week id;
+  // dailyKpi/monthlyTarget live one level up since they don't change
+  // week to week (see REP_NUMBERS_STATIC_FIELDS above). A row saved
+  // before multi-week support existed has its Mon-Sun values flat on
+  // the row itself instead of nested under `weeks` -- that's migrated
+  // into `defaultWeekId` (the earliest/only week at the time) so nothing
+  // already typed in gets lost when this shape change first loads.
+  function normalizeRepMetricRow(raw, defaultWeekId) {
+    const out = { dailyKpi: "", monthlyTarget: "", weeks: {} };
+    if (!raw || typeof raw !== "object") return out;
+    REP_NUMBERS_STATIC_FIELDS.forEach(k => { if (typeof raw[k] === "string") out[k] = raw[k]; });
+    if (raw.weeks && typeof raw.weeks === "object") {
+      Object.keys(raw.weeks).forEach(weekId => { out.weeks[weekId] = normalizeRepWeekRow(raw.weeks[weekId]); });
+    } else if (defaultWeekId) {
+      const legacy = normalizeRepWeekRow(raw);
+      if (REP_NUMBERS_DAY_KEYS.some(k => legacy[k])) out.weeks[defaultWeekId] = legacy;
+    }
     return out;
   }
 
@@ -2802,7 +2901,7 @@
   // into exist in here at all; renderRepScorecard() below treats a
   // missing rep or metric id as an all-blank row rather than requiring
   // every possible combination to be pre-populated.
-  function normalizeRepSection(raw) {
+  function normalizeRepSection(raw, defaultWeekId) {
     const out = {};
     if (raw && typeof raw === "object") {
       Object.keys(raw).forEach(repName => {
@@ -2810,19 +2909,40 @@
         if (!metrics || typeof metrics !== "object") return;
         out[repName] = {};
         Object.keys(metrics).forEach(metricId => {
-          out[repName][metricId] = normalizeRepMetricRow(metrics[metricId]);
+          out[repName][metricId] = normalizeRepMetricRow(metrics[metricId], defaultWeekId);
         });
       });
     }
     return out;
   }
 
+  function normalizeRepWeek(raw) {
+    return {
+      id: (raw && typeof raw.id === "string" && raw.id) || makeId(),
+      weekStart: (raw && typeof raw.weekStart === "string" && raw.weekStart) || mondayOfLocalWeek(todayLocalISO()),
+    };
+  }
+
+  function normalizeRepWeeksList(raw) {
+    const list = raw && Array.isArray(raw) && raw.length ? raw.map(normalizeRepWeek) : [normalizeRepWeek(null)];
+    return list.sort((a, b) => a.weekStart < b.weekStart ? -1 : a.weekStart > b.weekStart ? 1 : 0);
+  }
+
   function normalizeRepDailyNumbers(raw) {
+    const weeks = normalizeRepWeeksList(raw && raw.weeks);
+    const activeWeekId = raw && raw.activeWeekId && weeks.some(w => w.id === raw.activeWeekId)
+      ? raw.activeWeekId
+      : weeks[weeks.length - 1].id;
+    // Legacy (pre-multi-week) per-day data always migrates into the
+    // earliest week, since that's the one week that existed at the time.
+    const defaultWeekId = weeks[0].id;
     return {
       setterMetrics: normalizeRepMetricsList(raw && raw.setterMetrics, DEFAULT_SETTER_METRICS),
       closerMetrics: normalizeRepMetricsList(raw && raw.closerMetrics, DEFAULT_CLOSER_METRICS),
-      setters: normalizeRepSection(raw && raw.setters),
-      closers: normalizeRepSection(raw && raw.closers),
+      weeks,
+      activeWeekId,
+      setters: normalizeRepSection(raw && raw.setters, defaultWeekId),
+      closers: normalizeRepSection(raw && raw.closers, defaultWeekId),
     };
   }
 
@@ -3303,8 +3423,9 @@
   // reference sheet's own numbers.
   function updateRepComputedCells(tr, row) {
     const isCurrency = tr.dataset.currency === "1";
+    const weekRow = (row.weeks && row.weeks[repDailyNumbers.activeWeekId]) || {};
     const enteredDayValues = REP_NUMBERS_DAYS
-      .map(d => row[d.key])
+      .map(d => weekRow[d.key])
       .filter(v => v !== "" && v != null)
       .map(parseDealSize);
     const dailyPace = enteredDayValues.length
@@ -3349,23 +3470,51 @@
           const section = repDailyNumbers[role];
           if (!section[repName]) section[repName] = {};
           if (!section[repName][metricId]) section[repName][metricId] = normalizeRepMetricRow(null);
-          section[repName][metricId][input.dataset.field] = input.value;
-          updateRepComputedCells(tr, section[repName][metricId]);
+          const row = section[repName][metricId];
+          const field = input.dataset.field;
+          if (REP_NUMBERS_DAY_KEYS.includes(field)) {
+            const weekId = repDailyNumbers.activeWeekId;
+            if (!row.weeks[weekId]) row.weeks[weekId] = normalizeRepWeekRow(null);
+            row.weeks[weekId][field] = input.value;
+          } else {
+            row[field] = input.value;
+          }
+          updateRepComputedCells(tr, row);
           queueSaveRepDailyNumbers();
         });
       });
     });
   }
 
+  function fmtDayHeaderParts(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return {
+      month: d.toLocaleDateString("en-US", { month: "short" }),
+      date: d.toLocaleDateString("en-US", { day: "numeric" }),
+    };
+  }
+
   function renderRepScorecard(role, repNames, metrics, tableId, preserveFocused) {
     const table = document.getElementById(tableId);
+    const activeWeek = repDailyNumbers.weeks.find(w => w.id === repDailyNumbers.activeWeekId)
+      || repDailyNumbers.weeks[repDailyNumbers.weeks.length - 1];
+
+    // The header shows real calendar dates for the active week, so it's
+    // rebuilt on every render (cheap, and it holds no inputs so there's
+    // no focus to lose) rather than only once like the tbody below.
+    const theadHtml = `<tr>
+      <th>Name</th><th>Metric</th><th>Daily KPI</th>
+      ${REP_NUMBERS_DAYS.map(d => {
+        const parts = fmtDayHeaderParts(addDaysISO(activeWeek.weekStart, d.offset));
+        return `<th><div class="rep-numbers-day-header"><span class="rep-numbers-day-month">${parts.month}</span><span class="rep-numbers-day-name">${d.label}</span><span class="rep-numbers-day-date">${parts.date}</span></div></th>`;
+      }).join("")}
+      <th>Daily pace</th><th>Weekly pace</th><th>Monthly pace</th><th>Weekly Target</th><th>Monthly Target</th>
+    </tr>`;
     if (!table.dataset.built) {
-      table.innerHTML = `<thead><tr>
-        <th>Name</th><th>Metric</th><th>Daily KPI</th>
-        ${REP_NUMBERS_DAYS.map(d => `<th>${d.label}</th>`).join("")}
-        <th>Daily pace</th><th>Weekly pace</th><th>Monthly pace</th><th>Weekly Target</th><th>Monthly Target</th>
-      </tr></thead><tbody></tbody>`;
+      table.innerHTML = `<thead>${theadHtml}</thead><tbody></tbody>`;
       table.dataset.built = "1";
+    } else {
+      table.querySelector("thead").innerHTML = theadHtml;
     }
     const tbody = table.querySelector("tbody");
     const totalCols = 3 + REP_NUMBERS_DAYS.length + 5;
@@ -3405,11 +3554,14 @@
         else delete tr.dataset.currency;
       }
       const row = (section[repName] && section[repName][metricId]) || normalizeRepMetricRow(null);
-      REP_NUMBERS_ENTRY_FIELDS.forEach(key => {
+      const weekRow = row.weeks[repDailyNumbers.activeWeekId] || {};
+      REP_NUMBERS_STATIC_FIELDS.forEach(key => {
         const el = tr.querySelector(`[data-field="${key}"]`);
-        if (el && (!preserveFocused || document.activeElement !== el)) {
-          el.value = row[key] || "";
-        }
+        if (el && (!preserveFocused || document.activeElement !== el)) el.value = row[key] || "";
+      });
+      REP_NUMBERS_DAY_KEYS.forEach(key => {
+        const el = tr.querySelector(`[data-field="${key}"]`);
+        if (el && (!preserveFocused || document.activeElement !== el)) el.value = weekRow[key] || "";
       });
       updateRepComputedCells(tr, row);
     });
@@ -3476,7 +3628,70 @@
     });
   }
 
+  function fmtWeekTabLabel(weekStart) {
+    const monday = new Date(weekStart + "T00:00:00");
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    const mondayLabel = monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const sundayLabel = sunday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${mondayLabel} – ${sundayLabel}`;
+  }
+
+  // Setter and Closer Scorecards share one set of weeks -- they're
+  // tracking the same calendar, so one tab bar drives both tables. Same
+  // tab-bar pattern as Marketing Check's day tabs (renderMarketingTabs):
+  // no inputs inside a tab, so a full rebuild on every render is fine.
+  function renderRepNumbersWeekTabs() {
+    const tabsEl = document.getElementById("rep-numbers-week-tabs");
+    const weeks = repDailyNumbers.weeks;
+
+    const tabsHtml = weeks.map(w => `
+      <span class="sop-tab-wrap${w.id === repDailyNumbers.activeWeekId ? " active" : ""}" data-tab-id="${w.id}">
+        <button type="button" class="sop-tab-btn" data-id="${w.id}">${fmtWeekTabLabel(w.weekStart)}</button>
+        <button type="button" class="sop-tab-remove${weeks.length > 1 ? "" : " sop-tab-remove-hidden"}" data-remove="${w.id}" title="Remove this week">&times;</button>
+      </span>
+    `).join("");
+    tabsEl.innerHTML = tabsHtml + `<button type="button" class="sop-add-btn" id="rep-numbers-add-week">+ Add New Week</button>`;
+
+    tabsEl.querySelectorAll(".sop-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (repDailyNumbers.activeWeekId === btn.dataset.id) return;
+        repDailyNumbers.activeWeekId = btn.dataset.id;
+        renderRepNumbersWeekTabs();
+        renderRepDailyNumbers();
+        queueSaveRepDailyNumbers();
+      });
+    });
+    tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (weeks.length <= 1) return;
+        const id = btn.dataset.remove;
+        repDailyNumbers.weeks = repDailyNumbers.weeks.filter(w => w.id !== id);
+        if (repDailyNumbers.activeWeekId === id) {
+          repDailyNumbers.activeWeekId = repDailyNumbers.weeks[repDailyNumbers.weeks.length - 1].id;
+        }
+        renderRepNumbersWeekTabs();
+        renderRepDailyNumbers();
+        queueSaveRepDailyNumbers();
+      });
+    });
+    document.getElementById("rep-numbers-add-week").addEventListener("click", () => {
+      // Always the week right after whichever is currently latest, so
+      // "Add New Week" moves forward through the calendar rather than
+      // needing a date picker.
+      const latest = repDailyNumbers.weeks[repDailyNumbers.weeks.length - 1];
+      const week = normalizeRepWeek({ weekStart: addDaysISO(latest.weekStart, 7) });
+      repDailyNumbers.weeks.push(week);
+      repDailyNumbers.activeWeekId = week.id;
+      renderRepNumbersWeekTabs();
+      renderRepDailyNumbers();
+      queueSaveRepDailyNumbers();
+    });
+  }
+
   function renderRepDailyNumbers(preserveFocused) {
+    renderRepNumbersWeekTabs();
     renderMetricsManager("setters", "rep-numbers-setter-metrics-list", preserveFocused);
     renderMetricsManager("closers", "rep-numbers-closer-metrics-list", preserveFocused);
     renderRepScorecard("setters", SETTERS, repDailyNumbers.setterMetrics, "rep-numbers-setter-table", preserveFocused);
