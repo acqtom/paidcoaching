@@ -1705,6 +1705,34 @@ in and you'll land on `/dashboard`.
   adding a rep through Add Team still flows through correctly to a new
   row on both scorecards.
 
+  **Two more columns, Target % and Actual %, were added to the right of
+  Monthly Target** — both automated rather than typed, after a first
+  attempt at a manually-typed "Rate" name + percentage pair got
+  corrected mid-build to something computed instead. **Target %** =
+  Weekly Target ÷ Monthly Target × 100 (a sanity check that the week's
+  target actually lines up with the month's); **Actual %** = the
+  already-computed Weekly Pace ÷ Monthly Target × 100 (how this week's
+  real pace compares to the month's goal). Both read `0%` rather than
+  dividing by zero when Monthly Target is blank. `updateRepComputedCells()`
+  gained a `fmtPercentNumber()` sibling to `fmtPaceNumber()` (same
+  round-to-1-decimal behavior, always suffixed `%`, no currency
+  variant — a rate is never a dollar amount even on an `Est commission`
+  row) and now sets two more `[data-computed]` cells alongside the
+  existing Daily/Weekly/Monthly Pace ones, recalculated on every
+  keystroke the same way pace already was. Since both are computed, not
+  typed, `buildRepBlockHtml()`'s last two cells are plain
+  `.rep-numbers-computed` cells like the pace columns, not inputs — no
+  new data actually gets stored, no `normalizeRepMetricRow()` or
+  `REP_NUMBERS_STATIC_FIELDS` changes were needed, and there's nothing
+  for a poll to race against. Verified live with Puppeteer: confirmed
+  the header reads `...Monthly Target, Target %, Actual %`; that a blank
+  Monthly Target shows `0%`/`0%` for both rather than erroring; that
+  Weekly Target `200` over Monthly Target `800` shows Target % as
+  exactly `25%`; and that entering `20`/`30` for Mon/Tues (Weekly Pace
+  `175`) over the same `800` Monthly Target shows Actual % as `21.9%` —
+  plus a screenshot confirming both columns read cleanly alongside the
+  other computed pace columns.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
