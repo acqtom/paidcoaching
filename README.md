@@ -1608,6 +1608,69 @@ in and you'll land on `/dashboard`.
   full-page screenshot confirming the week tabs, add-rep controls, and
   new stacked day headers all read cleanly together.
 
+  **The pill-list metrics manager described above was removed and
+  replaced** after direct feedback that it was too much UI ("Take this
+  away") — a small "+" next to the Metric column header is the entire
+  add-metric surface now, and reordering happens by dragging a row
+  instead of a separate list. `renderMetricsManager()`, its pill list,
+  and its standalone add-metric form are gone; `repMetricAddState`
+  (`{ setters: false, closers: false }`, plain in-memory UI state, not
+  part of `repDailyNumbers`) tracks whether each scorecard's header
+  add-form is currently open, and `repMetricHeaderHtml()`/
+  `wireRepMetricHeader()` swap the Metric `<th>` between a "Metric +"
+  button and an inline name input + `$` checkbox + Add button. Because
+  the table header is otherwise rebuilt on every render (for the
+  per-week dates above), `renderRepScorecard()` now skips that rebuild
+  entirely while the add-metric input is focused — the same "leave the
+  DOM alone while this specific input is focused" guard used everywhere
+  else in this file, just applied to a header cell instead of a body
+  row. A metric can no longer be renamed or have its `$` flag toggled
+  after creation — that capability was deliberately dropped along with
+  the pill list rather than rebuilt elsewhere; removing and re-adding is
+  the way to fix a typo or change formatting now, which matches how
+  small this feature was always meant to be.
+
+  Reordering is drag-and-drop on the Metric cell itself
+  (`buildRepBlockHtml()` gives it `draggable="true"`, a small `⋮⋮`
+  handle, and a `data-metric-drag` id), wired by `wireMetricRowControls()`
+  — the exact same native-HTML5-drag pattern as the SOP tabs'
+  drag-to-reorder (`dragstart`/`dragover`/`drop`, a `.dragging` opacity
+  and `.drag-over` inset-shadow class, no library). Since every rep's
+  block repeats the same metrics in the same order, dragging any single
+  rep's row reorders that metric for every rep at once — there's only
+  one shared order, `repDailyNumbers.setterMetrics`/`closerMetrics`
+  themselves, so `renderRepScorecard()`'s existing rebuild-signature
+  (rep names + metric ids, in order) already picks up a reorder as a
+  shape change with no extra work. The same cell also carries the
+  remove button that used to live in the pill list.
+
+  **Weekly Target was also switched from computed to manual, and it
+  joins Monthly Target in gold** — both from the same round of feedback.
+  It used to be `Monthly Target ÷ 4`, filled in automatically by
+  `updateRepComputedCells()`; some weeks don't cleanly divide a month
+  into quarters (a 5-week month, a target set mid-month), so it's now a
+  typed field like Daily KPI and Monthly Target, added to
+  `REP_NUMBERS_STATIC_FIELDS` (shared across weeks, same as Monthly
+  Target, not per-week like the Mon-Sun actuals) rather than to
+  `updateRepComputedCells()`'s output. Both the Weekly Target and
+  Monthly Target inputs now carry the same `rep-numbers-kpi-input` gold
+  class Daily KPI already had, so all three target/goal columns read as
+  a visually distinct group from the plain Mon-Sun actual-entry cells.
+
+  Verified live with Puppeteer: confirmed the old pill-list manager no
+  longer renders; that clicking "+" next to Metric opens an inline
+  add-metric form whose typed-but-unsubmitted text survives a simulated
+  `pollForUpdates()` call; that submitting it adds a new row; that
+  Weekly Target is now a real `<input>` (the old `[data-computed=
+  "weeklyTarget"]` cell no longer exists) and does *not* auto-fill when
+  Monthly Target is typed; that both Weekly Target and Monthly Target
+  carry the gold `rep-numbers-kpi-input` class; that clicking a metric's
+  `×` removes its row; and that firing synthetic `dragstart`/`dragover`/
+  `drop` events on two metric cells reorders them, with the new order
+  round-tripping into the next save payload — plus a full-page
+  screenshot confirming the drag handles, remove buttons, header "+",
+  and gold Weekly/Monthly Target columns all read cleanly together.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

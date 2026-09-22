@@ -473,7 +473,19 @@
   .huddle-table-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
   .rep-numbers-table th, .rep-numbers-table td { white-space: nowrap; padding: 13px 10px; }
   .rep-numbers-table .rep-numbers-name-cell { font-weight: 700; color: var(--text-primary); vertical-align: middle; padding-left: 16px; font-size: 14px; }
-  .rep-numbers-table .rep-numbers-metric-cell { color: var(--text-secondary); font-size: 14px; white-space: normal; min-width: 210px; }
+  .rep-numbers-table .rep-numbers-metric-cell {
+    color: var(--text-secondary); font-size: 14px; white-space: normal; min-width: 210px;
+    display: flex; align-items: center; gap: 6px; cursor: grab;
+  }
+  .rep-numbers-table .rep-numbers-metric-cell.dragging { opacity: 0.4; }
+  .rep-numbers-table tr.drag-over .rep-numbers-metric-cell { box-shadow: inset 2px 0 0 var(--badge-fg); }
+  .rep-numbers-metric-drag-handle { color: var(--muted); font-size: 12px; user-select: none; line-height: 1; }
+  .rep-numbers-metric-label { flex: 1; }
+  .rep-numbers-metric-remove {
+    border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
+    padding: 2px; opacity: 0.5; font-family: inherit;
+  }
+  .rep-numbers-metric-remove:hover { opacity: 1; color: var(--red); }
   .rep-numbers-table input.rep-numbers-input {
     width: 82px; box-sizing: border-box; font-family: inherit; font-size: 14px; color: var(--text-primary);
     border: 1px solid transparent; border-radius: 6px; padding: 9px 10px; background: transparent; text-align: right;
@@ -506,33 +518,25 @@
     width: 30px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; line-height: 1;
   }
   .rep-numbers-add-rep-form button:hover { opacity: 0.9; }
-  .rep-metrics-manager { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--card-border); }
-  .rep-metrics-manager .directory-label { display: block; margin-bottom: 10px; }
-  .rep-metrics-list {
-    list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px;
+  .rep-numbers-metric-add-btn {
+    border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 700;
+    padding: 0 2px; font-family: inherit; text-transform: none; vertical-align: middle;
   }
-  .rep-metric-pill {
-    display: flex; align-items: center; gap: 6px; background: var(--badge-bg);
-    border-radius: 20px; padding: 4px 8px 4px 12px;
+  .rep-numbers-metric-add-btn:hover { color: var(--text-primary); }
+  .rep-numbers-metric-add-form {
+    display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: normal; white-space: nowrap;
   }
-  .rep-metric-label-input {
-    border: none; background: none; font-family: inherit; font-size: 12px; font-weight: 600;
-    color: var(--badge-fg); width: 150px; padding: 4px 0;
+  .rep-numbers-metric-add-form input[type="text"] {
+    font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-primary); text-transform: none;
+    border: 1px solid var(--pill-border); border-radius: 6px; padding: 6px 8px; width: 130px; background: #fff;
   }
-  .rep-metric-label-input:focus { outline: none; text-decoration: underline; }
-  .rep-metric-currency-toggle {
-    display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--badge-fg); cursor: pointer;
+  .rep-numbers-metric-add-form .rep-metric-currency-toggle {
+    display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--text-primary);
+    text-transform: none; cursor: pointer;
   }
-  .rep-metric-remove {
-    border: none; background: none; color: var(--badge-fg); cursor: pointer; font-size: 13px; line-height: 1;
-    padding: 2px; opacity: 0.6; font-family: inherit;
-  }
-  .rep-metric-remove:hover { opacity: 1; }
-  .name-add-form .rep-metric-currency-toggle {
-    flex: none; color: var(--text-primary); font-weight: 600;
-  }
-  .name-add-form .rep-metric-currency-toggle input {
-    flex: none; width: auto; min-width: 0; border: none; background: none; padding: 0;
+  .rep-numbers-metric-add-form button {
+    background: var(--black); color: #fff; border: none; border-radius: 6px; padding: 5px 10px;
+    font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; text-transform: none;
   }
   @media (max-width: 640px) {
     .huddle-pipeline-header { flex-direction: column; }
@@ -1013,15 +1017,6 @@
         </form>
       </div>
       <div class="card-body">
-        <div class="rep-metrics-manager">
-          <span class="directory-label">Metrics tracked</span>
-          <ul class="rep-metrics-list" id="rep-numbers-setter-metrics-list"></ul>
-          <form class="name-add-form" id="rep-numbers-setter-metrics-add-form">
-            <input type="text" id="rep-numbers-setter-metrics-input" placeholder="New metric name">
-            <label class="rep-metric-currency-toggle"><input type="checkbox" id="rep-numbers-setter-metrics-currency"> $</label>
-            <button type="submit">Add</button>
-          </form>
-        </div>
         <div class="huddle-table-wrap">
           <table class="huddle-table rep-numbers-table" id="rep-numbers-setter-table"></table>
         </div>
@@ -1037,15 +1032,6 @@
         </form>
       </div>
       <div class="card-body">
-        <div class="rep-metrics-manager">
-          <span class="directory-label">Metrics tracked</span>
-          <ul class="rep-metrics-list" id="rep-numbers-closer-metrics-list"></ul>
-          <form class="name-add-form" id="rep-numbers-closer-metrics-add-form">
-            <input type="text" id="rep-numbers-closer-metrics-input" placeholder="New metric name">
-            <label class="rep-metric-currency-toggle"><input type="checkbox" id="rep-numbers-closer-metrics-currency"> $</label>
-            <button type="submit">Add</button>
-          </form>
-        </div>
         <div class="huddle-table-wrap">
           <table class="huddle-table rep-numbers-table" id="rep-numbers-closer-table"></table>
         </div>
@@ -2829,16 +2815,19 @@
     { key: "sun", label: "Sun", offset: 6 },
   ];
   const REP_NUMBERS_DAY_KEYS = REP_NUMBERS_DAYS.map(d => d.key);
-  // dailyKpi/monthlyTarget are targets, not weekly actuals -- they stay
-  // the same no matter which week is showing. Only the Mon-Sun day
-  // values are per-week (see normalizeRepMetricRow below).
-  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "monthlyTarget"];
+  // dailyKpi/monthlyTarget/weeklyTarget are targets, not weekly actuals
+  // -- they stay the same no matter which week is showing. Only the
+  // Mon-Sun day values are per-week (see normalizeRepMetricRow below).
+  // weeklyTarget used to be computed (monthlyTarget / 4) rather than
+  // stored; it's a manually-typed target like the other two now.
+  const REP_NUMBERS_STATIC_FIELDS = ["dailyKpi", "weeklyTarget", "monthlyTarget"];
 
-  // Metrics are now addable/editable/removable per scorecard (see the
-  // Metrics pill list above each table), so the list itself lives in
-  // saved state rather than being a fixed constant -- these are only the
-  // seed values for a board that's never customized them. `id` doubles
-  // as the old hardcoded key every metric used before this was
+  // Metrics are addable/removable per scorecard via the "+" next to the
+  // Metric column header and drag-to-reorder on each row (see
+  // buildRepBlockHtml/wireMetricRowControls below), so the list itself
+  // lives in saved state rather than being a fixed constant -- these are
+  // only the seed values for a board that's never customized them. `id`
+  // doubles as the old hardcoded key every metric used before this was
   // editable, so already-saved per-rep data for these five/six keeps
   // resolving to the same rows; only a metric added through the "+"
   // form gets a fresh makeId() id.
@@ -2885,7 +2874,8 @@
   // into `defaultWeekId` (the earliest/only week at the time) so nothing
   // already typed in gets lost when this shape change first loads.
   function normalizeRepMetricRow(raw, defaultWeekId) {
-    const out = { dailyKpi: "", monthlyTarget: "", weeks: {} };
+    const out = { weeks: {} };
+    REP_NUMBERS_STATIC_FIELDS.forEach(k => { out[k] = ""; });
     if (!raw || typeof raw !== "object") return out;
     REP_NUMBERS_STATIC_FIELDS.forEach(k => { if (typeof raw[k] === "string") out[k] = raw[k]; });
     if (raw.weeks && typeof raw.weeks === "object") {
@@ -3418,9 +3408,11 @@
   // Daily Pace = average of whichever Mon-Sun cells actually have a value
   // (not divided by 7 flat), so pace reflects real performance so far
   // rather than being diluted by days that just haven't happened yet.
-  // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4, Weekly
-  // Target = Monthly Target ÷ 4 -- the exact formulas worked out from the
-  // reference sheet's own numbers.
+  // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4 -- the
+  // exact formulas worked out from the reference sheet's own numbers.
+  // Weekly Target used to be computed the same way (Monthly Target ÷ 4)
+  // but is a manually-typed field now (see REP_NUMBERS_STATIC_FIELDS),
+  // so it's no longer touched here.
   function updateRepComputedCells(tr, row) {
     const isCurrency = tr.dataset.currency === "1";
     const weekRow = (row.weeks && row.weeks[repDailyNumbers.activeWeekId]) || {};
@@ -3433,30 +3425,36 @@
       : 0;
     const weeklyPace = dailyPace * 7;
     const monthlyPace = weeklyPace * 4;
-    const weeklyTarget = parseDealSize(row.monthlyTarget) / 4;
 
     tr.querySelector('[data-computed="dailyPace"]').textContent = fmtPaceNumber(dailyPace, isCurrency);
     tr.querySelector('[data-computed="weeklyPace"]').textContent = fmtPaceNumber(weeklyPace, isCurrency);
     tr.querySelector('[data-computed="monthlyPace"]').textContent = fmtPaceNumber(monthlyPace, isCurrency);
-    tr.querySelector('[data-computed="weeklyTarget"]').textContent = fmtPaceNumber(weeklyTarget, isCurrency);
   }
 
   // Rep names come straight from CLOSERS/SETTERS unescaped, same as
   // populateNameSelect()'s own <option value="${n}"> elsewhere in this
   // file -- consistent with how every other team-roster name already
-  // gets interpolated in this app (admin-only, trusted input).
+  // gets interpolated in this app (admin-only, trusted input). The
+  // Metric cell doubles as a drag handle (whole cell is draggable, same
+  // "grab anywhere in the row" pattern as the SOP tabs) and carries a
+  // remove button -- metrics can no longer be renamed in place (no more
+  // pill list), only added, reordered, or removed.
   function buildRepBlockHtml(repName, metrics) {
     return metrics.map((metric, i) => `
       <tr data-rep="${repName}" data-metric="${metric.id}"${metric.isCurrency ? ' data-currency="1"' : ""}>
         <td class="rep-numbers-name-cell">${i === 0 ? repName : ""}</td>
-        <td class="rep-numbers-metric-cell">${metric.label}</td>
+        <td class="rep-numbers-metric-cell" draggable="true" data-metric-drag="${metric.id}">
+          <span class="rep-numbers-metric-drag-handle" title="Drag to reorder">⋮⋮</span>
+          <span class="rep-numbers-metric-label">${metric.label}</span>
+          <button type="button" class="rep-numbers-metric-remove" data-remove-metric="${metric.id}" title="Remove this metric">&times;</button>
+        </td>
         <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="dailyKpi"></td>
         ${REP_NUMBERS_DAYS.map(d => `<td><input type="text" class="rep-numbers-input" data-field="${d.key}"></td>`).join("")}
         <td class="rep-numbers-computed" data-computed="dailyPace">0</td>
         <td class="rep-numbers-computed" data-computed="weeklyPace">0</td>
         <td class="rep-numbers-computed" data-computed="monthlyPace">0</td>
-        <td class="rep-numbers-computed" data-computed="weeklyTarget">0</td>
-        <td><input type="text" class="rep-numbers-input" data-field="monthlyTarget"></td>
+        <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="weeklyTarget"></td>
+        <td><input type="text" class="rep-numbers-input rep-numbers-kpi-input" data-field="monthlyTarget"></td>
       </tr>
     `).join("");
   }
@@ -3494,27 +3492,137 @@
     };
   }
 
+  function metricsListKeyFor(role) {
+    return role === "setters" ? "setterMetrics" : "closerMetrics";
+  }
+
+  // Which scorecard(s) currently have their "+ metric" header form open
+  // -- purely transient UI state, not part of repDailyNumbers, so it's
+  // fine that it resets on reload.
+  const repMetricAddState = { setters: false, closers: false };
+
+  function repMetricHeaderHtml(role, tableId) {
+    if (repMetricAddState[role]) {
+      return `<th><form class="rep-numbers-metric-add-form" id="${tableId}-metric-add-form">
+        <input type="text" id="${tableId}-metric-add-input" placeholder="Metric name" required>
+        <label class="rep-metric-currency-toggle" title="Show this metric's pace/target as a dollar amount">
+          <input type="checkbox" id="${tableId}-metric-add-currency"> $
+        </label>
+        <button type="submit">Add</button>
+      </form></th>`;
+    }
+    return `<th>Metric <button type="button" class="rep-numbers-metric-add-btn" id="${tableId}-metric-add-btn" title="Add a metric">+</button></th>`;
+  }
+
+  function wireRepMetricHeader(role, tableId) {
+    if (repMetricAddState[role]) {
+      const form = document.getElementById(`${tableId}-metric-add-form`);
+      const input = document.getElementById(`${tableId}-metric-add-input`);
+      const currencyCb = document.getElementById(`${tableId}-metric-add-currency`);
+      input.focus();
+      form.addEventListener("submit", e => {
+        e.preventDefault();
+        const label = input.value.trim();
+        if (!label) return;
+        repDailyNumbers[metricsListKeyFor(role)].push(normalizeRepMetric({ label, isCurrency: currencyCb.checked }));
+        repMetricAddState[role] = false;
+        renderRepDailyNumbers();
+        queueSaveRepDailyNumbers();
+      });
+    } else {
+      document.getElementById(`${tableId}-metric-add-btn`).addEventListener("click", () => {
+        repMetricAddState[role] = true;
+        renderRepDailyNumbers();
+      });
+    }
+  }
+
+  // Reordering and removing a metric both act on the shared metrics
+  // array (repDailyNumbers.setterMetrics/closerMetrics) -- every rep's
+  // block repeats the same metrics in the same order, so dragging any
+  // one rep's row reorders that metric for all of them at once. Same
+  // native-HTML5-drag pattern as the SOP tabs' drag-to-reorder.
+  function wireMetricRowControls(tbody, role) {
+    tbody.querySelectorAll("[data-remove-metric]").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        const key = metricsListKeyFor(role);
+        repDailyNumbers[key] = repDailyNumbers[key].filter(m => m.id !== btn.dataset.removeMetric);
+        renderRepDailyNumbers();
+        queueSaveRepDailyNumbers();
+      });
+    });
+
+    let draggedId = null;
+    tbody.querySelectorAll("[data-metric-drag]").forEach(cell => {
+      cell.addEventListener("dragstart", e => {
+        draggedId = cell.dataset.metricDrag;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", draggedId);
+        cell.classList.add("dragging");
+      });
+      cell.addEventListener("dragend", () => {
+        tbody.querySelectorAll("[data-metric-drag]").forEach(c => c.classList.remove("dragging"));
+        tbody.querySelectorAll("tr").forEach(tr => tr.classList.remove("drag-over"));
+      });
+      cell.addEventListener("dragover", e => {
+        e.preventDefault();
+        cell.closest("tr").classList.add("drag-over");
+      });
+      cell.addEventListener("dragleave", () => cell.closest("tr").classList.remove("drag-over"));
+      cell.addEventListener("drop", e => {
+        e.preventDefault();
+        cell.closest("tr").classList.remove("drag-over");
+        const targetId = cell.dataset.metricDrag;
+        const sourceId = draggedId || e.dataTransfer.getData("text/plain");
+        if (sourceId && sourceId !== targetId) {
+          const key = metricsListKeyFor(role);
+          const list = repDailyNumbers[key];
+          const fromIndex = list.findIndex(m => m.id === sourceId);
+          const toIndex = list.findIndex(m => m.id === targetId);
+          if (fromIndex !== -1 && toIndex !== -1) {
+            const [moved] = list.splice(fromIndex, 1);
+            list.splice(toIndex, 0, moved);
+            queueSaveRepDailyNumbers();
+          }
+        }
+        renderRepDailyNumbers();
+      });
+    });
+  }
+
   function renderRepScorecard(role, repNames, metrics, tableId, preserveFocused) {
     const table = document.getElementById(tableId);
     const activeWeek = repDailyNumbers.weeks.find(w => w.id === repDailyNumbers.activeWeekId)
       || repDailyNumbers.weeks[repDailyNumbers.weeks.length - 1];
 
-    // The header shows real calendar dates for the active week, so it's
-    // rebuilt on every render (cheap, and it holds no inputs so there's
-    // no focus to lose) rather than only once like the tbody below.
-    const theadHtml = `<tr>
-      <th>Name</th><th>Metric</th><th>Daily KPI</th>
-      ${REP_NUMBERS_DAYS.map(d => {
-        const parts = fmtDayHeaderParts(addDaysISO(activeWeek.weekStart, d.offset));
-        return `<th><div class="rep-numbers-day-header"><span class="rep-numbers-day-month">${parts.month}</span><span class="rep-numbers-day-name">${d.label}</span><span class="rep-numbers-day-date">${parts.date}</span></div></th>`;
-      }).join("")}
-      <th>Daily pace</th><th>Weekly pace</th><th>Monthly pace</th><th>Weekly Target</th><th>Monthly Target</th>
-    </tr>`;
-    if (!table.dataset.built) {
-      table.innerHTML = `<thead>${theadHtml}</thead><tbody></tbody>`;
-      table.dataset.built = "1";
-    } else {
-      table.querySelector("thead").innerHTML = theadHtml;
+    // The header shows real calendar dates for the active week and (when
+    // open) the add-metric form, so it's rebuilt on every render (cheap,
+    // and it holds no inputs to lose focus from) rather than only once
+    // like the tbody below -- except while its own add-metric input is
+    // focused, when it's left alone so a half-typed name isn't wiped by
+    // a background poll re-render (same guard family as every other
+    // "typed but not yet submitted" input in this file).
+    const addInputFocused = preserveFocused && document.activeElement
+      && document.activeElement.id === `${tableId}-metric-add-input`;
+    if (!addInputFocused) {
+      const theadHtml = `<tr>
+        <th>Name</th>
+        ${repMetricHeaderHtml(role, tableId)}
+        <th>Daily KPI</th>
+        ${REP_NUMBERS_DAYS.map(d => {
+          const parts = fmtDayHeaderParts(addDaysISO(activeWeek.weekStart, d.offset));
+          return `<th><div class="rep-numbers-day-header"><span class="rep-numbers-day-month">${parts.month}</span><span class="rep-numbers-day-name">${d.label}</span><span class="rep-numbers-day-date">${parts.date}</span></div></th>`;
+        }).join("")}
+        <th>Daily pace</th><th>Weekly pace</th><th>Monthly pace</th><th>Weekly Target</th><th>Monthly Target</th>
+      </tr>`;
+      if (!table.dataset.built) {
+        table.innerHTML = `<thead>${theadHtml}</thead><tbody></tbody>`;
+        table.dataset.built = "1";
+      } else {
+        table.querySelector("thead").innerHTML = theadHtml;
+      }
+      wireRepMetricHeader(role, tableId);
     }
     const tbody = table.querySelector("tbody");
     const totalCols = 3 + REP_NUMBERS_DAYS.length + 5;
@@ -3526,33 +3634,20 @@
     }
 
     // Rebuilding needs to happen for a roster change (a rep added or
-    // removed) *or* a metrics change (added/removed, not a label rename
-    // -- see below) -- so the signature covers both rep names and metric
-    // ids together.
+    // removed) or a metrics change (added/removed/reordered) -- so the
+    // signature covers both rep names and metric ids, in order, together.
     const signature = `${repNames.join("|")}::${metrics.map(m => m.id).join("|")}`;
     if (tbody.dataset.repSignature !== signature) {
       tbody.innerHTML = repNames.map(repName => buildRepBlockHtml(repName, metrics)).join("");
       wireRepScorecardRows(tbody, role);
+      wireMetricRowControls(tbody, role);
       tbody.dataset.repSignature = signature;
     }
-
-    // A metric's label or $-formatting can change (via the pill list
-    // above) without the row set itself changing shape, so this refresh
-    // pass keeps both in sync on every render regardless of whether a
-    // rebuild happened above.
-    const metricsById = {};
-    metrics.forEach(m => { metricsById[m.id] = m; });
 
     const section = repDailyNumbers[role];
     tbody.querySelectorAll("tr[data-rep]").forEach(tr => {
       const repName = tr.dataset.rep;
       const metricId = tr.dataset.metric;
-      const metric = metricsById[metricId];
-      if (metric) {
-        tr.querySelector(".rep-numbers-metric-cell").textContent = metric.label;
-        if (metric.isCurrency) tr.dataset.currency = "1";
-        else delete tr.dataset.currency;
-      }
       const row = (section[repName] && section[repName][metricId]) || normalizeRepMetricRow(null);
       const weekRow = row.weeks[repDailyNumbers.activeWeekId] || {};
       REP_NUMBERS_STATIC_FIELDS.forEach(key => {
@@ -3564,67 +3659,6 @@
         if (el && (!preserveFocused || document.activeElement !== el)) el.value = weekRow[key] || "";
       });
       updateRepComputedCells(tr, row);
-    });
-  }
-
-  function metricsListKeyFor(role) {
-    return role === "setters" ? "setterMetrics" : "closerMetrics";
-  }
-
-  // Idempotent-build pill list (same pattern as everything else in this
-  // file that's typed into): only rebuilt when the *set* of metric ids
-  // changes, so renaming a metric or toggling its $ checkbox never
-  // rebuilds the DOM out from under whichever pill is focused.
-  function renderMetricsManager(role, listId, preserveFocused) {
-    const listEl = document.getElementById(listId);
-    const metrics = repDailyNumbers[metricsListKeyFor(role)];
-    const signature = metrics.map(m => m.id).join("|");
-
-    if (listEl.dataset.signature !== signature) {
-      listEl.innerHTML = metrics.map(m => `
-        <span class="rep-metric-pill">
-          <input type="text" class="rep-metric-label-input" data-metric-id="${m.id}">
-          <label class="rep-metric-currency-toggle" title="Show this metric's pace/target as a dollar amount">
-            <input type="checkbox" data-currency-for="${m.id}"> $
-          </label>
-          <button type="button" class="rep-metric-remove" data-remove-metric="${m.id}" title="Remove this metric">&times;</button>
-        </span>
-      `).join("");
-
-      listEl.querySelectorAll(".rep-metric-label-input").forEach(input => {
-        input.addEventListener("input", () => {
-          const metric = repDailyNumbers[metricsListKeyFor(role)].find(m => m.id === input.dataset.metricId);
-          if (metric) metric.label = input.value;
-          renderRepDailyNumbers(true);
-          queueSaveRepDailyNumbers();
-        });
-      });
-      listEl.querySelectorAll("[data-currency-for]").forEach(cb => {
-        cb.addEventListener("change", () => {
-          const metric = repDailyNumbers[metricsListKeyFor(role)].find(m => m.id === cb.dataset.currencyFor);
-          if (metric) metric.isCurrency = cb.checked;
-          renderRepDailyNumbers();
-          queueSaveRepDailyNumbers();
-        });
-      });
-      listEl.querySelectorAll("[data-remove-metric]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const key = metricsListKeyFor(role);
-          repDailyNumbers[key] = repDailyNumbers[key].filter(m => m.id !== btn.dataset.removeMetric);
-          renderRepDailyNumbers();
-          queueSaveRepDailyNumbers();
-        });
-      });
-      listEl.dataset.signature = signature;
-    }
-
-    metrics.forEach(m => {
-      const input = listEl.querySelector(`[data-metric-id="${m.id}"]`);
-      if (input && (!preserveFocused || document.activeElement !== input)) {
-        input.value = m.label;
-      }
-      const cb = listEl.querySelector(`[data-currency-for="${m.id}"]`);
-      if (cb) cb.checked = m.isCurrency;
     });
   }
 
@@ -3692,37 +3726,9 @@
 
   function renderRepDailyNumbers(preserveFocused) {
     renderRepNumbersWeekTabs();
-    renderMetricsManager("setters", "rep-numbers-setter-metrics-list", preserveFocused);
-    renderMetricsManager("closers", "rep-numbers-closer-metrics-list", preserveFocused);
     renderRepScorecard("setters", SETTERS, repDailyNumbers.setterMetrics, "rep-numbers-setter-table", preserveFocused);
     renderRepScorecard("closers", CLOSERS, repDailyNumbers.closerMetrics, "rep-numbers-closer-table", preserveFocused);
   }
-
-  document.getElementById("rep-numbers-setter-metrics-add-form").addEventListener("submit", e => {
-    e.preventDefault();
-    const input = document.getElementById("rep-numbers-setter-metrics-input");
-    const currencyCb = document.getElementById("rep-numbers-setter-metrics-currency");
-    const label = input.value.trim();
-    if (!label) return;
-    repDailyNumbers.setterMetrics.push(normalizeRepMetric({ label, isCurrency: currencyCb.checked }));
-    input.value = "";
-    currencyCb.checked = false;
-    renderRepDailyNumbers();
-    queueSaveRepDailyNumbers();
-  });
-
-  document.getElementById("rep-numbers-closer-metrics-add-form").addEventListener("submit", e => {
-    e.preventDefault();
-    const input = document.getElementById("rep-numbers-closer-metrics-input");
-    const currencyCb = document.getElementById("rep-numbers-closer-metrics-currency");
-    const label = input.value.trim();
-    if (!label) return;
-    repDailyNumbers.closerMetrics.push(normalizeRepMetric({ label, isCurrency: currencyCb.checked }));
-    input.value = "";
-    currencyCb.checked = false;
-    renderRepDailyNumbers();
-    queueSaveRepDailyNumbers();
-  });
 
   function updateMeetingLinkOpen(value) {
     const link = document.getElementById("huddle-meeting-open");
