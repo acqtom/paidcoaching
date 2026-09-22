@@ -1671,6 +1671,23 @@ in and you'll land on `/dashboard`.
   screenshot confirming the drag handles, remove buttons, header "+",
   and gold Weekly/Monthly Target columns all read cleanly together.
 
+  **Fixed a row-alignment bug reported right after shipping the above**:
+  `.rep-numbers-metric-cell`'s `display: flex` was set directly on the
+  `<td>` itself, and putting `display: flex` on a table cell pulls it out
+  of the table's row-height model entirely (it stops behaving like a
+  `table-cell` for sizing purposes) -- so its border-bottom no longer
+  lined up with the plain `<td>`s next to it in the same row, most
+  visibly on the multi-line "Connections (calls answered)" row. Fixed by
+  moving the flex layout off the `<td>` and onto a new inner
+  `.rep-numbers-metric-row` `<div>` (`display: flex; align-items: center;
+  gap: 6px`) that wraps the drag handle/label/remove button, while the
+  `<td>` itself goes back to being a normal table cell with
+  `vertical-align: middle`. Verified live with Puppeteer by measuring
+  every cell's actual rendered bottom edge (`getBoundingClientRect()`)
+  across each row and confirming they're pixel-identical, for a rep with
+  five metrics of varying label length (including a wrapping one) --
+  plus a screenshot matching the exact scenario from the bug report.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
