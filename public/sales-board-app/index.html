@@ -507,18 +507,6 @@
   .rep-numbers-day-date { font-size: 10px; color: var(--muted); }
   .rep-numbers-week-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
   .rep-numbers-week-bar .directory-label { margin: 0; }
-  .rep-numbers-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .rep-numbers-add-rep-form { display: flex; gap: 6px; }
-  .rep-numbers-add-rep-form input {
-    width: 140px; font-family: inherit; font-size: 12px; color: var(--text-primary);
-    border: 1px solid var(--pill-border); border-radius: 8px; padding: 7px 10px; background: #fff;
-  }
-  .rep-numbers-add-rep-form input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
-  .rep-numbers-add-rep-form button {
-    background: var(--black); color: #fff; border: none; border-radius: 8px;
-    width: 30px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; line-height: 1;
-  }
-  .rep-numbers-add-rep-form button:hover { opacity: 0.9; }
   .rep-numbers-metric-add-btn {
     border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 700;
     padding: 0 2px; font-family: inherit; text-transform: none; vertical-align: middle;
@@ -1010,12 +998,8 @@
     </div>
 
     <div class="card">
-      <div class="card-header rep-numbers-card-header">
+      <div class="card-header">
         <h2>Setter Scorecard</h2>
-        <form class="rep-numbers-add-rep-form" id="rep-numbers-setter-add-form">
-          <input type="text" id="rep-numbers-setter-add-input" placeholder="Add rep name">
-          <button type="submit" title="Add a new setter">+</button>
-        </form>
       </div>
       <div class="card-body">
         <div class="huddle-table-wrap">
@@ -1025,12 +1009,8 @@
     </div>
 
     <div class="card">
-      <div class="card-header rep-numbers-card-header">
+      <div class="card-header">
         <h2>Closer Scorecard</h2>
-        <form class="rep-numbers-add-rep-form" id="rep-numbers-closer-add-form">
-          <input type="text" id="rep-numbers-closer-add-input" placeholder="Add rep name">
-          <button type="submit" title="Add a new closer">+</button>
-        </form>
       </div>
       <div class="card-body">
         <div class="huddle-table-wrap">
@@ -2476,11 +2456,6 @@
     teamCodeValue.textContent = accessCode || "…";
   }
 
-  // Shared by the Add Team forms and the "+" add-rep form on each Rep
-  // Daily Numbers scorecard -- adding a rep from either place adds them
-  // to the same CLOSERS/SETTERS roster (the single source of truth used
-  // everywhere else in this app), rather than a separate name list that
-  // could drift out of sync with Post Call Form/Add Team.
   function addTeamMember(role, name) {
     if (role === "closers") {
       if (!CLOSERS.includes(name)) CLOSERS.push(name);
@@ -2511,24 +2486,6 @@
     if (!name) return;
     input.value = "";
     addTeamMember("setters", name);
-  });
-
-  document.getElementById("rep-numbers-setter-add-form").addEventListener("submit", e => {
-    e.preventDefault();
-    const input = document.getElementById("rep-numbers-setter-add-input");
-    const name = input.value.trim();
-    if (!name) return;
-    input.value = "";
-    addTeamMember("setters", name);
-  });
-
-  document.getElementById("rep-numbers-closer-add-form").addEventListener("submit", e => {
-    e.preventDefault();
-    const input = document.getElementById("rep-numbers-closer-add-input");
-    const name = input.value.trim();
-    if (!name) return;
-    input.value = "";
-    addTeamMember("closers", name);
   });
 
   async function copyToClipboard(text, btn) {

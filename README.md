@@ -1688,6 +1688,23 @@ in and you'll land on `/dashboard`.
   five metrics of varying label length (including a wrapping one) --
   plus a screenshot matching the exact scenario from the bug report.
 
+  **The "+" add-rep form on each scorecard's `card-header` (described
+  above) was removed shortly after shipping** — direct feedback was that
+  it was redundant with Add Team, which already exists for exactly this
+  and is the roster's actual source of truth. Both `#rep-numbers-setter-
+  add-form`/`-closer-add-form` and their submit handlers are gone, the
+  two card headers went back to plain `<h2>`-only (no more
+  `.rep-numbers-card-header` flex layout or `.rep-numbers-add-rep-form`
+  styling, both removed), and `addTeamMember(role, name)` — the shared
+  function this extracted the Add Team's own two forms onto — was kept,
+  since it's a clean small helper regardless of how many callers use it.
+  Reps are added exclusively through Add Team now, same as before this
+  round of Rep Daily Numbers work started. Verified live with Puppeteer
+  that no add-rep form or input exists anywhere on the Rep Daily Numbers
+  view, that each scorecard's header is back to just its title, and that
+  adding a rep through Add Team still flows through correctly to a new
+  row on both scorecards.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
