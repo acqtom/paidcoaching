@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/require-admin";
 
-// POST ?board=<id> { data } -> overwrites one of the logged-in admin's
-// own boards' Metrics Tracking numbers wholesale -- same full-overwrite
-// contract as /api/tracking/save (the tracking UI always keeps its
-// complete current `data` object in memory and sends the whole thing).
+// POST ?board=<id> { data } -> overwrites any board any admin has
+// access to (not just the caller's own, see
+// 0025_share_sales_boards_across_admins.sql)'s Metrics Tracking numbers
+// wholesale -- same full-overwrite contract as /api/tracking/save (the
+// tracking UI always keeps its complete current `data` object in
+// memory and sends the whole thing).
 
 export async function POST(request: Request) {
   const boardId = new URL(request.url).searchParams.get("board");
@@ -26,7 +28,6 @@ export async function POST(request: Request) {
     .from("sales_boards")
     .select("id")
     .eq("id", boardId)
-    .eq("owner_id", admin.userId)
     .maybeSingle();
   if (!board) return NextResponse.json({ error: "Board not found" }, { status: 404 });
 

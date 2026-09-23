@@ -5,10 +5,12 @@ import { DEFAULT_BOARD_DATA } from "@/lib/sales-boards-state";
 import type { SalesBoardData } from "@/lib/sales-board-state";
 
 // POST ?board=<id> -> { deals, closers, setters, onboarding, huddles,
-// repDailyNumbers, accessCode } for one of the logged-in admin's own
-// boards -- same response contract as /api/sales-board/session so
-// public/sales-board-app/index.html needs no changes beyond which
-// endpoint it calls (see `urlBoard` there).
+// repDailyNumbers, accessCode } for any board any admin has access to
+// (not just the caller's own, see
+// 0025_share_sales_boards_across_admins.sql) -- same response contract
+// as /api/sales-board/session so public/sales-board-app/index.html
+// needs no changes beyond which endpoint it calls (see `urlBoard`
+// there).
 
 export async function POST(request: Request) {
   const boardId = new URL(request.url).searchParams.get("board");
@@ -24,7 +26,6 @@ export async function POST(request: Request) {
     .from("sales_boards")
     .select("data, access_code")
     .eq("id", boardId)
-    .eq("owner_id", admin.userId)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!board) return NextResponse.json({ error: "Board not found" }, { status: 404 });

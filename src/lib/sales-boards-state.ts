@@ -24,14 +24,16 @@ export type SalesBoard = {
   created_at: string;
 };
 
-// Creates a new board owned by the given user, retrying on the
+// Creates a new board recorded as created by the given user
+// (`owner_id`, kept for reference but not an access boundary -- every
+// admin can see and edit every board, see
+// 0025_share_sales_boards_across_admins.sql), retrying on the
 // (astronomically unlikely) access-code collision -- same pattern as
 // ensureSalesBoardRow (src/lib/sales-board-state.ts) for the original
-// singleton system. RLS on `sales_boards` (0023_multi_sales_boards.sql)
-// independently re-checks the caller is really an admin who owns this
-// row, but every route calling this should still gate on
-// isAdminUsername() up front so a non-admin gets a clean 403 instead of
-// an opaque RLS rejection.
+// singleton system. RLS on `sales_boards` independently re-checks the
+// caller is really an admin, but every route calling this should still
+// gate on isAdminUsername() up front so a non-admin gets a clean 403
+// instead of an opaque RLS rejection.
 export async function createSalesBoard(supabase: Supabase, ownerId: string, name: string): Promise<SalesBoard> {
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
     const accessCode = generateAccessCode();

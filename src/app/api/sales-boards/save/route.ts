@@ -6,12 +6,13 @@ import { pushSalesBoardMetricsForBoard } from "@/lib/metrics-tracking-state";
 
 // POST ?board=<id> { deals?, closers?, setters?, dailyCashTarget?,
 // onboarding?, huddles?, repDailyNumbers? } -> writes whichever fields
-// are present into one of the logged-in admin's own boards, leaving the
-// rest untouched -- same partial-save contract as /api/sales-board/save.
-// Whenever `deals` is
-// part of the save, this also recomputes and pushes closing-stage
-// numbers into that *board's own* Metrics Tracking row
-// (metrics_tracking_boards), never the account-wide one.
+// are present into any board any admin has access to (not just the
+// caller's own, see 0025_share_sales_boards_across_admins.sql), leaving
+// the rest untouched -- same partial-save contract as
+// /api/sales-board/save. Whenever `deals` is part of the save, this
+// also recomputes and pushes closing-stage numbers into that *board's
+// own* Metrics Tracking row (metrics_tracking_boards), never the
+// account-wide one.
 
 export async function POST(request: Request) {
   const boardId = new URL(request.url).searchParams.get("board");
@@ -29,7 +30,6 @@ export async function POST(request: Request) {
     .from("sales_boards")
     .select("data")
     .eq("id", boardId)
-    .eq("owner_id", admin.userId)
     .maybeSingle();
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
   if (!existingRow) return NextResponse.json({ error: "Board not found" }, { status: 404 });
@@ -50,8 +50,7 @@ export async function POST(request: Request) {
   const { error } = await supabase
     .from("sales_boards")
     .update({ data: next, updated_at: new Date().toISOString() })
-    .eq("id", boardId)
-    .eq("owner_id", admin.userId);
+    .eq("id", boardId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (body.deals !== undefined) {

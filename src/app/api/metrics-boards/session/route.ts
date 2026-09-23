@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/require-admin";
 
-// POST ?board=<id> -> { data } for one of the logged-in admin's own
-// boards' Metrics Tracking numbers -- same response contract as
-// /api/tracking/session so public/tracking-app/index.html needs no
-// changes beyond which endpoint it calls (see `urlBoard` there).
-// Ownership goes through `sales_boards` -- metrics_tracking_boards
-// itself only carries a board_id, no owner_id of its own (same join
-// 0023_multi_sales_boards.sql's RLS does).
+// POST ?board=<id> -> { data } for any board any admin has access to
+// (not just the caller's own, see
+// 0025_share_sales_boards_across_admins.sql)'s Metrics Tracking
+// numbers -- same response contract as /api/tracking/session so
+// public/tracking-app/index.html needs no changes beyond which
+// endpoint it calls (see `urlBoard` there). metrics_tracking_boards
+// itself only carries a board_id, so this confirms the board exists
+// via `sales_boards` first.
 
 export async function POST(request: Request) {
   const boardId = new URL(request.url).searchParams.get("board");
@@ -24,7 +25,6 @@ export async function POST(request: Request) {
     .from("sales_boards")
     .select("id")
     .eq("id", boardId)
-    .eq("owner_id", admin.userId)
     .maybeSingle();
   if (!board) return NextResponse.json({ error: "Board not found" }, { status: 404 });
 

@@ -2148,6 +2148,31 @@ in and you'll land on `/dashboard`.
   HTML/Tailwind mockup of `BoardSwitcher`'s populated, add-form, and
   empty states.
 
+  **Fixed a real report after this shipped**: boards were scoped to
+  whichever admin created them (`owner_id = auth.uid()` in both the RLS
+  policy and every route's queries), so a second one-letter-username
+  admin saw a completely empty board list and "+ Add board" even though
+  their account was equally admin. Per explicit direction, boards are
+  now one shared pool — `0025_share_sales_boards_across_admins.sql`
+  drops the `owner_id` half of the RLS check on both `sales_boards` and
+  `metrics_tracking_boards`, leaving only `is_admin(auth.uid())`, and
+  every route under `/api/sales-boards`/`/api/metrics-boards` (list,
+  save, session) had its matching `.eq("owner_id", admin.userId)` query
+  filter dropped to match. `owner_id` itself stays on the table as a
+  record of who originally created each board — it's just no longer
+  part of the access check. Deliberately left untouched:
+  `src/app/dashboard/page.tsx`'s own `owner_id`-filtered query, which
+  feeds the *personal* "Today's Cash Collected" card (each admin's own
+  cash total) — a different feature that wasn't asked about, where
+  summing in every other admin's boards would have silently changed
+  what that number means. This migration (like `0023_multi_sales_boards
+  .sql` before it) needs to be run against Supabase directly; it wasn't
+  possible to verify end-to-end with two real admin accounts from here,
+  so this was verified by code review — confirming every `owner_id`
+  filter that gated *board access* (as opposed to the unrelated cash
+  card) was removed consistently across the RLS policies and all five
+  routes — plus a clean `npm run build`.
+
 - `src/app/dashboard/communications` — the Communications Hub: open
   channels (any user can post, only admins create new ones) plus a private
   1-1 DM per regular user shared across every admin (a support-inbox
