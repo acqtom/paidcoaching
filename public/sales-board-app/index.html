@@ -3373,16 +3373,30 @@
     return `${rounded.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
   }
 
-  function computeWeeklyPace(row) {
+  function enteredDayValuesFor(row) {
     const weekRow = (row && row.weeks && row.weeks[repDailyNumbers.activeWeekId]) || {};
-    const enteredDayValues = REP_NUMBERS_DAYS
+    return REP_NUMBERS_DAYS
       .map(d => weekRow[d.key])
       .filter(v => v !== "" && v != null)
       .map(parseDealSize);
-    const dailyPace = enteredDayValues.length
-      ? enteredDayValues.reduce((a, b) => a + b, 0) / enteredDayValues.length
-      : 0;
-    return dailyPace * 7;
+  }
+
+  // Daily Pace is still the average of whichever days actually have a
+  // value entered (not divided by 7 flat), so it reads as "your average
+  // per active day so far" regardless of how many days you've filled in.
+  function computeDailyPace(row) {
+    const values = enteredDayValuesFor(row);
+    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+  }
+
+  // Weekly Pace is the literal running total of whatever's been entered
+  // this week -- 1 close logged means Weekly Pace reads 1, not an
+  // extrapolated "1 so far, projected to X by Sunday." It used to be
+  // Daily Pace × 7 (an extrapolation), but that read as "7" the moment
+  // a single close was logged on day one, which didn't match "on track
+  // for one that week."
+  function computeWeeklyPace(row) {
+    return enteredDayValuesFor(row).reduce((a, b) => a + b, 0);
   }
 
   // Every rate is (this row's own metric) ÷ (one specific other metric),
@@ -3454,17 +3468,18 @@
     return denominator ? (ownValue / denominator) * 100 : 0;
   }
 
-  // Daily Pace = average of whichever Mon-Sun cells actually have a value
-  // (not divided by 7 flat), so pace reflects real performance so far
-  // rather than being diluted by days that just haven't happened yet.
-  // Weekly Pace = Daily Pace × 7, Monthly Pace = Weekly Pace × 4 -- the
-  // exact formulas worked out from the reference sheet's own numbers.
-  // Weekly Target used to be computed the same way (Monthly Target ÷ 4)
-  // but is a manually-typed field now (see REP_NUMBERS_STATIC_FIELDS).
+  // Daily Pace = average of whichever Mon-Sun cells actually have a
+  // value entered so far. Weekly Pace = the literal running total of
+  // what's entered this week (see computeWeeklyPace above -- 1 close
+  // logged means Weekly Pace reads 1, not a projected "7"). Monthly
+  // Pace = Weekly Pace × 4 (1 this week reads as on track for 4 this
+  // month, 2 reads as 8, and so on). Weekly Target used to be computed
+  // the same way (Monthly Target ÷ 4) but is a manually-typed field now
+  // (see REP_NUMBERS_STATIC_FIELDS).
   function updateRepComputedCells(tr, row, role, repName) {
     const isCurrency = tr.dataset.currency === "1";
+    const dailyPace = computeDailyPace(row);
     const weeklyPace = computeWeeklyPace(row);
-    const dailyPace = weeklyPace / 7;
     const monthlyPace = weeklyPace * 4;
     const monthlyTargetNum = parseDealSize(row.monthlyTarget);
     const metricId = tr.dataset.metric;

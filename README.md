@@ -1852,6 +1852,39 @@ in and you'll land on `/dashboard`.
   the full corrected Setter Scorecard with Dials reading `--` and every
   other rate matching hand-calculated expectations.
 
+  **Weekly Pace and Monthly Pace were also redefined** — Weekly Pace
+  used to extrapolate a full week from however many days had a value
+  (`Daily Pace × 7`), so logging a single close on day one already read
+  "7" for the week, which didn't match the intent: log one close, read
+  "on track for 1 this week, 4 this month"; log two, read "2 this week,
+  8 this month." Weekly Pace is now the literal running total of
+  whatever's entered so far that week (`computeWeeklyPace()` sums
+  `enteredDayValuesFor(row)` instead of averaging it), and Monthly Pace
+  stays `Weekly Pace × 4` unchanged — which alone produces exactly `1
+  → 4` and `2 → 8`. Daily Pace was quietly *derived from* Weekly Pace
+  before this (`weeklyPace / 7`), which would have silently broken once
+  Weekly Pace stopped being a ×7 projection, so Daily Pace was pulled
+  out into its own `computeDailyPace()` (average of entered days,
+  unchanged formula) rather than continuing to piggyback on Weekly
+  Pace's math. `computeWeeklyPace()` is also what Actual %'s rate
+  lookups (`metricWeeklyPaceFor()`) read from, so this redefinition
+  applies there too, for the same reason Target %/Actual % share one
+  denominator table — "Weekly Pace" meaning two different things
+  depending on which column you're looking at would be confusing; for
+  every previously-verified Actual % example (all single-day entries)
+  the ratio comes out identical either way, since the old ×7 canceled
+  out of the division regardless.
+
+  Verified live with Puppeteer: entering a single Closed `1` on Monday
+  read `1`/`1`/`4` for Daily/Weekly/Monthly Pace; adding a second Closed
+  `1` on Tuesday (2 total for the week) read `1`/`2`/`8`; a single
+  `$600` Est commission entry read `$600`/`$2,400` for Weekly/Monthly
+  Pace; and — confirming Weekly Pace is a real sum, not an average —
+  entering `1`/`1`/`3` across Mon/Tues/Wed read Daily Pace `1.7`
+  (the average) alongside Weekly Pace `5` (the sum) and Monthly Pace
+  `20` (`5 × 4`), which would have been impossible under the old
+  Weekly-Pace-as-Daily-Pace-×7 formula.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
