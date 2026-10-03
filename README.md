@@ -1885,6 +1885,17 @@ in and you'll land on `/dashboard`.
   `20` (`5 × 4`), which would have been impossible under the old
   Weekly-Pace-as-Daily-Pace-×7 formula.
 
+  **Metrics Tracking (`public/tracking-app/index.html`) was cleaned up
+  for readability**: the page container no longer caps at 1440px and
+  fills the browser width (`.wrap` has `max-width: none`), and the funnel
+  stage tables use larger type (15px body, 16px metric names, 17px Avg),
+  roomier cell padding, and a wider Metric column (min 280px) so names
+  stay on one line. Entry cells are now visible boxes instead of bare
+  inputs, and the `$`, `%` and `x` affixes plus the `–` placeholder were
+  removed from them. Empty Avg, Trend and stat cells render blank rather
+  than `—`. Verified in a headless browser at 1920px: no horizontal
+  overflow, no remaining dash or affix placeholders.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
