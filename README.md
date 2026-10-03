@@ -1908,6 +1908,14 @@ in and you'll land on `/dashboard`.
   `{"ad_spend":"red"}`-style data; changing it to OKAY updates the
   colour.
 
+  **Trend column removed; the status selector is now the "Priority"
+  column.** The empty sparkline column that sat under the old Trend
+  header is gone, so the URGENT/WATCH/OKAY selector is the only status
+  column, headed "Priority". An unset row shows `-` instead of a blank
+  box. The `.spark` styles were removed with it. Verified in a headless
+  browser: headers read `… Avg, Target, Priority`, and the selector's
+  options are `-`, URGENT, WATCH, OKAY.
+
   **Accounting and Metrics Tracking are now per account.** Both used
   to keep their numbers in each browser's localStorage under one shared
   key, so every account that used the same browser shared one set of

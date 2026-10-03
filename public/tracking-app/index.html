@@ -204,7 +204,6 @@ th.summary-col,td.summary-col{border-left:1px solid var(--rule-2);}
   -webkit-appearance:none;appearance:none;
 }
 .trend-select:focus{outline:2px solid var(--ink);outline-offset:1px;}
-.spark{width:110px;height:32px;vertical-align:middle;}
 
 /* ── Resource modal ── */
 .resource-modal-backdrop{position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;}
@@ -922,7 +921,7 @@ function trendSelect(id,value){
   const opt=TREND_OPTIONS.find(o=>o.v===value);
   const style=opt?` style="background:${opt.hex};color:#fff;border-color:${opt.hex};"`:'';
   return`<select class="trend-select" data-metric="${id}"${style}>
-    <option value=""></option>
+    <option value="">-</option>
     ${TREND_OPTIONS.map(o=>`<option value="${o.v}"${o.v===value?' selected':''}>${o.label}</option>`).join('')}
   </select>`;
 }
@@ -971,10 +970,8 @@ function renderStages(){
       const vals=getVals(c,meta.id);const target=getTarget(c,meta);
       const a=avg(vals);
       const dayCells=dates.map((date,i)=>`<td>${inputCell(vals[i],meta.format,`data-metric="${meta.id}" data-date="${date}"`)}</td>`).join('');
-      const sp=sparkPts(vals);
-      const spk=sp?`<svg class="spark" viewBox="0 0 68 20"><polyline points="${sp}" fill="none" stroke="${stage.raw}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`:'';
       const isFocused=meta.id===focusedMetricId;
-      return`<tr data-metric="${meta.id}"${isFocused?' class="focused-row"':''}><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${inputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td><td>${spk}</td><td class="focus-col"><button class="focus-btn${isFocused?' active':''}" data-metric="${meta.id}" title="Pin as focus metric">★</button></td></tr>`;
+      return`<tr data-metric="${meta.id}"${isFocused?' class="focused-row"':''}><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${inputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td><td class="focus-col"><button class="focus-btn${isFocused?' active':''}" data-metric="${meta.id}" title="Pin as focus metric">★</button></td></tr>`;
     }).join('');
     const onTarget=metas.filter(m=>statusColor(getVals(c,m.id),getTarget(c,m),m.dir)==='good').length;
     div.innerHTML=`
@@ -992,7 +989,7 @@ function renderStages(){
         <table class="metrics"><thead><tr>
           <th style="min-width:280px;">Metric</th>
           ${dates.map(d=>`<th>${weekdayLabel(d)}<br><span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;">${dateLabel(d)}</span></th>`).join('')}
-          <th class="summary-col">Avg</th><th>Target</th><th></th><th>Trend</th><th class="focus-col"></th>
+          <th class="summary-col">Avg</th><th>Target</th><th>Priority</th><th class="focus-col"></th>
         </tr></thead><tbody>${rows}</tbody></table>
       </div>`;
     container.appendChild(div);
