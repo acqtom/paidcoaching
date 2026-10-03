@@ -1896,6 +1896,18 @@ in and you'll land on `/dashboard`.
   than `—`. Verified in a headless browser at 1920px: no horizontal
   overflow, no remaining dash or affix placeholders.
 
+  **Trend is now a manual status per metric.** The old Trend dot was
+  computed automatically from target vs. average; it's now a selector
+  in each row with three states: URGENT (red), WATCH (orange), OKAY
+  (green), or blank. The choice is stored under a reserved `__trend` key
+  inside the client's data (`setTrend()`/`getTrend()`), so it syncs to
+  the account with the metric values and shows the same on every
+  device. The "has any data" check skips `__`-prefixed keys so a trend
+  choice alone doesn't count as entered data. Verified in a headless
+  browser: choosing URGENT turns the selector red and saves
+  `{"ad_spend":"red"}`-style data; changing it to OKAY updates the
+  colour.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

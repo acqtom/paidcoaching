@@ -197,6 +197,13 @@ th.summary-col,td.summary-col{border-left:1px solid var(--rule-2);}
 .avg-cell{font-weight:700;font-size:17px;white-space:nowrap;color:var(--ink);font-variant-numeric:tabular-nums;}
 .target-cell{color:var(--ink-2);font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums;}
 .status-dot{width:11px;height:11px;border-radius:50%;display:inline-block;}
+.trend-select{
+  width:132px;padding:9px 10px;border:1px solid var(--rule-2);border-radius:8px;
+  background:var(--surface-2);color:var(--ink-3);font-family:inherit;font-size:13px;font-weight:700;
+  letter-spacing:.04em;text-align:center;cursor:pointer;outline:none;
+  -webkit-appearance:none;appearance:none;
+}
+.trend-select:focus{outline:2px solid var(--ink);outline-offset:1px;}
 .spark{width:110px;height:32px;vertical-align:middle;}
 
 /* ── Resource modal ── */
@@ -817,7 +824,7 @@ async function saveServerData(){
 function queueServerSave(){clearTimeout(serverSaveTimer);serverSaveTimer=setTimeout(saveServerData,600);}
 
 function hasAnyMetricValues(data){
-  return!!data&&Object.keys(data).some(id=>data[id]&&Object.keys(data[id]).length>0);
+  return!!data&&Object.keys(data).some(id=>!id.startsWith('__')&&data[id]&&Object.keys(data[id]).length>0);
 }
 
 // Re-fetches this account's synced data and re-renders in place -- skipped
@@ -903,6 +910,19 @@ function statusColor(vals,target,dir){const a=avg(vals);if(a===null||target===nu
 function statusHex(s){return s==='good'?'#16A34A':s==='warn'?'#D97706':s==='bad'?'#DC2626':'#B8B8B8';}
 function getTarget(c,meta){if(c.targets&&Object.prototype.hasOwnProperty.call(c.targets,meta.id))return c.targets[meta.id];return meta.target;}
 function setClientTarget(id,raw){const c=currentClient();if(!c.targets)c.targets={};c.targets[id]=raw===''?null:parseFloat(raw);queueSave();}
+// Manual Trend status per metric -- stored under a reserved `__trend` key
+// inside the client's data so it syncs to the account like the values do.
+const TREND_OPTIONS=[{v:'red',label:'URGENT',hex:'#DC2626'},{v:'orange',label:'WATCH',hex:'#D97706'},{v:'green',label:'OKAY',hex:'#16A34A'}];
+function getTrend(c,id){return (c.data&&c.data.__trend&&c.data.__trend[id])||'';}
+function setTrend(id,val){const c=currentClient();if(!c.data)c.data={};if(!c.data.__trend)c.data.__trend={};if(val)c.data.__trend[id]=val;else delete c.data.__trend[id];queueSave();}
+function trendSelect(id,value){
+  const opt=TREND_OPTIONS.find(o=>o.v===value);
+  const style=opt?` style="background:${opt.hex};color:#fff;border-color:${opt.hex};"`:'';
+  return`<select class="trend-select" data-metric="${id}"${style}>
+    <option value=""></option>
+    ${TREND_OPTIONS.map(o=>`<option value="${o.v}"${o.v===value?' selected':''}>${o.label}</option>`).join('')}
+  </select>`;
+}
 
 /* ── Editable number ── */
 function inputCell(value,format,attrs){
@@ -946,12 +966,12 @@ function renderStages(){
     const div=document.createElement('div');div.className='stage';div.style.setProperty('--stage-color',stage.color);
     const rows=metas.map(meta=>{
       const vals=getVals(c,meta.id);const target=getTarget(c,meta);
-      const a=avg(vals);const status=statusColor(vals,target,meta.dir);
+      const a=avg(vals);
       const dayCells=dates.map((date,i)=>`<td>${inputCell(vals[i],meta.format,`data-metric="${meta.id}" data-date="${date}"`)}</td>`).join('');
       const sp=sparkPts(vals);
       const spk=sp?`<svg class="spark" viewBox="0 0 68 20"><polyline points="${sp}" fill="none" stroke="${stage.raw}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`:'';
       const isFocused=meta.id===focusedMetricId;
-      return`<tr data-metric="${meta.id}"${isFocused?' class="focused-row"':''}><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${inputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td><span class="status-dot" style="background:${statusHex(status)}"></span></td><td>${spk}</td><td class="focus-col"><button class="focus-btn${isFocused?' active':''}" data-metric="${meta.id}" title="Pin as focus metric">★</button></td></tr>`;
+      return`<tr data-metric="${meta.id}"${isFocused?' class="focused-row"':''}><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${inputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td><td>${spk}</td><td class="focus-col"><button class="focus-btn${isFocused?' active':''}" data-metric="${meta.id}" title="Pin as focus metric">★</button></td></tr>`;
     }).join('');
     const onTarget=metas.filter(m=>statusColor(getVals(c,m.id),getTarget(c,m),m.dir)==='good').length;
     div.innerHTML=`
@@ -983,6 +1003,9 @@ function renderStages(){
       const el=document.querySelector(`input[data-metric="${aid}"][data-date="${adate}"]`);
       if(el){el.focus();const len=el.value.length;el.setSelectionRange(len,len);}
     };
+  });
+  container.querySelectorAll('.trend-select').forEach(sel=>{
+    sel.onchange=e=>{setTrend(e.target.dataset.metric,e.target.value);renderStages();};
   });
   container.querySelectorAll('.stage-target-input').forEach(inp=>{
     inp.oninput=e=>{
