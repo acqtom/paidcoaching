@@ -205,6 +205,83 @@ export function mergeSalesBoardMetrics(
   return { data, pushedDates: { vsl: [...vslDates], webinar: [...webinarDates] } };
 }
 
+
+// Rep Daily Numbers feed the same tracker rows the deal-based push
+// writes, and win wherever they have a value: for each date and metric,
+// the team's total (summed across every setter/closer on this board or
+// account) replaces whatever the deals produced. A metric is only written
+// for a date when somebody actually entered a number for it that day, so
+// a day with only dials typed never blanks the calls-show number that
+// deals put there. Clearing a rep number does not remove its tracker
+// value; the last value stays until it's entered again.
+const REP_DAY_KEYS = ["mon", "tues", "wed", "thurs", "fri", "sat", "sun"] as const;
+
+type RepTotals = { dials?: number; connections?: number; bookings?: number; callsShown?: number; closed?: number };
+
+function addDaysIso(iso: string, n: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function repNumber(v: unknown): number | null {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function repTotalsByDate(rep: unknown): Record<string, RepTotals> {
+  const out: Record<string, RepTotals> = {};
+  if (!rep || typeof rep !== "object") return out;
+  const r = rep as {
+    weeks?: Array<{ id: string; weekStart: string }>;
+    setters?: Record<string, Record<string, { weeks?: Record<string, Record<string, unknown>> }>>;
+    closers?: Record<string, Record<string, { weeks?: Record<string, Record<string, unknown>> }>>;
+  };
+  const weeks = Array.isArray(r.weeks) ? r.weeks : [];
+  for (const section of [r.setters ?? {}, r.closers ?? {}]) {
+    for (const rep of Object.values(section)) {
+      for (const [metricId, row] of Object.entries(rep ?? {})) {
+        const field = (
+          { dials: "dials", connections: "connections", bookings: "bookings", callsShown: "callsShown", closed: "closed" } as const
+        )[metricId as keyof RepTotals];
+        if (!field || !row?.weeks) continue;
+        for (const week of weeks) {
+          const weekRow = row.weeks[week.id];
+          if (!weekRow) continue;
+          REP_DAY_KEYS.forEach((dayKey, offset) => {
+            const val = repNumber(weekRow[dayKey]);
+            if (val === null) return;
+            const date = addDaysIso(week.weekStart, offset);
+            out[date] = out[date] ?? {};
+            out[date][field] = (out[date][field] ?? 0) + val;
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+export function overlayRepDailyMetrics(data: MetricsTrackingData, rep: unknown): MetricsTrackingData {
+  const byDate = repTotalsByDate(rep);
+  const out: MetricsTrackingData = { ...data };
+  const writable = (key: string) => {
+    out[key] = { ...(out[key] ?? {}) };
+    return out[key];
+  };
+  for (const [date, t] of Object.entries(byDate)) {
+    if (t.dials !== undefined) writable("dials")[date] = t.dials;
+    if (t.callsShown !== undefined) writable("calls_show")[date] = t.callsShown;
+    if (t.closed !== undefined) writable("units")[date] = t.closed;
+    if (t.bookings !== undefined) writable("rep_calls_booked")[date] = t.bookings;
+    if (t.connections !== undefined && t.dials !== undefined) {
+      writable("connection_rate")[date] = t.dials ? (t.connections / t.dials) * 100 : 0;
+    }
+  }
+  return out;
+}
+
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 // Shared by both variants below -- the only difference between the
@@ -215,7 +292,8 @@ async function pushMetrics(
   table: "metrics_tracking_state" | "metrics_tracking_boards",
   keyColumn: "id" | "board_id",
   keyValue: string,
-  deals: unknown
+  deals: unknown,
+  repDailyNumbers: unknown
 ) {
   if (!Array.isArray(deals)) return;
   try {
@@ -229,10 +307,11 @@ async function pushMetrics(
     const existingData = (row?.data as MetricsTrackingData) ?? {};
     const existingDates = (row?.sales_board_dates as SalesBoardPushedDates) ?? { vsl: [], webinar: [] };
     const next = mergeSalesBoardMetrics(existingData, existingDates, deals as Deal[]);
+    const withRep = overlayRepDailyMetrics(next.data, repDailyNumbers);
 
     const { error: writeError } = await supabase.from(table).upsert({
       [keyColumn]: keyValue,
-      data: next.data,
+      data: withRep,
       sales_board_dates: next.pushedDates,
       updated_at: new Date().toISOString(),
     });
@@ -246,14 +325,14 @@ async function pushMetrics(
 // the Sales Board's deals into it, and writes the result back. Never
 // throws -- a metrics-push failure shouldn't fail the sales board save
 // that triggered it, so callers just fire-and-forget this and let it log.
-export async function pushSalesBoardMetrics(supabase: Supabase, userId: string, deals: unknown) {
-  await pushMetrics(supabase, "metrics_tracking_state", "id", userId, deals);
+export async function pushSalesBoardMetrics(supabase: Supabase, userId: string, deals: unknown, repDailyNumbers: unknown) {
+  await pushMetrics(supabase, "metrics_tracking_state", "id", userId, deals, repDailyNumbers);
 }
 
 // Same as above, but for one board in the multi-board system
 // (0023_multi_sales_boards.sql) -- writes into that board's own
 // metrics_tracking_boards row instead of a user-wide one, so running
 // multiple offers at once never mixes their numbers together.
-export async function pushSalesBoardMetricsForBoard(supabase: Supabase, boardId: string, deals: unknown) {
-  await pushMetrics(supabase, "metrics_tracking_boards", "board_id", boardId, deals);
+export async function pushSalesBoardMetricsForBoard(supabase: Supabase, boardId: string, deals: unknown, repDailyNumbers: unknown) {
+  await pushMetrics(supabase, "metrics_tracking_boards", "board_id", boardId, deals, repDailyNumbers);
 }

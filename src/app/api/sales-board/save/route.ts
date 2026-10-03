@@ -49,8 +49,8 @@ export async function POST(request: Request) {
 
     if (error) throw new Error(error.message);
 
-    if (body.deals !== undefined) {
-      await pushSalesBoardMetrics(supabase, user.id, next.deals);
+    if (body.deals !== undefined || body.repDailyNumbers !== undefined) {
+      await pushSalesBoardMetrics(supabase, user.id, next.deals, next.repDailyNumbers);
     }
 
     return NextResponse.json({ ok: true });

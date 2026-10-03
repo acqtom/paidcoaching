@@ -53,8 +53,8 @@ export async function POST(request: Request) {
     .eq("id", boardId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if (body.deals !== undefined) {
-    await pushSalesBoardMetricsForBoard(supabase, boardId, next.deals);
+  if (body.deals !== undefined || body.repDailyNumbers !== undefined) {
+    await pushSalesBoardMetricsForBoard(supabase, boardId, next.deals, next.repDailyNumbers);
   }
 
   return NextResponse.json({ ok: true });

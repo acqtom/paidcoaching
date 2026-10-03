@@ -1935,6 +1935,23 @@ in and you'll land on `/dashboard`.
   account's `metrics_tracking_state` row). Migration `0026` must be run
   in Supabase before the Accounting page will load.
 
+  **Rep Daily Numbers now feed the Metrics Tracker.** Every save of Rep
+  Daily Numbers (or of Sales Board deals) recomputes the tracker row
+  for that account, or for that board when it's an admin's multi-board.
+  `pushMetrics()` merges the deals first, then `overlayRepDailyMetrics()`
+  replaces any date a team total exists for. Mapping: Setter Dials →
+  `dials`; Setter Connections ÷ Dials → `connection_rate` (new, percent,
+  Sales Setting); Setter Bookings / triages → `rep_calls_booked` (new,
+  "Calls Booked", Sales Setting); Closer Calls shown → `calls_show`;
+  Closer Closed → `units` (Sales Units). Totals are summed across every
+  setter or closer on that account's own Rep Daily Numbers. A metric
+  is only written for a date when someone entered a number for it that
+  day, so an untouched metric keeps the deal-based value. Clearing a rep
+  number doesn't clear its tracker value until it's re-entered. Verified
+  by transpiling `metrics-tracking-state.ts` and running the overlay on a
+  sample account (dials `30` overrode a deal value of `99`; connection
+  rate `8/30` gave `26.67`; days with no entry kept their deal values).
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

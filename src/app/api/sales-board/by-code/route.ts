@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ ...(data as object ?? DEFAULT_STATE), accessCode: code });
 }
 
-type SavedState = { deals?: unknown[] };
+type SavedState = { deals?: unknown[]; repDailyNumbers?: unknown };
 
 export async function POST(request: Request) {
   const code = normalizeCode(new URL(request.url).searchParams.get("code"));
@@ -87,10 +87,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid or unknown secret key" }, { status: 404 });
   }
 
-  if (patch.deals !== undefined) {
+  if (patch.deals !== undefined || patch.repDailyNumbers !== undefined) {
     const { data: ownerId } = await supabase.rpc("get_sales_board_owner_id", { p_code: code });
     if (ownerId) {
-      await pushSalesBoardMetrics(supabase, ownerId as string, (data as SavedState).deals);
+      await pushSalesBoardMetrics(supabase, ownerId as string, (data as SavedState).deals, (data as SavedState).repDailyNumbers);
     }
   }
 
