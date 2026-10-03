@@ -10,7 +10,7 @@ import { calcTotals, currentMonthKey, shiftMonthKey } from './lib/calculations';
 import type { CapitalAllocationCategory } from './lib/types';
 
 export default function AccountingApp() {
-  const { data, setData, updateMonth, getMonth } = useAppData();
+  const { data, setData, updateMonth, getMonth, loaded, loadFailed } = useAppData();
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey());
 
   const month = getMonth(selectedMonth);
@@ -29,6 +29,17 @@ export default function AccountingApp() {
   ) => {
     setData((prev) => ({ ...prev, capitalCategories: updater(prev.capitalCategories) }));
   };
+
+  if (loadFailed) {
+    return (
+      <div className="p-8 text-center text-sm text-red-600">
+        Couldn&apos;t load your accounting numbers. Refresh the page to try again.
+      </div>
+    );
+  }
+  if (!loaded) {
+    return <div className="p-8 text-center text-sm text-gray-500">Loading…</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">

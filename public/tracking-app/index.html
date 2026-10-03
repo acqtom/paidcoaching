@@ -746,13 +746,16 @@ function migrateClient(cl){
 function studentUsername(){
   return new URLSearchParams(location.search).get('user')||'you';
 }
-function seedDefaultClient(){
-  // An admin viewing one of their multi-boards (see `urlBoard` below)
-  // gets that board's own name as the label instead of their own
-  // username, since the metrics being viewed belong to the board, not
-  // to them personally.
+// The label always comes from the logged-in username (or the board's
+// name for an admin viewing one of their multi-boards), never from a
+// cached copy -- a cached name is how one account's label ended up on
+// another account that used the same browser.
+function expectedClientName(){
   const boardName=new URLSearchParams(location.search).get('board_name');
-  return{id:'default',name: boardName || ('@'+studentUsername()),data:{}};
+  return boardName || ('@'+studentUsername());
+}
+function seedDefaultClient(){
+  return{id:'default',name:expectedClientName(),data:{}};
 }
 let CLIENTS=[seedDefaultClient()];
 let currentClientId='default', trendMode='week';
@@ -771,7 +774,7 @@ const urlBoard=new URLSearchParams(location.search).get('board');
 // already has data" for every other board too, triggering the
 // unwanted-import prompt below and, if accepted, actually copying that
 // stale value into an unrelated board's own server row.
-const STORE_KEY=urlBoard?`growth-dashboard-v4:board:${urlBoard}`:'growth-dashboard-v4';
+const STORE_KEY=urlBoard?`growth-dashboard-v4:board:${urlBoard}`:`growth-dashboard-v4:user:${studentUsername()}`;
 let saveTimer=null;
 function queueSave(){
   clearTimeout(saveTimer);
@@ -878,7 +881,7 @@ function loadStored(){
     const raw=localStorage.getItem(STORE_KEY);
     if(raw){
       const p=JSON.parse(raw);
-      if(p.CLIENTS&&p.CLIENTS.length){CLIENTS=p.CLIENTS.map(migrateClient);currentClientId=p.currentClientId||CLIENTS[0].id;}
+      if(p.CLIENTS&&p.CLIENTS.length){CLIENTS=p.CLIENTS.map(migrateClient);currentClientId=p.currentClientId||CLIENTS[0].id;CLIENTS[0].name=expectedClientName();}
       // One-time migration: browsers that saved data under the old
       // hardcoded "EDUCATR" default (before clients were renamed to the
       // person's own @username) get renamed automatically here.

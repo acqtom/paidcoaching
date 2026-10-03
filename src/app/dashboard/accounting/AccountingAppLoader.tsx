@@ -2,10 +2,9 @@
 
 import dynamic from 'next/dynamic';
 
-// This app's state is entirely localStorage-based (see lib/storage.ts),
-// which doesn't exist during server rendering -- loading it client-only
-// avoids a hydration mismatch between the server's empty render and the
-// client's real stored data.
+// This app's state is fetched per account from the server (see lib/storage.ts)
+// once the page is in the browser, so it's rendered client-only to avoid a
+// hydration mismatch between the server's empty render and the loaded data.
 const AccountingApp = dynamic(() => import('./AccountingApp'), { ssr: false });
 
 export default function AccountingAppLoader() {

@@ -1908,6 +1908,25 @@ in and you'll land on `/dashboard`.
   `{"ad_spend":"red"}`-style data; changing it to OKAY updates the
   colour.
 
+  **Accounting and Metrics Tracking are now per account.** Both used
+  to keep their numbers in each browser's localStorage under one shared
+  key, so every account that used the same browser shared one set of
+  numbers, and the Metrics label was restored from the cached copy
+  (`@t` showed on an unrelated account). Accounting now stores one JSON
+  blob per account in `accounting_state`
+  (`0026_accounting_state.sql`, private to `auth.uid() = id`), loaded
+  through `/api/accounting/session` and saved through
+  `/api/accounting/save`. New accounts have no row, so they start at
+  zero. `useAppData()` holds saves back until the load succeeds, so an
+  unloaded state can't overwrite saved numbers. Metrics Tracking's local
+  cache is keyed by username (`growth-dashboard-v4:user:<name>`), and the
+  client label is always taken from the logged-in username (or the
+  board's name), never from the cache. Synced metric values were already
+  per account. Regular accounts' Sales Team Board numbers already push
+  into their own Metrics row (`/api/sales-board/save` writes to that
+  account's `metrics_tracking_state` row). Migration `0026` must be run
+  in Supabase before the Accounting page will load.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

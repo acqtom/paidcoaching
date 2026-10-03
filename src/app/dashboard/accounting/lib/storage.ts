@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppData, CapitalAllocationCategory, MonthData } from './types';
-
-const STORAGE_KEY = 'accounting-hub-data-v1';
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -39,7 +37,7 @@ export function createDefaultMonth(key: string, previousMonth?: MonthData | null
   };
 }
 
-// Reconciles a month loaded from localStorage against the current MonthData
+// Reconciles a month loaded from the server against the current MonthData
 // shape. Handles both older saved months missing fields added since they
 // were written, and the pre-simplification shape (per-client revenue,
 // CMO pay/equity, bonuses, a nested expenses.software list) from before
@@ -89,28 +87,57 @@ function normalizeCapitalCategories(raw: unknown): CapitalAllocationCategory[] {
   }));
 }
 
-function loadData(): AppData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const months: Record<string, MonthData> = {};
-      for (const [key, month] of Object.entries((parsed.months ?? {}) as Record<string, Record<string, unknown>>)) {
-        months[key] = normalizeMonth(key, month);
-      }
-      return { months, capitalCategories: normalizeCapitalCategories(parsed.capitalCategories) };
-    }
-  } catch {
-    // ignore corrupt storage
+function parseAppData(parsed: Record<string, unknown>): AppData {
+  const months: Record<string, MonthData> = {};
+  for (const [key, month] of Object.entries((parsed.months ?? {}) as Record<string, Record<string, unknown>>)) {
+    months[key] = normalizeMonth(key, month);
   }
+  return { months, capitalCategories: normalizeCapitalCategories(parsed.capitalCategories) };
+}
+
+function emptyAppData(): AppData {
   return { months: {}, capitalCategories: DEFAULT_CAPITAL_CATEGORIES.map((c) => ({ ...c })) };
 }
 
+// Loads this account's numbers from the server (see
+// 0026_accounting_state.sql) and saves every change back. Saves are held
+// back until the load has succeeded, so an unloaded empty state can never
+// overwrite real saved numbers.
 export function useAppData() {
-  const [data, setData] = useState<AppData>(loadData);
+  const [data, setData] = useState<AppData>(emptyAppData);
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const loadedRef = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    let cancelled = false;
+    fetch('/api/accounting/session', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('load failed'))))
+      .then((res: { data?: Record<string, unknown> }) => {
+        if (cancelled) return;
+        setData(parseAppData(res.data ?? {}));
+        loadedRef.current = true;
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      fetch('/api/accounting/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data }),
+      }).catch(() => {});
+    }, 400);
   }, [data]);
 
   const updateMonth = useCallback((key: string, updater: (m: MonthData) => MonthData) => {
@@ -125,7 +152,7 @@ export function useAppData() {
     [data.months],
   );
 
-  return { data, setData, updateMonth, getMonth };
+  return { data, setData, updateMonth, getMonth, loaded, loadFailed };
 }
 
 export { uid };
