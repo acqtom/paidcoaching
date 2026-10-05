@@ -501,6 +501,29 @@
   .rep-numbers-table .rep-numbers-computed {
     color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; padding-right: 16px;
   }
+  .obj-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .obj-form { border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; margin-bottom: 22px; background: var(--surface-1); }
+  .obj-form[hidden], .obj-new-only[hidden] { display: none; }
+  .obj-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .obj-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .obj-field input, .obj-field select {
+    font-family: inherit; font-size: 15px; color: var(--text-primary); padding: 10px 12px;
+    border: 1px solid var(--pill-border); border-radius: 8px; background: #fff; min-width: 0;
+  }
+  .obj-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .obj-save, .obj-cancel { font-family: inherit; font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+  .obj-save { background: var(--black); color: #fff; border: none; }
+  .obj-cancel { background: none; color: var(--text-secondary); border: 1px solid var(--pill-border); }
+  .obj-chart {
+    display: flex; align-items: flex-end; gap: 14px; height: 380px; padding: 8px 4px 0;
+    border-bottom: 2px solid var(--card-border); overflow-x: auto;
+  }
+  .obj-chart-empty { color: var(--muted); font-size: 15px; align-self: center; margin: auto; }
+  .obj-col { flex: 1 1 0; min-width: 110px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+  .obj-count { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+  .obj-bar { width: 100%; max-width: 110px; background: var(--badge-fg); border-radius: 8px 8px 0 0; min-height: 0; transition: height .2s; }
+  .obj-label { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--text-primary); text-align: center; line-height: 1.3; padding-bottom: 12px; }
+  .obj-calls-recording { color: var(--badge-fg); font-weight: 600; }
   .rep-numbers-day-header { display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .rep-numbers-day-month { font-size: 9px; color: var(--muted); font-weight: 600; }
   .rep-numbers-day-name { font-size: 12px; font-weight: 700; color: var(--text-primary); }
@@ -584,6 +607,7 @@
   <div id="app-shell">
 
   <nav class="view-switcher">
+    <button class="view-tab" data-view="objections">Objection Overview</button>
     <button class="view-tab active" data-view="dashboard">Dashboard</button>
     <button class="view-tab" data-view="pcf">Post Call Form</button>
     <button class="view-tab" data-view="data">Data</button>
@@ -983,6 +1007,51 @@
           <table class="huddle-table" id="huddle-close-soon-table"></table>
         </div>
         <button type="button" class="sop-add-btn" id="huddle-close-soon-add-row">+ Add Row</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= OBJECTION OVERVIEW ================= -->
+  <div class="view" id="view-objections">
+    <h2 class="section-title">Objection Overview</h2>
+    <p class="page-desc">Every objection logged on a call, and how often each one comes up.</p>
+
+    <div class="card">
+      <div class="card-header obj-card-header">
+        <h2>Objections by volume</h2>
+        <button type="button" class="sop-add-btn" id="obj-open-form">+ Log an objection</button>
+      </div>
+      <div class="card-body">
+        <form class="obj-form" id="obj-form" hidden>
+          <div class="obj-form-grid">
+            <label class="obj-field"><span>Name</span>
+              <input type="text" id="obj-name" placeholder="Prospect name" required></label>
+            <label class="obj-field"><span>Call recording</span>
+              <input type="url" id="obj-recording" placeholder="https://…" pattern="https?://.*" title="Paste a link starting with https://"></label>
+            <label class="obj-field"><span>Call date</span>
+              <input type="date" id="obj-date" required></label>
+            <label class="obj-field"><span>Objection</span>
+              <select id="obj-objection" required></select></label>
+            <label class="obj-field obj-new-only" hidden><span>New objection</span>
+              <input type="text" id="obj-new-label" placeholder="Describe the objection"></label>
+          </div>
+          <div class="obj-form-actions">
+            <button type="button" class="obj-cancel" id="obj-cancel">Cancel</button>
+            <button type="submit" class="obj-save">Save call</button>
+          </div>
+        </form>
+        <div class="obj-chart" id="obj-chart"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Logged calls</h2>
+      </div>
+      <div class="card-body">
+        <div class="huddle-table-wrap">
+          <table class="huddle-table" id="obj-calls-table"></table>
+        </div>
       </div>
     </div>
   </div>
@@ -1804,6 +1873,7 @@
       if (btn.dataset.view === "data") renderDataTable();
       if (btn.dataset.view === "huddles") renderHuddles();
       if (btn.dataset.view === "rep-numbers") renderRepDailyNumbers();
+      if (btn.dataset.view === "objections") renderObjections();
     });
   });
 
@@ -2281,6 +2351,10 @@
     if (!repDailyNumbersSavePending) {
       repDailyNumbers = normalizeRepDailyNumbers(data.repDailyNumbers);
     }
+    // Same guard, same reason, for the Objection Overview.
+    if (!objectionsSavePending) {
+      objections = normalizeObjections(data.objections);
+    }
     if (data.accessCode) accessCode = data.accessCode;
   }
 
@@ -2361,6 +2435,7 @@
     renderOnboarding();
     renderHuddles();
     renderRepDailyNumbers();
+    renderObjections();
   }
 
   // Re-fetches this account's data from the server and re-renders in place —
@@ -2381,6 +2456,7 @@
       renderOnboarding(true);
       renderHuddles(true);
       renderRepDailyNumbers(true);
+      renderObjections();
     } catch (e) {
       console.error("Poll for updates failed:", e);
       // Only surface this to the user if we've never successfully loaded --
@@ -2970,6 +3046,184 @@
       repDailyNumbersSavePending = false;
     }
   }
+
+  // ---------------------------------------------------------------------
+  // Objection Overview -- the objection types (one bar each) and every
+  // logged objection call. Shape: { list: [{id,label}], calls:
+  // [{id,name,recording,date,objectionId}] }. Stored per account, like
+  // every other worksheet on this board.
+  // ---------------------------------------------------------------------
+  function objEsc(v) {
+    return String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  }
+
+  function normalizeObjections(raw) {
+    const list = raw && Array.isArray(raw.list)
+      ? raw.list.filter(o => o && typeof o.label === "string").map(o => ({ id: o.id || makeId(), label: o.label }))
+      : [];
+    const calls = raw && Array.isArray(raw.calls)
+      ? raw.calls.filter(c => c && typeof c === "object").map(c => ({
+          id: c.id || makeId(),
+          name: typeof c.name === "string" ? c.name : "",
+          recording: typeof c.recording === "string" ? c.recording : "",
+          date: typeof c.date === "string" ? c.date : "",
+          objectionId: typeof c.objectionId === "string" ? c.objectionId : "",
+        }))
+      : [];
+    return { list, calls };
+  }
+
+  let objections = normalizeObjections(null);
+  let objectionsSaveTimer = null;
+  // Same guard as repDailyNumbersSavePending -- see loadUserData() above.
+  let objectionsSavePending = false;
+  function queueSaveObjections() {
+    objectionsSavePending = true;
+    clearTimeout(objectionsSaveTimer);
+    objectionsSaveTimer = setTimeout(saveObjections, 600);
+  }
+  async function saveObjections() {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      objectionsSavePending = false;
+      return false;
+    }
+    try {
+      await apiPost(savePath(), { objections });
+      clearSyncError();
+      return true;
+    } catch (e) {
+      console.error("Failed to save objections to server:", e);
+      showSyncError("Couldn't save your last change. Check your connection — it will retry automatically, but refresh to be safe.");
+      return false;
+    } finally {
+      objectionsSavePending = false;
+    }
+  }
+
+  function renderObjectionChart() {
+    const chart = document.getElementById("obj-chart");
+    if (!objections.list.length) {
+      chart.innerHTML = `<div class="obj-chart-empty">No objections yet. Log one to start the chart.</div>`;
+      return;
+    }
+    const counts = new Map(objections.list.map(o => [o.id, 0]));
+    objections.calls.forEach(c => {
+      if (counts.has(c.objectionId)) counts.set(c.objectionId, counts.get(c.objectionId) + 1);
+    });
+    // Most common on the left; ties keep the order they were added in.
+    const sorted = objections.list
+      .map((o, i) => ({ ...o, count: counts.get(o.id), order: i }))
+      .sort((a, b) => b.count - a.count || a.order - b.order);
+    const max = Math.max(1, ...sorted.map(o => o.count));
+    const BAR_MAX_PX = 230;
+    chart.innerHTML = sorted.map(o => `
+      <div class="obj-col">
+        <div class="obj-count">${o.count}</div>
+        <div class="obj-bar" style="height:${Math.round((o.count / max) * BAR_MAX_PX)}px"></div>
+        <div class="obj-label">${objEsc(o.label)}</div>
+      </div>`).join("");
+  }
+
+  // The dropdown only rebuilds when the list of objection types actually
+  // changes, so a poll never swaps out what's selected mid-form.
+  function renderObjectionSelect() {
+    const sel = document.getElementById("obj-objection");
+    const signature = objections.list.map(o => o.id + ":" + o.label).join("|");
+    if (sel.dataset.signature === signature) return;
+    const current = sel.value;
+    sel.innerHTML = `<option value="" disabled selected>Choose an objection…</option>`
+      + objections.list.map(o => `<option value="${objEsc(o.id)}">${objEsc(o.label)}</option>`).join("")
+      + `<option value="__new">+ New objection…</option>`;
+    sel.dataset.signature = signature;
+    if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
+  }
+
+  function renderObjectionCalls() {
+    const table = document.getElementById("obj-calls-table");
+    if (!objections.calls.length) {
+      table.innerHTML = `<tbody><tr><td class="huddle-table-empty">No calls logged yet.</td></tr></tbody>`;
+      return;
+    }
+    const labelOf = id => (objections.list.find(o => o.id === id) || {}).label || "";
+    const rows = [...objections.calls]
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+      .map(c => `
+        <tr>
+          <td>${objEsc(c.date)}</td>
+          <td>${objEsc(c.name)}</td>
+          <td>${objEsc(labelOf(c.objectionId))}</td>
+          <td>${/^https?:\/\//i.test(c.recording) ? `<a class="obj-calls-recording" href="${objEsc(c.recording)}" target="_blank" rel="noopener">Recording</a>` : ""}</td>
+          <td><button type="button" class="row-delete" data-call-id="${objEsc(c.id)}" title="Remove this call">×</button></td>
+        </tr>`).join("");
+    table.innerHTML = `<thead><tr><th>Date</th><th>Name</th><th>Objection</th><th>Recording</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+    table.querySelectorAll("[data-call-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        objections.calls = objections.calls.filter(c => c.id !== btn.dataset.callId);
+        renderObjections();
+        queueSaveObjections();
+      });
+    });
+  }
+
+  function renderObjections() {
+    renderObjectionSelect();
+    renderObjectionChart();
+    renderObjectionCalls();
+  }
+
+  const objForm = document.getElementById("obj-form");
+  const objSelect = document.getElementById("obj-objection");
+  const objNewWrap = objForm.querySelector(".obj-new-only");
+  const objNewInput = document.getElementById("obj-new-label");
+
+  function closeObjForm() {
+    objForm.reset();
+    objForm.hidden = true;
+    objNewWrap.hidden = true;
+  }
+
+  document.getElementById("obj-open-form").addEventListener("click", () => {
+    objForm.hidden = false;
+    document.getElementById("obj-date").value = todayLocalISO();
+    document.getElementById("obj-name").focus();
+  });
+  document.getElementById("obj-cancel").addEventListener("click", closeObjForm);
+  objSelect.addEventListener("change", () => {
+    const isNew = objSelect.value === "__new";
+    objNewWrap.hidden = !isNew;
+    if (isNew) objNewInput.focus();
+  });
+
+  objForm.addEventListener("submit", e => {
+    e.preventDefault();
+    let objectionId = objSelect.value;
+    if (objectionId === "__new") {
+      const label = objNewInput.value.trim();
+      if (!label) {
+        objNewInput.focus();
+        return;
+      }
+      const existing = objections.list.find(o => o.label.toLowerCase() === label.toLowerCase());
+      if (existing) {
+        objectionId = existing.id;
+      } else {
+        const created = { id: makeId(), label };
+        objections.list.push(created);
+        objectionId = created.id;
+      }
+    }
+    objections.calls.push({
+      id: makeId(),
+      name: document.getElementById("obj-name").value.trim(),
+      recording: document.getElementById("obj-recording").value.trim(),
+      date: document.getElementById("obj-date").value,
+      objectionId,
+    });
+    closeObjForm();
+    renderObjections();
+    queueSaveObjections();
+  });
 
   function renderAccountability(preserveFocused) {
     const container = document.getElementById("huddle-accountability");

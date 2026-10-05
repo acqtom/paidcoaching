@@ -31,6 +31,7 @@ export async function POST() {
       onboarding: data.onboarding ?? null,
       huddles: data.huddles ?? null,
       repDailyNumbers: data.repDailyNumbers ?? null,
+      objections: data.objections ?? null,
       accessCode: row.access_code,
     });
   } catch (e) {

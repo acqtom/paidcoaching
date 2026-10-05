@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       huddles: body.huddles !== undefined ? body.huddles : (existing.huddles ?? null),
       repDailyNumbers:
         body.repDailyNumbers !== undefined ? body.repDailyNumbers : (existing.repDailyNumbers ?? null),
+      objections: body.objections !== undefined ? body.objections : (existing.objections ?? null),
     };
 
     const { error } = await supabase

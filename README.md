@@ -1952,6 +1952,22 @@ in and you'll land on `/dashboard`.
   sample account (dials `30` overrode a deal value of `99`; connection
   rate `8/30` gave `26.67`; days with no entry kept their deal values).
 
+  **Objection Overview (new first page on the Sales Team Board).** A
+  bar chart of every objection logged on a call, most common on the
+  left. The "+ Log an objection" form takes Name, Call recording (an
+  https link, validated by the input's `pattern`), Call date, and the
+  Objection. The objection dropdown lists every type already logged;
+  choosing "+ New objection…" adds a new type, which appears as a bar
+  straight away (zero until a call uses it). Data is stored as a new
+  top-level `objections` key (`{ list, calls }`) wired through the eight
+  touch points like every other worksheet, so it's per account (or per
+  board for admin multi-boards) and needs no SQL. Recording links are
+  only rendered as clickable when they start with `http(s)://`. Verified
+  in a headless browser: logging a new objection, reusing one from the
+  dropdown, and adding a second type gave bars ordered 3 then 1 with the
+  correct counts, and all four calls and both types saved to the
+  payload. Date display was not checked visually.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,

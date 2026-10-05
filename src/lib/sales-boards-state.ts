@@ -10,6 +10,7 @@ export const DEFAULT_BOARD_DATA: SalesBoardData = {
   onboarding: null,
   huddles: null,
   repDailyNumbers: null,
+  objections: null,
 };
 
 const UNIQUE_VIOLATION = "23505";

@@ -21,6 +21,9 @@ export type SalesBoardData = {
   // Rep Daily Numbers page (setter/closer scorecards) -- same "opaque,
   // client owns the shape" treatment as onboarding/huddles above.
   repDailyNumbers?: unknown;
+  // Objection Overview (objection types + logged objection calls) -- same
+  // opaque treatment as the other worksheets above.
+  objections?: unknown;
 };
 
 export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
@@ -31,6 +34,7 @@ export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
   onboarding: null,
   huddles: null,
   repDailyNumbers: null,
+  objections: null,
 };
 
 const UNIQUE_VIOLATION = "23505";
