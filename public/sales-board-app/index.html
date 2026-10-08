@@ -314,6 +314,44 @@
     flex: none; border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
   }
 
+  /* ── Kudos / Shoutouts (addable rows, same card family as Sales Process Check) ── */
+  .huddle-kudos-list, .huddle-shoutout-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .huddle-kudos-item, .huddle-shoutout-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+    border: 1px solid var(--pill-border); border-radius: 10px; background: #fff; flex-wrap: wrap;
+  }
+  .huddle-kudos-item select.directory-input, .huddle-shoutout-item select.directory-input { flex: none; width: 160px; }
+  .huddle-kudos-item input.directory-input, .huddle-shoutout-item input.directory-input { flex: 1; min-width: 160px; }
+  .huddle-shoutout-label { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .huddle-kudos-item .row-delete, .huddle-shoutout-item .row-delete {
+    flex: none; border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
+  }
+
+  /* ── Constraint Check: today's focus toggle rows ── */
+  .huddle-focus-label { display: block; margin: 18px 0 10px; }
+  .huddle-focus-list { display: flex; flex-direction: column; gap: 6px; }
+  .huddle-focus-row {
+    display: flex; align-items: center; gap: 14px; padding: 10px 12px;
+    border: 1px solid var(--pill-border); border-radius: 10px; background: #fff; transition: background .12s, border-color .12s;
+  }
+  .huddle-focus-row.active { background: var(--surface-1, #f7f7f8); border-color: var(--badge-fg); }
+  .huddle-focus-day { flex: none; width: 90px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .huddle-focus-name { flex: 1; font-size: 13px; color: var(--text-primary); }
+  .huddle-switch { position: relative; display: inline-block; flex: none; width: 40px; height: 22px; cursor: pointer; }
+  .huddle-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .huddle-switch-track { position: absolute; inset: 0; background: var(--pill-border); border-radius: 999px; transition: background .15s; }
+  .huddle-switch-track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    background: #fff; border-radius: 50%; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+  .huddle-switch input:checked + .huddle-switch-track { background: var(--black); }
+  .huddle-switch input:checked + .huddle-switch-track::after { transform: translateX(18px); }
+
+  /* ── Today's Call Focus summary ── */
+  .huddle-call-focus { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .huddle-call-focus li { font-size: 14px; font-weight: 600; color: var(--text-primary); padding: 12px 14px; background: var(--surface-1, #f7f7f8); border-radius: 10px; }
+  .huddle-call-focus li.huddle-call-focus-pending { color: var(--muted); font-weight: 400; }
+
   .key-row + .key-row { margin-top: 18px; }
   .key-row-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
   .key-row-value { display: flex; align-items: center; gap: 8px; }
@@ -960,21 +998,52 @@
 
     <div class="card">
       <div class="card-header">
-        <h2>Setter Bottleneck Spot-Check (5 min)</h2>
-        <p>ONE rep, ONE bottleneck. Don't fix everyone.</p>
+        <h2>Kudos Check - Manager</h2>
+        <p>Call out one thing each rep is doing well.</p>
       </div>
       <div class="card-body">
-        <div class="directory-list" id="huddle-setter-bottleneck"></div>
+        <div class="huddle-kudos-list" id="huddle-kudos-list"></div>
+        <button type="button" class="sop-add-btn" id="huddle-kudos-add">+ Add Kudos</button>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">
-        <h2>Closer Bottleneck Spot-Check (5 min)</h2>
-        <p>ONE rep, ONE bottleneck. Don't fix everyone.</p>
+        <h2>Shoutouts</h2>
+        <p>Who's recognizing who today, and why.</p>
       </div>
       <div class="card-body">
-        <div class="directory-list" id="huddle-closer-bottleneck"></div>
+        <div class="huddle-shoutout-list" id="huddle-shoutout-list"></div>
+        <button type="button" class="sop-add-btn" id="huddle-shoutout-add">+ Add Shoutout</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Constraint Check</h2>
+        <p>Pick today's lagging number, what the team will do about it, and today's call focus.</p>
+      </div>
+      <div class="card-body">
+        <div class="directory-row">
+          <span class="directory-label">Lagging metric</span>
+          <select class="directory-input" id="huddle-constraint-metric"></select>
+        </div>
+        <div class="directory-row">
+          <span class="directory-label">What to fix</span>
+          <input type="text" class="directory-input" id="huddle-constraint-fix" placeholder="The one thing the team will do about it">
+        </div>
+        <span class="directory-label huddle-focus-label">Today's focus</span>
+        <div class="huddle-focus-list" id="huddle-focus-list"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Today's Call Focus</h2>
+        <p>Set automatically from the Constraint Check above.</p>
+      </div>
+      <div class="card-body">
+        <ul class="huddle-call-focus" id="huddle-call-focus"></ul>
       </div>
     </div>
 
@@ -2697,22 +2766,38 @@
   // 10d. DAILY HUDDLES — a fixed daily worksheet, not a per-day history:
   //      Post-Call Form Accountability (rep roster is *derived* from
   //      CLOSERS/SETTERS live, not stored, so it always matches Add Team),
-  //      a Setter and a Closer bottleneck spot-check, and a Pipeline Check
-  //      table. The team clears/edits it themselves day to day -- same
-  //      "just a persistent document" model as Onboarding, not an
-  //      automatic-reset system (which would need its own timezone
-  //      handling, the exact class of bug already fixed once this session
-  //      for Today's Cash Collected and the Sales Board's cache key).
+  //      Kudos/Shoutouts, a Constraint Check, and a Pipeline Check table.
+  //      The team clears/edits it themselves day to day -- same "just a
+  //      persistent document" model as Onboarding, not an automatic-reset
+  //      system (which would need its own timezone handling, the exact
+  //      class of bug already fixed once this session for Today's Cash
+  //      Collected and the Sales Board's cache key).
   // ---------------------------------------------------------------------
-  const BOTTLENECK_FIELDS = [
-    { key: "repInFocus", label: "Rep in focus today", type: "select" },
-    { key: "weakNumber", label: "What's the weak number?", type: "text" },
-    { key: "diagnostic", label: "Diagnostic — why is it weak?", type: "text" },
-    { key: "action", label: "Action to take today", type: "text" },
+  // Sales metric options for the Constraint Check dropdown -- the Sales
+  // Setting and BOFU Closing stage labels from the Metrics Tracker's own
+  // METRIC_META (public/tracking-app/index.html), not the TOFU ad/
+  // awareness metrics, since those are marketing's numbers, not the
+  // sales team's. Kept as a flat list here rather than fetched live --
+  // this is a different app/page with no shared data access, and the
+  // list changes rarely enough that duplicating it is simpler than
+  // wiring a cross-app read.
+  const SALES_METRIC_OPTIONS = [
+    "Dials", "Calls On Calendar", "Calls Show", "Show Up Rate", "Connection Rate", "Calls Booked",
+    "DQ Rate", "Close Rate", "Cash / Live Call", "AOV", "Sales Units", "Depos", "Cash Collected", "Revenue Generated",
   ];
 
-  // Not tied to one rep like the bottleneck spot-checks above -- a
-  // general debrief on yesterday's prospects/lead quality. Most fields
+  // The fixed 5-day call-structure reference -- always all 5, never
+  // addable/removable, only one "on" at a time to mark today's focus.
+  const DAILY_FOCUS_ITEMS = [
+    { key: "mon", day: "Monday", focus: "Intro + Hot Topic" },
+    { key: "tue", day: "Tuesday", focus: "Disco" },
+    { key: "wed", day: "Wednesday", focus: "Obj Prevention + Urgency Check" },
+    { key: "thu", day: "Thursday", focus: "Pitch + Temp Check + Price Drop" },
+    { key: "fri", day: "Friday", focus: "Close + Obj Handling" },
+  ];
+
+  // Not tied to one rep -- a general debrief on yesterday's
+  // prospects/lead quality. Most fields
   // are open-ended notes, so they're textareas rather than one-liners.
   // The Sales Process Check below (a free-form, addable checklist) is a
   // separate, per-entry list rather than one of these fixed fields --
@@ -2737,10 +2822,34 @@
   ];
   const PIPELINE_DEFAULT_ROWS = 10;
 
-  function normalizeBottleneck(raw) {
-    const out = {};
-    BOTTLENECK_FIELDS.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
-    return out;
+  function allReps() {
+    return [...new Set([...CLOSERS, ...SETTERS])];
+  }
+
+  function normalizeKudosItem(raw) {
+    return {
+      id: (raw && raw.id) || makeId(),
+      repName: raw && typeof raw.repName === "string" ? raw.repName : "",
+      note: raw && typeof raw.note === "string" ? raw.note : "",
+    };
+  }
+
+  function normalizeShoutoutItem(raw) {
+    return {
+      id: (raw && raw.id) || makeId(),
+      fromRep: raw && typeof raw.fromRep === "string" ? raw.fromRep : "",
+      toRep: raw && typeof raw.toRep === "string" ? raw.toRep : "",
+      note: raw && typeof raw.note === "string" ? raw.note : "",
+    };
+  }
+
+  function normalizeConstraintCheck(raw) {
+    const validKeys = DAILY_FOCUS_ITEMS.map(i => i.key);
+    return {
+      metric: raw && typeof raw.metric === "string" ? raw.metric : "",
+      fix: raw && typeof raw.fix === "string" ? raw.fix : "",
+      focusDay: raw && validKeys.includes(raw.focusDay) ? raw.focusDay : "",
+    };
   }
 
   // Local calendar day, not the server's UTC clock -- same fix as
@@ -2983,8 +3092,9 @@
       meetingTimezone: raw && typeof raw.meetingTimezone === "string" ? raw.meetingTimezone : "",
       accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
       marketingCheck: normalizeMarketingCheck(raw && raw.marketingCheck),
-      setterBottleneck: normalizeBottleneck(raw && raw.setterBottleneck),
-      closerBottleneck: normalizeBottleneck(raw && raw.closerBottleneck),
+      kudos: raw && Array.isArray(raw.kudos) ? raw.kudos.map(normalizeKudosItem) : [],
+      shoutouts: raw && Array.isArray(raw.shoutouts) ? raw.shoutouts.map(normalizeShoutoutItem) : [],
+      constraintCheck: normalizeConstraintCheck(raw && raw.constraintCheck),
       pipeline,
       closeSoon,
     };
@@ -3263,35 +3373,205 @@
     });
   }
 
-  function renderBottleneck(key, containerId, repList, preserveFocused) {
-    const container = document.getElementById(containerId);
-    const data = huddles[key];
-    if (!container.dataset.built) {
-      container.innerHTML = BOTTLENECK_FIELDS.map(f => `
-        <div class="directory-row">
-          <span class="directory-label">${f.label}</span>
-          ${f.type === "select"
-            ? `<select class="directory-input" data-key="${f.key}"></select>`
-            : `<input type="text" class="directory-input" data-key="${f.key}">`}
-        </div>
-      `).join("");
-      container.querySelectorAll("[data-key]").forEach(el => {
-        el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
-          huddles[key][el.dataset.key] = el.value;
+  // Kudos and Shoutouts are addable rows (idempotent-build-by-row-id,
+  // same pattern as Close Soon) rather than Bottleneck's old one-fixed-
+  // instance shape -- a team recognizes more than one person a day. The
+  // select options are repopulated every render since the roster itself
+  // can change at any time, guarded by preserveFocused like every other
+  // live-typed field on this board.
+  function buildKudosRowHtml(row) {
+    return `<div class="huddle-kudos-item" data-row-id="${row.id}">
+      <select class="directory-input" data-key="repName"></select>
+      <input type="text" class="directory-input" data-key="note" placeholder="What they're doing well…">
+      <button type="button" class="row-delete" data-remove="${row.id}" title="Remove">&times;</button>
+    </div>`;
+  }
+  function wireKudosRow(el) {
+    const rowId = el.dataset.rowId;
+    el.querySelector("[data-remove]").addEventListener("click", () => {
+      huddles.kudos = huddles.kudos.filter(r => r.id !== rowId);
+      renderKudos();
+      queueSaveHuddles();
+    });
+    el.querySelector('select[data-key="repName"]').addEventListener("change", e => {
+      const row = huddles.kudos.find(r => r.id === rowId);
+      if (row) row.repName = e.target.value;
+      queueSaveHuddles();
+    });
+    el.querySelector('input[data-key="note"]').addEventListener("input", e => {
+      const row = huddles.kudos.find(r => r.id === rowId);
+      if (row) row.note = e.target.value;
+      queueSaveHuddles();
+    });
+  }
+  function renderKudos(preserveFocused) {
+    const list = document.getElementById("huddle-kudos-list");
+    if (!huddles.kudos.length) {
+      list.innerHTML = `<p class="huddle-sales-process-empty">No kudos logged yet.</p>`;
+      delete list.dataset.signature;
+      return;
+    }
+    const signature = huddles.kudos.map(r => r.id).join("|");
+    if (list.dataset.signature !== signature) {
+      list.innerHTML = huddles.kudos.map(buildKudosRowHtml).join("");
+      list.querySelectorAll("[data-row-id]").forEach(wireKudosRow);
+      list.dataset.signature = signature;
+    }
+    const reps = allReps();
+    huddles.kudos.forEach(row => {
+      const el = list.querySelector(`[data-row-id="${row.id}"]`);
+      if (!el) return;
+      const select = el.querySelector('select[data-key="repName"]');
+      if (!preserveFocused || document.activeElement !== select) populateNameSelect(select, reps, row.repName);
+      const input = el.querySelector('input[data-key="note"]');
+      if (!preserveFocused || document.activeElement !== input) input.value = row.note || "";
+    });
+  }
+  document.getElementById("huddle-kudos-add").addEventListener("click", () => {
+    huddles.kudos.push(normalizeKudosItem(null));
+    renderKudos();
+    queueSaveHuddles();
+  });
+
+  function buildShoutoutRowHtml(row) {
+    return `<div class="huddle-shoutout-item" data-row-id="${row.id}">
+      <select class="directory-input" data-key="fromRep"></select>
+      <span class="huddle-shoutout-label">shouts out</span>
+      <select class="directory-input" data-key="toRep"></select>
+      <input type="text" class="directory-input" data-key="note" placeholder="What they're doing really well…">
+      <button type="button" class="row-delete" data-remove="${row.id}" title="Remove">&times;</button>
+    </div>`;
+  }
+  function wireShoutoutRow(el) {
+    const rowId = el.dataset.rowId;
+    el.querySelector("[data-remove]").addEventListener("click", () => {
+      huddles.shoutouts = huddles.shoutouts.filter(r => r.id !== rowId);
+      renderShoutouts();
+      queueSaveHuddles();
+    });
+    ["fromRep", "toRep"].forEach(key => {
+      el.querySelector(`select[data-key="${key}"]`).addEventListener("change", e => {
+        const row = huddles.shoutouts.find(r => r.id === rowId);
+        if (row) row[key] = e.target.value;
+        queueSaveHuddles();
+      });
+    });
+    el.querySelector('input[data-key="note"]').addEventListener("input", e => {
+      const row = huddles.shoutouts.find(r => r.id === rowId);
+      if (row) row.note = e.target.value;
+      queueSaveHuddles();
+    });
+  }
+  function renderShoutouts(preserveFocused) {
+    const list = document.getElementById("huddle-shoutout-list");
+    if (!huddles.shoutouts.length) {
+      list.innerHTML = `<p class="huddle-sales-process-empty">No shoutouts logged yet.</p>`;
+      delete list.dataset.signature;
+      return;
+    }
+    const signature = huddles.shoutouts.map(r => r.id).join("|");
+    if (list.dataset.signature !== signature) {
+      list.innerHTML = huddles.shoutouts.map(buildShoutoutRowHtml).join("");
+      list.querySelectorAll("[data-row-id]").forEach(wireShoutoutRow);
+      list.dataset.signature = signature;
+    }
+    const reps = allReps();
+    huddles.shoutouts.forEach(row => {
+      const el = list.querySelector(`[data-row-id="${row.id}"]`);
+      if (!el) return;
+      ["fromRep", "toRep"].forEach(key => {
+        const select = el.querySelector(`select[data-key="${key}"]`);
+        if (!preserveFocused || document.activeElement !== select) populateNameSelect(select, reps, row[key]);
+      });
+      const input = el.querySelector('input[data-key="note"]');
+      if (!preserveFocused || document.activeElement !== input) input.value = row.note || "";
+    });
+  }
+  document.getElementById("huddle-shoutout-add").addEventListener("click", () => {
+    huddles.shoutouts.push(normalizeShoutoutItem(null));
+    renderShoutouts();
+    queueSaveHuddles();
+  });
+
+  // The 5 day/focus rows are fixed and never rebuilt once built -- only
+  // their active state changes, driven entirely by constraintCheck.focusDay.
+  // Checking one box unchecks the rest on the very next sync pass below,
+  // so only one can ever be "on" without any extra mutual-exclusion code.
+  function renderFocusList() {
+    const list = document.getElementById("huddle-focus-list");
+    if (!list.dataset.built) {
+      list.innerHTML = DAILY_FOCUS_ITEMS.map(item => `
+        <div class="huddle-focus-row" data-focus-key="${item.key}">
+          <span class="huddle-focus-day">${item.day}</span>
+          <span class="huddle-focus-name">${item.focus}</span>
+          <label class="huddle-switch">
+            <input type="checkbox" data-focus-key="${item.key}">
+            <span class="huddle-switch-track"></span>
+          </label>
+        </div>`).join("");
+      list.querySelectorAll("input[type=checkbox]").forEach(cb => {
+        cb.addEventListener("change", () => {
+          huddles.constraintCheck.focusDay = cb.checked ? cb.dataset.focusKey : "";
+          renderFocusList();
+          renderCallFocus();
           queueSaveHuddles();
         });
       });
-      container.dataset.built = "1";
+      list.dataset.built = "1";
     }
-    const select = container.querySelector('select[data-key="repInFocus"]');
-    if (select && (!preserveFocused || document.activeElement !== select)) {
-      populateNameSelect(select, repList, data.repInFocus);
-    }
-    container.querySelectorAll("input[data-key]").forEach(input => {
-      if (!preserveFocused || document.activeElement !== input) {
-        input.value = data[input.dataset.key] || "";
-      }
+    const activeKey = huddles.constraintCheck.focusDay;
+    list.querySelectorAll(".huddle-focus-row").forEach(row => {
+      const isActive = row.dataset.focusKey === activeKey;
+      row.classList.toggle("active", isActive);
+      row.querySelector("input[type=checkbox]").checked = isActive;
     });
+  }
+
+  // Entirely derived from constraintCheck -- nothing is typed here, it
+  // just reads back whichever day is toggled on and whichever metric is
+  // selected above.
+  function renderCallFocus() {
+    const el = document.getElementById("huddle-call-focus");
+    const c = huddles.constraintCheck;
+    const focusItem = DAILY_FOCUS_ITEMS.find(i => i.key === c.focusDay);
+    el.innerHTML = [
+      focusItem
+        ? `<li>20 mins focus on ${escapeHtml(focusItem.focus)}</li>`
+        : `<li class="huddle-call-focus-pending">20 mins focus on daily focus — pick today's day above</li>`,
+      c.metric
+        ? `<li>20 mins focus on ${escapeHtml(c.metric)}</li>`
+        : `<li class="huddle-call-focus-pending">20 mins focus on constraint — pick a lagging metric above</li>`,
+      `<li>10 mins: Pipeline Check</li>`,
+    ].join("");
+  }
+
+  function renderConstraintCheck(preserveFocused) {
+    const c = huddles.constraintCheck;
+    const metricSel = document.getElementById("huddle-constraint-metric");
+    if (!metricSel.dataset.built) {
+      metricSel.innerHTML = `<option value="">Select a lagging metric…</option>`
+        + SALES_METRIC_OPTIONS.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+      metricSel.addEventListener("change", e => {
+        huddles.constraintCheck.metric = e.target.value;
+        renderCallFocus();
+        queueSaveHuddles();
+      });
+      metricSel.dataset.built = "1";
+    }
+    if (!preserveFocused || document.activeElement !== metricSel) metricSel.value = c.metric || "";
+
+    const fixInput = document.getElementById("huddle-constraint-fix");
+    if (!fixInput.dataset.built) {
+      fixInput.addEventListener("input", e => {
+        huddles.constraintCheck.fix = e.target.value;
+        queueSaveHuddles();
+      });
+      fixInput.dataset.built = "1";
+    }
+    if (!preserveFocused || document.activeElement !== fixInput) fixInput.value = c.fix || "";
+
+    renderFocusList();
+    renderCallFocus();
   }
 
   function activeMarketingEntry() {
@@ -4169,8 +4449,9 @@
     renderAccountability(preserveFocused);
     renderMarketingTabs();
     renderMarketingCheck(preserveFocused);
-    renderBottleneck("setterBottleneck", "huddle-setter-bottleneck", SETTERS, preserveFocused);
-    renderBottleneck("closerBottleneck", "huddle-closer-bottleneck", CLOSERS, preserveFocused);
+    renderKudos(preserveFocused);
+    renderShoutouts(preserveFocused);
+    renderConstraintCheck(preserveFocused);
     renderPipeline(preserveFocused);
     renderCloseSoon(preserveFocused);
   }

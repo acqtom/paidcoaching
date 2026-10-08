@@ -1968,6 +1968,43 @@ in and you'll land on `/dashboard`.
   correct counts, and all four calls and both types saved to the
   payload. Date display was not checked visually.
 
+  **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
+  (the old single-instance "rep in focus / weak number / diagnostic /
+  action" worksheet, one per role) is gone, replaced by four new cards
+  between Marketing Check and Pipeline Check — **Kudos Check - Manager**
+  and **Shoutouts** are addable row lists (idempotent-build-by-row-id,
+  same pattern as Close Soon) rather than Bottleneck's old fixed shape,
+  since a team recognizes more than one person a day: Kudos is a rep
+  select + a "what they're doing well" note; Shoutouts is a from-rep
+  select, a static "shouts out" label, a to-rep select, and a note.
+  Both selects repopulate from `allReps()` (`[...new Set([...CLOSERS,
+  ...SETTERS])]`) on every render, guarded by `preserveFocused` like
+  every other live-typed field here. **Constraint Check** is a single
+  fixed worksheet: a dropdown of `SALES_METRIC_OPTIONS` (the Metrics
+  Tracker's Sales Setting/BOFU Closing labels, duplicated here as a flat
+  list since the two apps share no data access), a "what to fix" text
+  field, and a fixed 5-row `DAILY_FOCUS_ITEMS` reference (Monday/Intro +
+  Hot Topic through Friday/Close + Obj Handling) with a day/focus/switch
+  column order and a toggle switch per row — checking one unchecks the
+  rest on the next sync pass (`renderFocusList()` re-derives every row's
+  checked state from the single `constraintCheck.focusDay`), so only one
+  day is ever "on" without any dedicated mutual-exclusion code. **Today's
+  Call Focus** is a read-only card entirely derived from Constraint
+  Check, re-rendered on every change: "20 mins focus on `<today's
+  toggled-on focus>`", "20 mins focus on `<the selected lagging
+  metric>`", and a fixed "10 mins: Pipeline Check" line, with a muted
+  placeholder line for whichever of the first two hasn't been set yet.
+  Verified live with Puppeteer: confirmed the full card order reads
+  Daily Team Meeting → Post-Call Form Accountability → Marketing Check →
+  Kudos Check - Manager → Shoutouts → Constraint Check → Today's Call
+  Focus → Pipeline Check → Students Due to Close Soon; added a kudos row
+  and a shoutout row and confirmed both saved correctly; picked "Close
+  Rate" and typed a fix; toggled Thursday on (focus line updated to
+  "Pitch + Temp Check + Price Drop"), then toggled Monday on and
+  confirmed Thursday's switch turned itself off and the focus line
+  updated to "Intro + Hot Topic" — plus a full-page screenshot confirming
+  the new cards read cleanly in their new positions.
+
   Saved as a new `huddles` key alongside `onboarding` — same generic
   jsonb merge, no SQL needed — through its own parallel
   `queueSaveHuddles()`/`saveHuddles()`/`huddlesSavePending` trio,
