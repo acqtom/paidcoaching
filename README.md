@@ -1952,6 +1952,26 @@ in and you'll land on `/dashboard`.
   sample account (dials `30` overrode a deal value of `99`; connection
   rate `8/30` gave `26.67`; days with no entry kept their deal values).
 
+  **Sales Setting metrics reordered**: Dials, Connection Rate, Calls
+  Booked, Calls On Calendar, Calls Show, Show Up Rate — just reordering
+  the `METRIC_META` array entries for that stage, since `renderStages()`
+  reads them with a plain `.filter()` that preserves array order.
+  Verified live: the stage's rendered metric names read in that exact
+  order.
+
+  **Target inputs show their metric's unit again.** The earlier
+  "remove all placeholder dashes/affixes" cleanup stripped the $/%/x
+  labels from every input cell, Target included, so every target looked
+  like a bare, ambiguous number regardless of whether it was a percent,
+  a dollar amount, or a plain count. A new `targetInputCell()` (used only
+  for the Target column; day-entry cells still use the plain,
+  affix-free `inputCell()`) adds a static `$`/`%`/`x`/`÷5` label next to
+  the input based on the metric's own `format` — the label is cosmetic,
+  not part of the typed value, so you still just type the number.
+  Verified live: Dials' target shows no affix, Show Up Rate's shows `%`,
+  AOV's shows `$`, ROAS' shows `x`, and typing `75` into a target still
+  saves and redisplays as `75`.
+
   **Objection Overview (new first page on the Sales Team Board).** A
   bar chart of every objection logged on a call, most common on the
   left. The "+ Log an objection" form takes Name, Call recording (an

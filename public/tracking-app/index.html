@@ -147,6 +147,7 @@ select.ctrl{
   font-variant-numeric:tabular-nums;outline:none;
 }
 .input-cell input::placeholder{color:var(--ink-3);}
+.input-cell .affix{flex:none;font-size:14px;color:var(--ink-3);font-variant-numeric:tabular-nums;}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 input[type=number]{-moz-appearance:textfield;appearance:textfield;}
@@ -934,6 +935,23 @@ function inputCell(value,format,attrs){
   return`<div class="input-cell"><input type="text" inputmode="decimal" ${attrs} value="${val}"></div>`;
 }
 
+// Targets keep whichever unit the metric itself is measured in -- a
+// plain number for most metrics, but a visible $/%/x/÷5 label for
+// currency/percent/multiple/rating ones, so e.g. a Show Up Rate target
+// reads as a percentage and an AOV target reads as a dollar amount
+// rather than a bare, ambiguous number. The label is just a static
+// span next to the input, not part of its typed value -- you still
+// just type the number (`80`, `7000`), same as every other cell.
+function targetInputCell(value,format,attrs){
+  const val=(value===null||value===undefined)?'':value;
+  const prefix=format==='currency'?'<span class="affix">$</span>':'';
+  const suffix=format==='percent'?'<span class="affix">%</span>'
+    :format==='multiple'?'<span class="affix">x</span>'
+    :format==='rating'?'<span class="affix">/5</span>'
+    :'';
+  return`<div class="input-cell">${prefix}<input type="text" inputmode="decimal" ${attrs} value="${val}">${suffix}</div>`;
+}
+
 /* ── Client label ── */
 // Single implicit client per logged-in person -- no add/rename/delete UI,
 // just a static label showing who this data belongs to.
@@ -973,7 +991,7 @@ function renderStages(){
       const a=avg(vals);
       const dayCells=dates.map((date,i)=>`<td>${inputCell(vals[i],meta.format,`data-metric="${meta.id}" data-date="${date}"`)}</td>`).join('');
       const isFocused=meta.id===focusedMetricId;
-      return`<tr data-metric="${meta.id}"${isFocused?' class="focused-row"':''}><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${inputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td><td class="focus-col"><button class="focus-btn${isFocused?' active':''}" data-metric="${meta.id}" title="Pin as focus metric">★</button></td></tr>`;
+      return`<tr data-metric="${meta.id}"${isFocused?' class="focused-row"':''}><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${targetInputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td><td class="focus-col"><button class="focus-btn${isFocused?' active':''}" data-metric="${meta.id}" title="Pin as focus metric">★</button></td></tr>`;
     }).join('');
     const onTarget=metas.filter(m=>statusColor(getVals(c,m.id),getTarget(c,m),m.dir)==='good').length;
     div.innerHTML=`
