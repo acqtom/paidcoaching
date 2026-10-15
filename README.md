@@ -1972,6 +1972,30 @@ in and you'll land on `/dashboard`.
   AOV's shows `$`, ROAS' shows `x`, and typing `75` into a target still
   saves and redisplays as `75`.
 
+  **New logo across every page.** `public/logo.png` (the old black "PC"
+  monogram) was replaced with a wide icon+wordmark lockup ("Paidcoaching
+  .com" in a blue-to-dark-blue play-button mark). Since every surface
+  that shows a logo — `src/components/Logo.tsx` (the Next.js app's
+  header, ~20 pages) and the three standalone static apps (Sales Board,
+  Metrics Tracker, Daily Kill List) — already pointed at this one file,
+  replacing it updated all of them at once; the only other work was
+  fixing their sizing. Each previously constrained the image to a fixed
+  26-28px *square* with `object-fit: contain`, which fit the old
+  roughly-square mark but would have squeezed the new ~4.2:1 wide
+  lockup down to a sliver a few pixels tall. Every `width`/`height`
+  pair (or Next `<Image>` props) was changed to a fixed height with
+  `width: auto` instead, so the new logo displays at its correct aspect
+  ratio everywhere. The new image already has the wordmark baked into
+  it, so the separate `<span>`/`.brand-name` "paidcoaching.com" text
+  that used to sit next to the old icon-only mark was removed from all
+  four places — otherwise the name would have shown twice. The favicon
+  (`src/app/icon.png`) was left untouched: it needs a square icon-only
+  version of the new mark, which wasn't provided. Verified live in a
+  headless browser against the built app: the logo renders at the
+  correct ~4.2:1 aspect ratio with no distortion and no duplicate text
+  on all three static apps and on `/login` (representative of every
+  page using the shared `Logo` component).
+
   **Objection Overview (new first page on the Sales Team Board).** A
   bar chart of every objection logged on a call, most common on the
   left. The "+ Log an objection" form takes Name, Call recording (an
