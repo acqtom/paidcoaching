@@ -10,9 +10,9 @@ export function Logo() {
       <Image
         src="/logo.png"
         alt="Paidcoaching.com"
-        width={135}
-        height={32}
-        className="h-8 w-auto"
+        width={169}
+        height={40}
+        className="h-10 w-auto"
         priority
       />
     </Link>

@@ -2069,6 +2069,36 @@ in and you'll land on `/dashboard`.
   screenshot confirming the renamed tab, the chart, and the colored
   Setting/Closing buttons all read cleanly together.
 
+  **Setting/Closing relabeled to Dial Overview/Call Overview** — the
+  table column headers, each row's two buttons, and the two modals'
+  titles all changed from "Setting"/"Closing" to "Dial Overview"/"Call
+  Overview". Purely a label change: the underlying `call.setting`/
+  `call.closing` data, ids, CSS classes, and `data-setting-call`/
+  `data-closing-call` attributes are untouched, so nothing about how
+  the feature stores or wires up data changed, only what it's called
+  on screen. Verified live: table headers, row button text, and both
+  modal titles all read "Dial Overview"/"Call Overview".
+
+  **Logo made transparent and sized up app-wide.** `public/logo.png`
+  had an opaque white background (every corner pixel was `(255,255,255,
+  255)`, not actually transparent despite being an RGBA PNG) — baked in
+  when it was first exported, not something any of the HTML/CSS here
+  controlled. Rebuilt with Pillow: every pixel's alpha is now scaled by
+  its distance from pure white (a short linear ramp between two
+  thresholds, not a hard cutout), so the white background drops to full
+  transparency while the icon and wordmark stay solid, with a soft
+  anti-aliased edge rather than a jagged cutout. Confirmed via
+  `im.getpixel()` that all four corners are now alpha `0` while the
+  icon/text pixels stay alpha `255`. All four places it's displayed
+  (`src/components/Logo.tsx`'s Next `<Image>`, plus the fixed-height
+  `<img>` rule in each of the three static apps) went from 30–32px tall
+  to a consistent 40px, width still `auto` so the ~4.2:1 aspect ratio
+  holds. Verified live in a headless browser against the real app: the
+  Next.js header and the Sales Board's own header both measure exactly
+  40px tall, and a screenshot of the Sales Board header against its
+  actual (light) background confirms the logo reads cleanly with no
+  white box around it.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards

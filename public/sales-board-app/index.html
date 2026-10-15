@@ -70,7 +70,7 @@
   /* --- header --- */
   .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand-mark-img { height: 32px; width: auto; object-fit: contain; flex: none; }
+  .brand-mark-img { height: 40px; width: auto; object-fit: contain; flex: none; }
   .brand-context { text-align: right; }
   .context-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
   .context-title { font-size: 20px; font-weight: 700; margin-top: 2px; }
@@ -1264,7 +1264,7 @@
   <div class="modal card form-card">
     <div class="card-header">
       <div>
-        <h2>Setting Notes</h2>
+        <h2>Dial Overview</h2>
         <p id="obj-setting-modal-name"></p>
       </div>
       <button type="button" class="modal-close" id="obj-setting-modal-close" aria-label="Close">&times;</button>
@@ -1310,7 +1310,7 @@
   <div class="modal card form-card">
     <div class="card-header">
       <div>
-        <h2>Closing Notes</h2>
+        <h2>Call Overview</h2>
         <p id="obj-closing-modal-name"></p>
       </div>
       <button type="button" class="modal-close" id="obj-closing-modal-close" aria-label="Close">&times;</button>
@@ -3461,12 +3461,12 @@
           <td>${objEsc(c.name)}</td>
           <td>${objEsc(labelOf(c.objectionId))}</td>
           <td>${/^https?:\/\//i.test(c.recording) ? `<a class="obj-calls-recording" href="${objEsc(c.recording)}" target="_blank" rel="noopener">Recording</a>` : ""}</td>
-          <td><button type="button" class="obj-stage-btn${settingFilled ? " obj-stage-filled" : ""}" data-setting-call="${objEsc(c.id)}">Setting</button></td>
-          <td><button type="button" class="obj-stage-btn${closingClass}" data-closing-call="${objEsc(c.id)}">Closing</button></td>
+          <td><button type="button" class="obj-stage-btn${settingFilled ? " obj-stage-filled" : ""}" data-setting-call="${objEsc(c.id)}">Dial Overview</button></td>
+          <td><button type="button" class="obj-stage-btn${closingClass}" data-closing-call="${objEsc(c.id)}">Call Overview</button></td>
           <td><button type="button" class="row-delete" data-remove-call="${objEsc(c.id)}" title="Remove this call">×</button></td>
         </tr>`;
       }).join("");
-    table.innerHTML = `<thead><tr><th>Date</th><th>Name</th><th>Objection</th><th>Recording</th><th>Setting</th><th>Closing</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+    table.innerHTML = `<thead><tr><th>Date</th><th>Name</th><th>Objection</th><th>Recording</th><th>Dial Overview</th><th>Call Overview</th><th></th></tr></thead><tbody>${rows}</tbody>`;
     table.querySelectorAll("[data-remove-call]").forEach(btn => {
       btn.addEventListener("click", () => {
         objections.calls = objections.calls.filter(c => c.id !== btn.dataset.removeCall);
