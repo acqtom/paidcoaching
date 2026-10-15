@@ -253,6 +253,8 @@
   .outcome-rescheduled { background: #fbf0cf; color: #9c7a10; }
   .outcome-remainder { background: #f8cddc; color: #b52464; }
   .outcome-secondcc { background: #ead9fb; color: #7a3fc4; }
+  .outcome-won { background: #dcf5e1; color: var(--good); }
+  .outcome-lost { background: #fbe0df; color: var(--red); }
   .form-error { display: block; font-size: 12px; color: var(--red); font-weight: 600; margin-top: 10px; }
   .form-error[hidden] { display: none; }
   .form-rest { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--card-border); }
@@ -561,6 +563,14 @@
   .obj-bar { width: 100%; max-width: 110px; background: var(--badge-fg); border-radius: 8px 8px 0 0; min-height: 0; transition: height .2s; }
   .obj-label { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--text-primary); text-align: center; line-height: 1.3; padding-bottom: 12px; }
   .obj-calls-recording { color: var(--badge-fg); font-weight: 600; }
+  .obj-stage-btn {
+    border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
+    border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .obj-stage-btn:hover { background: var(--surface-1); }
+  .obj-stage-btn.obj-stage-filled { border-color: var(--badge-fg); color: var(--badge-fg); background: var(--badge-bg); }
+  .obj-stage-btn.obj-stage-won { border-color: var(--good); color: #fff; background: var(--good); }
+  .obj-stage-btn.obj-stage-lost { border-color: var(--red); color: #fff; background: var(--red); }
   .rep-numbers-day-header { display: flex; flex-direction: column; align-items: center; gap: 1px; }
   .rep-numbers-day-month { font-size: 9px; color: var(--muted); font-weight: 600; }
   .rep-numbers-day-name { font-size: 12px; font-weight: 700; color: var(--text-primary); }
@@ -644,7 +654,7 @@
   <div id="app-shell">
 
   <nav class="view-switcher">
-    <button class="view-tab" data-view="objections">Objection Overview</button>
+    <button class="view-tab" data-view="objections">Scaling Tracking</button>
     <button class="view-tab active" data-view="dashboard">Dashboard</button>
     <button class="view-tab" data-view="pcf">Post Call Form</button>
     <button class="view-tab" data-view="data">Data</button>
@@ -1080,8 +1090,8 @@
 
   <!-- ================= OBJECTION OVERVIEW ================= -->
   <div class="view" id="view-objections">
-    <h2 class="section-title">Objection Overview</h2>
-    <p class="page-desc">Every objection logged on a call, and how often each one comes up.</p>
+    <h2 class="section-title">Scaling Tracking</h2>
+    <p class="page-desc">Log every call, track objections, and capture what happened in setting and closing.</p>
 
     <div class="card">
       <div class="card-header obj-card-header">
@@ -1243,6 +1253,113 @@
           <button type="submit" class="btn-primary">Save Changes</button>
           <button type="button" class="btn-secondary" id="edit-cancel-btn">Cancel</button>
           <span class="form-status" id="edit-status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SCALING TRACKING: SETTING / CLOSING MODALS ================= -->
+<div class="modal-overlay" id="obj-setting-modal-overlay" hidden>
+  <div class="modal card form-card">
+    <div class="card-header">
+      <div>
+        <h2>Setting Notes</h2>
+        <p id="obj-setting-modal-name"></p>
+      </div>
+      <button type="button" class="modal-close" id="obj-setting-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="card-body">
+      <form id="obj-setting-form">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Age guess</span>
+            <input type="text" id="obj-setting-ageGuess">
+          </label>
+          <label class="form-field">
+            <span>Occupation</span>
+            <input type="text" id="obj-setting-occupation">
+          </label>
+          <label class="form-field">
+            <span>Excited about the opportunity (1–10)</span>
+            <input type="number" min="1" max="10" id="obj-setting-excitement">
+          </label>
+        </div>
+        <label class="form-field form-notes">
+          <span>Current situation (in market / what is their experience)</span>
+          <textarea rows="3" id="obj-setting-situation"></textarea>
+        </label>
+        <label class="form-field form-notes">
+          <span>Problems</span>
+          <textarea rows="3" id="obj-setting-problems"></textarea>
+        </label>
+        <label class="form-field form-notes">
+          <span>Why are they looking to get started now?</span>
+          <textarea rows="3" id="obj-setting-whyNow"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" class="btn-secondary" id="obj-setting-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="obj-closing-modal-overlay" hidden>
+  <div class="modal card form-card">
+    <div class="card-header">
+      <div>
+        <h2>Closing Notes</h2>
+        <p id="obj-closing-modal-name"></p>
+      </div>
+      <button type="button" class="modal-close" id="obj-closing-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="card-body">
+      <form id="obj-closing-form">
+        <div class="outcome-picker">
+          <span class="outcome-picker-label">Won / Lost</span>
+          <div class="outcome-buttons" id="obj-closing-outcome-buttons">
+            <button type="button" class="outcome-btn outcome-won" data-outcome="won">Won</button>
+            <button type="button" class="outcome-btn outcome-lost" data-outcome="lost">Lost</button>
+          </div>
+          <input type="hidden" id="obj-closing-outcome-value">
+        </div>
+        <label class="form-field">
+          <span>Call recording (closing call)</span>
+          <input type="url" id="obj-closing-recording" placeholder="https://…" pattern="https?://.*" title="Paste a link starting with https://">
+        </label>
+        <label class="form-field">
+          <span>Objections (also counted on the chart above)</span>
+          <select id="obj-closing-objectionsNote"></select>
+        </label>
+        <label class="form-field obj-new-only" hidden id="obj-closing-objectionsNote-new-wrap">
+          <span>New objection</span>
+          <input type="text" id="obj-closing-objectionsNote-new" placeholder="Describe the objection">
+        </label>
+        <label class="form-field">
+          <span>Why they didn't move forward (also counted on the chart above)</span>
+          <select id="obj-closing-whyNotMoveForward"></select>
+        </label>
+        <label class="form-field obj-new-only" hidden id="obj-closing-whyNotMoveForward-new-wrap">
+          <span>New objection</span>
+          <input type="text" id="obj-closing-whyNotMoveForward-new" placeholder="Describe the objection">
+        </label>
+        <label class="form-field form-notes">
+          <span>Why they did move forward</span>
+          <textarea rows="3" id="obj-closing-whyMoveForward"></textarea>
+        </label>
+        <label class="form-field form-notes">
+          <span>What made them excited (aha moments)</span>
+          <textarea rows="3" id="obj-closing-excitedAbout"></textarea>
+        </label>
+        <label class="form-field form-notes">
+          <span>What turned them off (if anything)</span>
+          <textarea rows="3" id="obj-closing-turnOff"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" class="btn-secondary" id="obj-closing-cancel">Cancel</button>
         </div>
       </form>
     </div>
@@ -3165,6 +3282,41 @@
     return String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   }
 
+  // Setting/Closing are two different parts of the sales process for the
+  // *same* logged call -- a rep dials in deeper on what happened in each
+  // half via its own modal, opened from a button on that call's row.
+  const OBJ_SETTING_FIELDS = [
+    { key: "ageGuess", label: "Age guess" },
+    { key: "situation", label: "Current situation (in market / what is their experience)", textarea: true },
+    { key: "problems", label: "Problems", textarea: true },
+    { key: "occupation", label: "Occupation" },
+    { key: "whyNow", label: "Why are they looking to get started now?", textarea: true },
+    { key: "excitement", label: "Excited about the opportunity (1–10)" },
+  ];
+  // Objections and Why They Didn't Move Forward are both pulled from --
+  // and can both add to -- the same objection-type list the chart above
+  // counts, since a reason surfaced during closing is still an objection
+  // worth tracking volume on, same as one picked when the call was logged.
+  const OBJ_CLOSING_FIELDS = [
+    { key: "recording", label: "Call recording (closing call)" },
+    { key: "objectionsNote", label: "Objections", objectionPick: true },
+    { key: "whyNotMoveForward", label: "Why they didn't move forward", objectionPick: true },
+    { key: "whyMoveForward", label: "Why they did move forward", textarea: true },
+    { key: "excitedAbout", label: "What made them excited (aha moments)", textarea: true },
+    { key: "turnOff", label: "What turned them off (if anything)", textarea: true },
+  ];
+
+  function normalizeObjCallDetail(raw, fields) {
+    const out = {};
+    fields.forEach(f => { out[f.key] = raw && typeof raw[f.key] === "string" ? raw[f.key] : ""; });
+    return out;
+  }
+  function normalizeObjClosing(raw) {
+    const out = normalizeObjCallDetail(raw, OBJ_CLOSING_FIELDS);
+    out.outcome = raw && (raw.outcome === "won" || raw.outcome === "lost") ? raw.outcome : "";
+    return out;
+  }
+
   function normalizeObjections(raw) {
     const list = raw && Array.isArray(raw.list)
       ? raw.list.filter(o => o && typeof o.label === "string").map(o => ({ id: o.id || makeId(), label: o.label }))
@@ -3176,6 +3328,8 @@
           recording: typeof c.recording === "string" ? c.recording : "",
           date: typeof c.date === "string" ? c.date : "",
           objectionId: typeof c.objectionId === "string" ? c.objectionId : "",
+          setting: normalizeObjCallDetail(c.setting, OBJ_SETTING_FIELDS),
+          closing: normalizeObjClosing(c.closing),
         }))
       : [];
     return { list, calls };
@@ -3215,9 +3369,16 @@
       chart.innerHTML = `<div class="obj-chart-empty">No objections yet. Log one to start the chart.</div>`;
       return;
     }
+    // Tallies every objection pick on a call, not just the one made when
+    // it was first logged -- Closing's own "Objections" and "Why they
+    // didn't move forward" pickers count here too, so a call can add up
+    // to 3 tallies total (once per field that has a pick set).
     const counts = new Map(objections.list.map(o => [o.id, 0]));
+    const tally = id => { if (counts.has(id)) counts.set(id, counts.get(id) + 1); };
     objections.calls.forEach(c => {
-      if (counts.has(c.objectionId)) counts.set(c.objectionId, counts.get(c.objectionId) + 1);
+      tally(c.objectionId);
+      tally(c.closing.objectionsNote);
+      tally(c.closing.whyNotMoveForward);
     });
     // Most common on the left; ties keep the order they were added in.
     const sorted = objections.list
@@ -3233,6 +3394,32 @@
       </div>`).join("");
   }
 
+  // Shared by every objection-type picker on this page (the main log
+  // form's, plus Closing's two) -- same options, same "+ New
+  // objection…" escape hatch to grow the list from any of them.
+  function objectionOptionsHtml() {
+    return `<option value="" disabled selected>Choose an objection…</option>`
+      + objections.list.map(o => `<option value="${objEsc(o.id)}">${objEsc(o.label)}</option>`).join("")
+      + `<option value="__new">+ New objection…</option>`;
+  }
+
+  // Resolves a picker's current selection to an objection id, creating a
+  // new list entry if "+ New objection…" was chosen and typed into
+  // `newInputEl` -- returns "" for "nothing picked" (a valid, optional
+  // choice), a real id, or `undefined` if "+ New…" was chosen but left
+  // blank (the caller should stop and focus newInputEl in that case).
+  function resolveObjectionPick(selectEl, newInputEl) {
+    let id = selectEl.value;
+    if (id !== "__new") return id;
+    const label = newInputEl.value.trim();
+    if (!label) return undefined;
+    const existing = objections.list.find(o => o.label.toLowerCase() === label.toLowerCase());
+    if (existing) return existing.id;
+    const created = { id: makeId(), label };
+    objections.list.push(created);
+    return created.id;
+  }
+
   // The dropdown only rebuilds when the list of objection types actually
   // changes, so a poll never swaps out what's selected mid-form.
   function renderObjectionSelect() {
@@ -3240,13 +3427,19 @@
     const signature = objections.list.map(o => o.id + ":" + o.label).join("|");
     if (sel.dataset.signature === signature) return;
     const current = sel.value;
-    sel.innerHTML = `<option value="" disabled selected>Choose an objection…</option>`
-      + objections.list.map(o => `<option value="${objEsc(o.id)}">${objEsc(o.label)}</option>`).join("")
-      + `<option value="__new">+ New objection…</option>`;
+    sel.innerHTML = objectionOptionsHtml();
     sel.dataset.signature = signature;
     if (current && [...sel.options].some(o => o.value === current)) sel.value = current;
   }
 
+  // Setting and Closing are the same logged call, just two different
+  // halves of the sales process -- "filled" once any of that half's
+  // fields has something in it, and Closing additionally goes green/red
+  // the moment a Won/Lost outcome is picked, regardless of whether the
+  // rest of its fields are filled in yet.
+  function objHasDetail(detail, fields) {
+    return fields.some(f => detail[f.key]);
+  }
   function renderObjectionCalls() {
     const table = document.getElementById("obj-calls-table");
     if (!objections.calls.length) {
@@ -3256,21 +3449,36 @@
     const labelOf = id => (objections.list.find(o => o.id === id) || {}).label || "";
     const rows = [...objections.calls]
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-      .map(c => `
+      .map(c => {
+        const settingFilled = objHasDetail(c.setting, OBJ_SETTING_FIELDS);
+        const closingClass = c.closing.outcome === "won" ? " obj-stage-won"
+          : c.closing.outcome === "lost" ? " obj-stage-lost"
+          : objHasDetail(c.closing, OBJ_CLOSING_FIELDS) ? " obj-stage-filled"
+          : "";
+        return `
         <tr>
           <td>${objEsc(c.date)}</td>
           <td>${objEsc(c.name)}</td>
           <td>${objEsc(labelOf(c.objectionId))}</td>
           <td>${/^https?:\/\//i.test(c.recording) ? `<a class="obj-calls-recording" href="${objEsc(c.recording)}" target="_blank" rel="noopener">Recording</a>` : ""}</td>
-          <td><button type="button" class="row-delete" data-call-id="${objEsc(c.id)}" title="Remove this call">×</button></td>
-        </tr>`).join("");
-    table.innerHTML = `<thead><tr><th>Date</th><th>Name</th><th>Objection</th><th>Recording</th><th></th></tr></thead><tbody>${rows}</tbody>`;
-    table.querySelectorAll("[data-call-id]").forEach(btn => {
+          <td><button type="button" class="obj-stage-btn${settingFilled ? " obj-stage-filled" : ""}" data-setting-call="${objEsc(c.id)}">Setting</button></td>
+          <td><button type="button" class="obj-stage-btn${closingClass}" data-closing-call="${objEsc(c.id)}">Closing</button></td>
+          <td><button type="button" class="row-delete" data-remove-call="${objEsc(c.id)}" title="Remove this call">×</button></td>
+        </tr>`;
+      }).join("");
+    table.innerHTML = `<thead><tr><th>Date</th><th>Name</th><th>Objection</th><th>Recording</th><th>Setting</th><th>Closing</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+    table.querySelectorAll("[data-remove-call]").forEach(btn => {
       btn.addEventListener("click", () => {
-        objections.calls = objections.calls.filter(c => c.id !== btn.dataset.callId);
+        objections.calls = objections.calls.filter(c => c.id !== btn.dataset.removeCall);
         renderObjections();
         queueSaveObjections();
       });
+    });
+    table.querySelectorAll("[data-setting-call]").forEach(btn => {
+      btn.addEventListener("click", () => openObjSettingModal(btn.dataset.settingCall));
+    });
+    table.querySelectorAll("[data-closing-call]").forEach(btn => {
+      btn.addEventListener("click", () => openObjClosingModal(btn.dataset.closingCall));
     });
   }
 
@@ -3279,6 +3487,118 @@
     renderObjectionChart();
     renderObjectionCalls();
   }
+
+  // ---------------------------------------------------------------------
+  // Setting / Closing modals -- opened from a logged call's row, each one
+  // a self-contained form over whichever half of `call.setting`/
+  // `call.closing` it owns. Only ever one call "open" in a given modal at
+  // a time (tracked by id in a closure variable), so Save/Cancel always
+  // know which row to write back into.
+  // ---------------------------------------------------------------------
+  const objSettingModalOverlay = document.getElementById("obj-setting-modal-overlay");
+  const objSettingForm = document.getElementById("obj-setting-form");
+  let objSettingCallId = null;
+
+  function openObjSettingModal(callId) {
+    const call = objections.calls.find(c => c.id === callId);
+    if (!call) return;
+    objSettingCallId = callId;
+    document.getElementById("obj-setting-modal-name").textContent = call.name || "(no name)";
+    OBJ_SETTING_FIELDS.forEach(f => {
+      document.getElementById(`obj-setting-${f.key}`).value = call.setting[f.key] || "";
+    });
+    objSettingModalOverlay.hidden = false;
+  }
+  function closeObjSettingModal() {
+    objSettingModalOverlay.hidden = true;
+    objSettingCallId = null;
+  }
+  document.getElementById("obj-setting-modal-close").addEventListener("click", closeObjSettingModal);
+  document.getElementById("obj-setting-cancel").addEventListener("click", closeObjSettingModal);
+  objSettingForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const call = objections.calls.find(c => c.id === objSettingCallId);
+    if (!call) return;
+    OBJ_SETTING_FIELDS.forEach(f => {
+      call.setting[f.key] = document.getElementById(`obj-setting-${f.key}`).value.trim();
+    });
+    closeObjSettingModal();
+    renderObjectionCalls();
+    queueSaveObjections();
+  });
+
+  const objClosingModalOverlay = document.getElementById("obj-closing-modal-overlay");
+  const objClosingForm = document.getElementById("obj-closing-form");
+  const objClosingOutcomeValue = document.getElementById("obj-closing-outcome-value");
+  let objClosingCallId = null;
+
+  function openObjClosingModal(callId) {
+    const call = objections.calls.find(c => c.id === callId);
+    if (!call) return;
+    objClosingCallId = callId;
+    document.getElementById("obj-closing-modal-name").textContent = call.name || "(no name)";
+    OBJ_CLOSING_FIELDS.forEach(f => {
+      const el = document.getElementById(`obj-closing-${f.key}`);
+      if (f.objectionPick) {
+        el.innerHTML = objectionOptionsHtml();
+        if (call.closing[f.key] && [...el.options].some(o => o.value === call.closing[f.key])) {
+          el.value = call.closing[f.key];
+        }
+        document.getElementById(`obj-closing-${f.key}-new-wrap`).hidden = true;
+        document.getElementById(`obj-closing-${f.key}-new`).value = "";
+      } else {
+        el.value = call.closing[f.key] || "";
+      }
+    });
+    document.querySelectorAll("#obj-closing-outcome-buttons .outcome-btn").forEach(b => {
+      b.classList.toggle("selected", b.dataset.outcome === call.closing.outcome);
+    });
+    objClosingOutcomeValue.value = call.closing.outcome || "";
+    objClosingModalOverlay.hidden = false;
+  }
+  function closeObjClosingModal() {
+    objClosingModalOverlay.hidden = true;
+    objClosingCallId = null;
+  }
+  document.getElementById("obj-closing-modal-close").addEventListener("click", closeObjClosingModal);
+  document.getElementById("obj-closing-cancel").addEventListener("click", closeObjClosingModal);
+  document.querySelectorAll("#obj-closing-outcome-buttons .outcome-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#obj-closing-outcome-buttons .outcome-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      objClosingOutcomeValue.value = btn.dataset.outcome;
+    });
+  });
+  OBJ_CLOSING_FIELDS.filter(f => f.objectionPick).forEach(f => {
+    document.getElementById(`obj-closing-${f.key}`).addEventListener("change", e => {
+      document.getElementById(`obj-closing-${f.key}-new-wrap`).hidden = e.target.value !== "__new";
+    });
+  });
+  objClosingForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const call = objections.calls.find(c => c.id === objClosingCallId);
+    if (!call) return;
+    for (const f of OBJ_CLOSING_FIELDS) {
+      if (!f.objectionPick) continue;
+      const picked = resolveObjectionPick(
+        document.getElementById(`obj-closing-${f.key}`),
+        document.getElementById(`obj-closing-${f.key}-new`)
+      );
+      if (picked === undefined) {
+        document.getElementById(`obj-closing-${f.key}-new`).focus();
+        return;
+      }
+      call.closing[f.key] = picked;
+    }
+    OBJ_CLOSING_FIELDS.forEach(f => {
+      if (f.objectionPick) return;
+      call.closing[f.key] = document.getElementById(`obj-closing-${f.key}`).value.trim();
+    });
+    call.closing.outcome = objClosingOutcomeValue.value || "";
+    closeObjClosingModal();
+    renderObjections();
+    queueSaveObjections();
+  });
 
   const objForm = document.getElementById("obj-form");
   const objSelect = document.getElementById("obj-objection");
@@ -3327,6 +3647,8 @@
       recording: document.getElementById("obj-recording").value.trim(),
       date: document.getElementById("obj-date").value,
       objectionId,
+      setting: normalizeObjCallDetail(null, OBJ_SETTING_FIELDS),
+      closing: normalizeObjClosing(null),
     });
     closeObjForm();
     renderObjections();

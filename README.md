@@ -2012,6 +2012,63 @@ in and you'll land on `/dashboard`.
   correct counts, and all four calls and both types saved to the
   payload. Date display was not checked visually.
 
+  **Renamed "Objection Overview" to "Scaling Tracking" and added
+  per-call Setting/Closing deep dives**, keeping the objection chart and
+  log form exactly as they were (tab id `objections` is unchanged, only
+  the visible label and page heading moved). Every logged call's row in
+  the Logged Calls table grew two buttons, Setting and Closing — "same
+  person, different parts of the sales process," each opening its own
+  modal (styled off the existing Edit Call modal's `.modal-overlay`/
+  `.form-field`/`.form-grid` classes). Setting takes Age guess, Current
+  situation, Problems, Occupation, Why now, and Excited about the
+  opportunity (1–10); Closing takes a Won/Lost picker (reusing the Edit
+  Call modal's own `.outcome-btn` selected/color pattern — new
+  `.outcome-won`/`.outcome-lost` variants), a closing-call recording
+  link, Objections, Why they didn't move forward, Why they did move
+  forward, What made them excited (aha moments), and What turned them
+  off. A call's Setting button goes "filled" (badge-colored) once any
+  of its fields has something in it; Closing does the same, plus goes
+  green or red the instant Won or Lost is picked, independent of
+  whether the rest of its fields are filled in. Both are plain
+  `normalizeObjCallDetail(raw, fields)`-shaped sub-objects
+  (`call.setting`/`call.closing`) added to the existing `objections`
+  key — no new touch points, no SQL, since it's nested inside a field
+  already wired everywhere.
+
+  Objections and Why They Didn't Move Forward inside Closing aren't
+  free text — they're pickers against the *same* objection-type list
+  the chart counts (`objectionOptionsHtml()`/`resolveObjectionPick()`,
+  factored out of the main log form's own picker so the main form,
+  Objections, and Why They Didn't Move Forward all read and grow one
+  shared list), each with its own "+ New objection…" escape hatch.
+  `renderObjectionChart()`'s tally now sums three fields per call
+  (`objectionId`, `closing.objectionsNote`, `closing.whyNotMoveForward`)
+  instead of one, so a single call can contribute up to three tallies,
+  including twice to the same bar if both Closing pickers name the same
+  objection.
+
+  Caught and fixed before shipping: the main "Log a call" form's submit
+  handler pushed a new call with no `setting`/`closing` sub-objects at
+  all (they were added to `normalizeObjections()`'s *loader*, not to
+  where new calls actually get created), so the chart crashed the
+  instant a second call existed, reading `.objectionId` off
+  `undefined`. Fixed by seeding both from `normalizeObjCallDetail(null,
+  ...)`/`normalizeObjClosing(null)` at creation time, same as every
+  other new-row default elsewhere in this file.
+
+  Verified live with Puppeteer: logged a call, filled in Setting and
+  confirmed its button went "filled"; opened Closing, set a closing
+  recording link, typed the same new objection into both Objections and
+  Why They Didn't Move Forward (confirming they deduped to one shared
+  list entry, not two), picked Lost, and confirmed the Closing button
+  turned red; confirmed the chart showed that shared objection at count
+  2 and the original log-time objection at count 1; and confirmed the
+  full saved payload — `call.setting`, `call.closing` (including the
+  resolved objection ids and `outcome: "lost"`), and the grown
+  `objections.list` — round-tripped correctly, plus a full-page
+  screenshot confirming the renamed tab, the chart, and the colored
+  Setting/Closing buttons all read cleanly together.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
