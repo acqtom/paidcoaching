@@ -2165,6 +2165,68 @@ in and you'll land on `/dashboard`.
   reads cleanly stretched across the full width with no leftover
   centered-column margins.
 
+  **Scaling Tracking deleted; objections now come straight from the Post
+  Call Form, with two new Dashboard charts.** The whole Scaling Tracking
+  tab/view, its "+ Log an objection" form, the Logged Calls table, and
+  both the Dial Overview/Call Overview modals are gone — along with
+  every function that backed them (`objEsc`, `OBJ_SETTING_FIELDS`/
+  `OBJ_CLOSING_FIELDS`, `normalizeObjections`, `renderObjectionChart`/
+  `renderObjectionSelect`/`renderObjectionCalls`, both modals' open/
+  close/submit handlers) and their `.obj-*` CSS. In its place, the
+  Dashboard is now a two-column layout (`.dashboard-split`, `1.4fr 1fr`,
+  stacking under 1100px): the left column is the existing KPI/Team
+  Performance/Commission sections unchanged, the right column is two new
+  cards — a donut of the most common objections (reusing `renderPie()`)
+  and a horizontal bar of the most common reasons prospects didn't move
+  forward (`renderHBarChart()`, generalized to take an optional `fmt`
+  formatter instead of always currency-formatting, so a plain rep count
+  reads as `5` instead of `$5.00`).
+
+  Objections are now picked per-call instead of logged separately. A
+  shared, addable tag list (`objectionTags`, seeded with the 4 required
+  defaults — Price / DQ, Not a fit, Fear / I need to think about it, Hung
+  up / left call — plus any custom tags a team already added under the
+  old Scaling Tracking tab, carried over by `normalizeObjectionTags()`)
+  is still saved under the same top-level `objections` key the old
+  feature used, so this needed zero new touch points and no SQL. The
+  Post Call Form (and the Edit Call Modal, via the same shared
+  `applyOutcomeFormConfigTo()`) gained two checkbox-chip pickers
+  (`renderTagPicker()`, each with its own "+ Add another" box that grows
+  the shared list): **"What objections did this prospect have?"** is
+  always visible, a fixed field alongside Fathom URL rather than part of
+  the outcome-gated dynamic fields; **"What was the reason they didn't
+  move forward?"** only appears for "No Close" and "2nd CC Call Booked"
+  (`OUTCOME_FORM_CONFIG[...].reasonPicker: true`), rendered into the same
+  dynamic-fields container as those outcomes' other fields. Both save as
+  plain id arrays on the deal itself (`deal.objections`/
+  `deal.notMovingForwardReasons`, read via `dealFieldsFromForm()`'s new
+  `tagPickerSelectedIds()` calls) — no new 8-touch-point wiring needed
+  there either, since `deals` is already a generic array wired
+  everywhere.
+
+  The donut tallies each deal's objections and not-moved-forward reasons
+  together, but a tag picked in *both* fields on the same deal only
+  counts once for that deal (a `Set` per deal before tallying) — it's
+  still one objection that came up on that call, not two. The bar chart
+  only tallies `notMovingForwardReasons`, uncapped per deal. Adding a new
+  tag from either picker immediately shows it in every other open picker
+  on the same form too (not just its own), since they all read the one
+  shared `objectionTags` list; `renderTagPicker()` otherwise preserves
+  whatever's currently checked across a rebuild (e.g. the 8s poll picking
+  up a tag added from another device) and skips the rebuild entirely if
+  the "+ Add another" box has an in-progress, not-yet-submitted tag typed
+  into it, so neither a poll nor a sibling picker's add can wipe it out
+  from under the rep. Verified live with Puppeteer: confirmed the
+  Scaling Tracking tab is gone with no console errors; confirmed the
+  Dashboard's new pie/bar containers render in the two-column layout;
+  confirmed the always-visible objections picker and the outcome-gated
+  reasons picker both list the 4 seed tags, that "2nd CC Call Booked"
+  shows the reasons picker and "Closed/Won/Deposit" doesn't; clicked a
+  chip and confirmed its checked styling applied; typed a brand-new tag
+  into the reasons picker's "+ Add another" and confirmed it appeared
+  immediately in both that picker and the always-visible objections
+  picker on the same form.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
