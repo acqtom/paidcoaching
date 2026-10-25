@@ -2099,6 +2099,52 @@ in and you'll land on `/dashboard`.
   actual (light) background confirms the logo reads cleanly with no
   white box around it.
 
+  **Sales Board header: icon-only logo, flush left.** `src/components
+  /Logo.tsx` gained an optional `iconOnly` prop — when set, it renders
+  `public/logo-icon.png` (a new 122×112 crop of just the "P" mark cut
+  out of the existing transparent `logo.png`, same transparent
+  background) instead of the full "Paidcoaching.com" lockup. Every
+  other page keeps calling bare `<Logo />` and is unaffected.
+  `src/app/dashboard/sales-board/page.tsx` is the only page using
+  `<Logo iconOnly />` so far, and its header also dropped `mx-auto
+  max-w-5xl` from the row wrapping the logo and the "← Dashboard"
+  link, so that row now sits flush against the left edge of the
+  screen instead of centered in a narrow column — both changes scoped
+  to this one page, not the other ~13 pages sharing that same centered-
+  header pattern.
+
+  **Sales Team Board re-themed to cream + indigo + bold black
+  borders** — colors and branding only, no layout or behavior changes,
+  and scoped to `public/sales-board-app/index.html` alone (Metrics
+  Tracker, Daily Kill List, and the main Next.js app keep their own
+  separate styling, untouched). The palette was sampled pixel-by-pixel
+  from three reference screenshots with Pillow (`im.getpixel()`) rather
+  than eyeballed: page background `#FBFAF3`, primary accent (replacing
+  black as the "primary action" color) `#3C3EE3`, badge background
+  `#E8ECFC`, success green `#2F7A3B`. Almost the entire visual shift
+  comes from two small, surgical changes to the file's existing CSS
+  variable system rather than hunting down one-off hardcoded colors
+  throughout this ~4,000-line file: (1) `--black` (previously the fill
+  color for every "primary" surface — active nav tab, `.btn-primary`,
+  selected buttons, toggle switches, 17 call sites total) was renamed to
+  `--accent` and repointed from near-black to the sampled indigo, so
+  every one of those surfaces went indigo in one stroke, and (2)
+  `--pill-border` (used throughout for input/pill/card borders) and
+  `--card-border` both became solid `#111111` instead of a faint
+  `rgba(15,15,20,0.07-0.10)`, with `.card`/`.kpi-tile` bumped from a 1px
+  border + drop shadow to a 2px border + no shadow, for the reference's
+  flatter, bolder-bordered look. `--page`/`--surface-1` moved from cool
+  grays to the sampled cream tones. Deliberately left alone: the
+  semantic deal/funnel/outcome color system (`--blue`/`--orange`/
+  `--aqua`/etc., used for category color-coding throughout Post Call
+  Form and the charts) and the Rep Daily Numbers gold KPI-input styling
+  (`#b8860b`/`#d4af37`), since neither is a "theme" color in the sense
+  asked for — they're functional color-coding and a deliberate separate
+  accent, and the reference screens don't touch either. Verified live
+  with Puppeteer across three views (Dashboard, Scaling Tracking, Rep
+  Daily Numbers) against the real dev server, screenshotted and
+  compared side by side with the three reference images.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards

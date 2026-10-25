@@ -7,25 +7,32 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='black'/%3E%3Ctext x='16' y='22' font-family='system-ui,-apple-system,Segoe UI,sans-serif' font-size='19' font-weight='800' fill='white' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
 <style>
   :root {
+    /* Sales Board-only theme -- cream + indigo + bold black borders,
+       sampled from the reference screens (client/template/dashboard
+       pages) and applied purely through this existing variable system
+       (plus renaming --black to --accent throughout the file below),
+       so it reaches every card/button/input/pill in the file without
+       hunting down one-off hardcoded colors. Metrics Tracker and Daily
+       Kill List are untouched -- they have their own separate :root. */
     color-scheme: light;
-    --page: #f4f4f6;
-    --surface-1: #f9f9fb;
-    --text-primary: #101014;
-    --text-secondary: #55555c;
-    --muted: #9a9aa2;
-    --grid: #e8e8ec;
-    --baseline: #d6d6db;
-    --border: rgba(15,15,20,0.08);
+    --page: #fbfaf3;
+    --surface-1: #f2efe2;
+    --text-primary: #111111;
+    --text-secondary: #575a66;
+    --muted: #8a8d99;
+    --grid: #e3e0d4;
+    --baseline: #d8d5c8;
+    --border: rgba(17,17,17,0.12);
 
     --card-top: #ffffff;
-    --card-bottom: #f4f4f7;
-    --card-border: rgba(15,15,20,0.07);
-    --shadow-sm: 0 1px 2px rgba(16,16,20,0.05);
-    --shadow-md: 0 10px 24px rgba(16,16,20,0.06);
-    --badge-bg: #ecebfb;
-    --badge-fg: #6d64e8;
-    --pill-border: rgba(15,15,20,0.10);
-    --black: #101014;
+    --card-bottom: #ffffff;
+    --card-border: #111111;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --badge-bg: #e8ecfc;
+    --badge-fg: #3c3ee3;
+    --pill-border: #111111;
+    --accent: #3c3ee3;
 
     --blue: #2a78d6;
     --orange: #eb6834;
@@ -35,7 +42,7 @@
     --green: #008300;
     --violet: #4a3aa7;
     --red: #e34948;
-    --good: #0ca30c;
+    --good: #2f7a3b;
   }
 
   * { box-sizing: border-box; }
@@ -52,11 +59,11 @@
   /* --- view switcher --- */
   .view-switcher { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
   .view-tab {
-    border: 1px solid var(--pill-border); background: #fff; color: var(--text-secondary);
+    border: 1.5px solid var(--pill-border); background: #fff; color: var(--text-secondary);
     border-radius: 20px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
-    font-family: inherit; box-shadow: var(--shadow-sm);
+    font-family: inherit;
   }
-  .view-tab.active { background: var(--black); color: #fff; border-color: var(--black); }
+  .view-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .view { display: none; }
   .view.active { display: block; }
 
@@ -83,10 +90,9 @@
 
   /* --- shared card surface --- */
   .card, .kpi-tile {
-    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
-    border: 1px solid var(--card-border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-sm), var(--shadow-md);
+    background: var(--card-top);
+    border: 2px solid var(--card-border);
+    border-radius: 16px;
     overflow: hidden;
   }
   .card { margin-bottom: 20px; }
@@ -174,9 +180,9 @@
   }
   .filter summary::-webkit-details-marker { display: none; }
   .filter summary .chevron { width: 13px; height: 13px; color: var(--muted); flex: none; }
-  .filter[open] summary { border-color: var(--black); color: var(--text-primary); }
+  .filter[open] summary { border-color: var(--accent); color: var(--text-primary); }
   .filter .badge {
-    background: var(--black); color: #fff; border-radius: 10px; font-size: 10px;
+    background: var(--accent); color: #fff; border-radius: 10px; font-size: 10px;
     padding: 1px 6px; font-weight: 700;
   }
   .filter-panel {
@@ -189,7 +195,7 @@
     padding: 6px 6px; border-radius: 6px; cursor: pointer; color: var(--text-secondary);
   }
   .filter-panel label:hover { background: rgba(16,16,20,0.05); }
-  .filter-panel input[type="checkbox"], .filter-panel input[type="radio"] { accent-color: var(--black); }
+  .filter-panel input[type="checkbox"], .filter-panel input[type="radio"] { accent-color: var(--accent); }
   .reset-btn {
     border: none; background: none; color: var(--badge-fg); font-size: 13px; font-weight: 600; cursor: pointer; padding: 9px 6px; font-family: inherit;
   }
@@ -234,7 +240,7 @@
     border: 2px solid transparent; border-radius: 10px; padding: 11px 20px;
     font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
   }
-  .funnel-btn.selected { border-color: var(--black); }
+  .funnel-btn.selected { border-color: var(--accent); }
   .funnel-vsl { background: #dbe4fb; color: #3452c4; }
   .funnel-webinar { background: #ead9fb; color: #7a3fc4; }
 
@@ -244,7 +250,7 @@
     border: 2px solid transparent; border-radius: 10px; padding: 11px 16px;
     font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-align: left;
   }
-  .outcome-btn.selected { border-color: var(--black); }
+  .outcome-btn.selected { border-color: var(--accent); }
   .outcome-closed { background: #dbe4fb; color: #3452c4; }
   .outcome-deposit { background: #d3f3ef; color: #12796f; }
   .outcome-dq { background: #fbe0d3; color: #b1571e; }
@@ -285,7 +291,7 @@
   }
   .name-add-form input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
   .name-add-form button {
-    background: var(--black); color: #fff; border: none; border-radius: 8px;
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
     padding: 0 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
   .name-add-form button:hover { opacity: 0.9; }
@@ -345,7 +351,7 @@
     content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
     background: #fff; border-radius: 50%; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25);
   }
-  .huddle-switch input:checked + .huddle-switch-track { background: var(--black); }
+  .huddle-switch input:checked + .huddle-switch-track { background: var(--accent); }
   .huddle-switch input:checked + .huddle-switch-track::after { transform: translateX(18px); }
 
   /* ── Today's Call Focus summary ── */
@@ -375,7 +381,7 @@
     display: flex; align-items: center; border: 1px solid var(--pill-border); background: #fff;
     border-radius: 16px; overflow: hidden;
   }
-  .sop-tab-wrap.active { background: var(--black); border-color: var(--black); }
+  .sop-tab-wrap.active { background: var(--accent); border-color: var(--accent); }
   .sop-tab-btn {
     border: none; background: none; color: var(--text-secondary);
     padding: 7px 6px 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
@@ -401,7 +407,7 @@
   }
   .sop-add-form input:focus { outline: 2px solid var(--badge-fg); outline-offset: 1px; }
   .sop-add-form button {
-    border: none; background: var(--black); color: #fff; border-radius: 16px;
+    border: none; background: var(--accent); color: #fff; border-radius: 16px;
     padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
   .sop-content {
@@ -426,7 +432,7 @@
     border-radius: 14px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
     text-transform: uppercase; letter-spacing: .03em;
   }
-  .sop-type-btn.active { background: var(--black); border-color: var(--black); color: #fff; }
+  .sop-type-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .sop-type-btn:hover:not(.active) { background: var(--surface-1); }
   .sop-video-url-input {
     width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; color: var(--text-primary);
@@ -551,7 +557,7 @@
   }
   .obj-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
   .obj-save, .obj-cancel { font-family: inherit; font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
-  .obj-save { background: var(--black); color: #fff; border: none; }
+  .obj-save { background: var(--accent); color: #fff; border: none; }
   .obj-cancel { background: none; color: var(--text-secondary); border: 1px solid var(--pill-border); }
   .obj-chart {
     display: flex; align-items: flex-end; gap: 14px; height: 380px; padding: 8px 4px 0;
@@ -594,7 +600,7 @@
     text-transform: none; cursor: pointer;
   }
   .rep-numbers-metric-add-form button {
-    background: var(--black); color: #fff; border: none; border-radius: 6px; padding: 5px 10px;
+    background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 5px 10px;
     font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; text-transform: none;
   }
   @media (max-width: 640px) {
@@ -602,7 +608,7 @@
     .huddle-pipeline-total { text-align: left; }
   }
   .btn-primary {
-    background: var(--black); color: #fff; border: none; border-radius: 20px;
+    background: var(--accent); color: #fff; border: none; border-radius: 20px;
     padding: 11px 24px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
   .btn-primary:hover { opacity: 0.9; }
