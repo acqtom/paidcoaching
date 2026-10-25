@@ -87,6 +87,8 @@
 
   h2.section-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
   .page-desc { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .onboarding-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .onboarding-header-row .page-desc { margin-bottom: 0; }
 
   /* --- shared card surface --- */
   .card, .kpi-tile {
@@ -631,7 +633,7 @@
   }
   .modal-overlay[hidden] { display: none; }
   .modal { width: 100%; }
-  .modal .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .modal > .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .modal-close {
     border: none; background: none; font-size: 22px; line-height: 1; color: var(--muted);
     cursor: pointer; padding: 2px 4px; font-family: inherit; flex: none;
@@ -652,8 +654,6 @@
   <nav class="view-switcher">
     <button class="view-tab active" data-view="dashboard">Dashboard</button>
     <button class="view-tab" data-view="pcf">Post Call Form</button>
-    <button class="view-tab" data-view="data">Data</button>
-    <button class="view-tab" data-view="team">Add Team</button>
     <button class="view-tab" data-view="onboarding">Onboarding</button>
     <button class="view-tab" data-view="huddles">Daily Huddles</button>
     <button class="view-tab" data-view="rep-numbers">Rep Daily Numbers</button>
@@ -853,10 +853,8 @@
         </form>
       </div>
     </div>
-  </div>
 
-  <!-- ================= DATA ================= -->
-  <div class="view" id="view-data">
+    <!-- ================= DATA ================= -->
     <div class="card">
       <div class="card-header">
         <h2>Data</h2>
@@ -871,61 +869,16 @@
     </div>
   </div>
 
-  <!-- ================= ADD TEAM ================= -->
-  <div class="view" id="view-team">
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-header">
-          <h2>Closers &amp; Setters</h2>
-          <p>Manage who shows up in the Post Call Form's Closer and Setter dropdowns.</p>
-        </div>
-        <div class="card-body">
-          <div class="name-manager">
-            <h3>Closers</h3>
-            <form class="name-add-form" id="team-closer-form">
-              <input type="text" id="team-closer-input" placeholder="Add a closer name…" required>
-              <button type="submit">Add</button>
-            </form>
-            <ul class="name-list" id="team-closer-list"></ul>
-          </div>
-          <div class="name-manager">
-            <h3>Setters</h3>
-            <form class="name-add-form" id="team-setter-form">
-              <input type="text" id="team-setter-input" placeholder="Add a setter name…" required>
-              <button type="submit">Add</button>
-            </form>
-            <ul class="name-list" id="team-setter-list"></ul>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h2>Team Secret Key</h2>
-          <p>Share this page and key with your sales team so they can log calls without a portal account. Separate from the Weekly Content Hub's key.</p>
-        </div>
-        <div class="card-body">
-          <div class="key-row">
-            <div class="key-row-label">Team login page</div>
-            <div class="key-row-value">
-              <span class="key-value" id="team-domain-value">…</span>
-              <button type="button" class="key-copy-btn" id="team-domain-copy">Copy</button>
-            </div>
-          </div>
-          <div class="key-row">
-            <div class="key-row-label">Secret key</div>
-            <div class="key-row-value">
-              <span class="key-value key-value-code" id="team-code-value">…</span>
-              <button type="button" class="key-copy-btn" id="team-code-copy">Copy</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- ================= ONBOARDING ================= -->
   <div class="view" id="view-onboarding">
+    <div class="onboarding-header-row">
+      <div>
+        <h2 class="section-title">Onboarding</h2>
+        <p class="page-desc">Directory, SOPs, and everything a new rep needs.</p>
+      </div>
+      <button type="button" class="btn-primary" id="onb-manage-team-btn">Manage Team</button>
+    </div>
+
     <div class="card sop-section">
       <div class="card-header">
         <h2>Directory</h2>
@@ -1239,6 +1192,70 @@
           <span class="form-status" id="edit-status"></span>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ADD TEAM MODAL ================= -->
+<div class="modal-overlay" id="team-modal-overlay" hidden>
+  <div class="modal card">
+    <div class="card-header">
+      <div>
+        <h2>Add Team</h2>
+        <p>Manage who shows up in the Post Call Form, and share your team's secret key.</p>
+      </div>
+      <button type="button" class="modal-close" id="team-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="card-body">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Closers &amp; Setters</h2>
+            <p>Manage who shows up in the Post Call Form's Closer and Setter dropdowns.</p>
+          </div>
+          <div class="card-body">
+            <div class="name-manager">
+              <h3>Closers</h3>
+              <form class="name-add-form" id="team-closer-form">
+                <input type="text" id="team-closer-input" placeholder="Add a closer name…" required>
+                <button type="submit">Add</button>
+              </form>
+              <ul class="name-list" id="team-closer-list"></ul>
+            </div>
+            <div class="name-manager">
+              <h3>Setters</h3>
+              <form class="name-add-form" id="team-setter-form">
+                <input type="text" id="team-setter-input" placeholder="Add a setter name…" required>
+                <button type="submit">Add</button>
+              </form>
+              <ul class="name-list" id="team-setter-list"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Team Secret Key</h2>
+            <p>Share this page and key with your sales team so they can log calls without a portal account. Separate from the Weekly Content Hub's key.</p>
+          </div>
+          <div class="card-body">
+            <div class="key-row">
+              <div class="key-row-label">Team login page</div>
+              <div class="key-row-value">
+                <span class="key-value" id="team-domain-value">…</span>
+                <button type="button" class="key-copy-btn" id="team-domain-copy">Copy</button>
+              </div>
+            </div>
+            <div class="key-row">
+              <div class="key-row-label">Secret key</div>
+              <div class="key-row-value">
+                <span class="key-value key-value-code" id="team-code-value">…</span>
+                <button type="button" class="key-copy-btn" id="team-code-copy">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1946,7 +1963,6 @@
       // Numbers because its many-column table gets cramped otherwise,
       // Dashboard because its KPI grid has room to spread out too.
       document.querySelector(".app").classList.toggle("app-wide", isWideView(btn.dataset.view));
-      if (btn.dataset.view === "data") renderDataTable();
       if (btn.dataset.view === "huddles") renderHuddles();
       if (btn.dataset.view === "rep-numbers") renderRepDailyNumbers();
     });
@@ -2668,6 +2684,23 @@
 
   document.getElementById("team-domain-copy").addEventListener("click", e => copyToClipboard(salesAccessUrl, e.currentTarget));
   document.getElementById("team-code-copy").addEventListener("click", e => copyToClipboard(accessCode, e.currentTarget));
+
+  // "Manage Team" button on Onboarding opens the Add Team modal (same
+  // closer/setter list + secret key panel that used to be its own tab).
+  const teamModalOverlay = document.getElementById("team-modal-overlay");
+  function closeTeamModal() {
+    teamModalOverlay.hidden = true;
+  }
+  document.getElementById("onb-manage-team-btn").addEventListener("click", () => {
+    teamModalOverlay.hidden = false;
+  });
+  document.getElementById("team-modal-close").addEventListener("click", closeTeamModal);
+  teamModalOverlay.addEventListener("click", e => {
+    if (e.target === teamModalOverlay) closeTeamModal();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !teamModalOverlay.hidden) closeTeamModal();
+  });
 
   // ---------------------------------------------------------------------
   // 10c. ONBOARDING — a reference doc for bringing on new reps, split into

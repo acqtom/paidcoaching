@@ -2227,6 +2227,38 @@ in and you'll land on `/dashboard`.
   immediately in both that picker and the always-visible objections
   picker on the same form.
 
+  **Data merged into Post Call Form; Add Team moved into an Onboarding
+  modal** — two tabs removed from the nav (`Dashboard`/`Post Call Form`/
+  `Onboarding`/`Daily Huddles`/`Rep Daily Numbers` is now the full list),
+  neither a new feature, both a straight relocation of existing markup.
+  The Data card (filters + table) now sits directly underneath the Post
+  Call Form's card inside `view-pcf`, so logging a call and reviewing/
+  editing the underlying rows no longer means switching tabs — the
+  per-tab-click `renderDataTable()` call in the view-switcher was dropped
+  since `renderAll()` already re-renders the data table unconditionally
+  on every change regardless of which tab is active. Add Team's two cards
+  (Closers & Setters, Team Secret Key) moved verbatim into a new
+  `#team-modal-overlay` (same `.modal-overlay`/`.modal.card` pattern as
+  the Edit Call Modal — close button, click-outside, and Escape all
+  wired the same way), opened by a new "Manage Team" button in a header
+  row at the top of the Onboarding page. Every element kept its original
+  id, so none of `renderTeamTab()`/`addTeamMember()`/the closer-setter
+  forms/the copy buttons needed any changes — only the markup moved.
+  Caught and fixed before shipping: `.modal .card-header`'s close-button
+  flex layout is a descendant selector, so it was also squashing the two
+  nested cards' own headers inside the Add Team modal (title and
+  description forced into the same row, wrapping badly) — narrowed to
+  `.modal > .card-header` so it only targets the modal's own top-level
+  header, which is also all the Edit Call Modal ever needed from it.
+  Verified live with Puppeteer: confirmed the Data table renders directly
+  under the Post Call Form card with no separate tab for it; opened the
+  Add Team modal from the new Onboarding button, added a closer through
+  it, and confirmed the new name appeared both in the modal's own list
+  and in the Post Call Form's Closer dropdown; confirmed Escape closes
+  the modal; a full-page screenshot confirmed the "Team Secret Key" card
+  reads cleanly on one line after the selector fix, with no console
+  errors throughout.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
