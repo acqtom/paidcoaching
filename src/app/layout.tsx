@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Student Portal",
+  title: "Portal",
   description: "Team hub",
 };
 

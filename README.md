@@ -2338,6 +2338,31 @@ in and you'll land on `/dashboard`.
   still renders full width, and the Setter/Closer scorecards still render
   correctly.
 
+  **Portal-wide favicon changed to the "P" mark, browser tab retitled
+  "Portal."** `src/app/icon.png` (Next.js's file-convention favicon route,
+  picked up automatically with no explicit `<link>`/metadata needed) was a
+  512×341 non-square leftover from before the current logo — replaced
+  with a cleanly-cropped, centered 512×512 square built from the same
+  transparent "P" mark `public/logo-icon.png` already uses for the
+  icon-only `<Logo iconOnly />` variant. That source file turned out to
+  have a lot of unused transparent canvas around the actual mark (true
+  content bbox roughly 68×69px inside a 122×112px file, likely a leftover
+  crop from when it was made) plus a thin stray near-white artifact row
+  at its very bottom edge, neither of which mattered at the sizes
+  `<Logo iconOnly />` renders it at (40px tall in a header) but would have
+  left the favicon looking small and off-center at the tiny sizes browser
+  tabs actually use — so the favicon was built with its own Pillow crop
+  straight off the mark's real content bounding box (with ~16% padding,
+  then upscaled to 512×512) rather than reusing that file as-is.
+  `src/app/layout.tsx`'s root `metadata.title` (the only place in the app
+  setting it — no route overrides it with its own `generateMetadata`)
+  changed from "Student Portal" to "Portal", which is also what every
+  browser tab across the whole app now reads, there being no per-page
+  titles anywhere to also update. Verified live: `/login`'s rendered
+  `<title>` reads "Portal", its `<link rel="icon">` points at `/icon.png`
+  with `sizes="512x512"`, and fetching that route returns the new 512×512
+  square "P" mark.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
