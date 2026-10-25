@@ -2049,17 +2049,25 @@
   // ---------------------------------------------------------------------
   // 8. VIEW SWITCHER (Dashboard / Post Call Form / Data — separate pages)
   // ---------------------------------------------------------------------
+  function isWideView(view) {
+    return view === "rep-numbers" || view === "dashboard";
+  }
+  // Dashboard is the default active view on load (see the "active" class
+  // in the HTML), but that happens before this script runs any click
+  // handler -- without this, the app would stay at the normal centered
+  // width until the user switched views away and back.
+  document.querySelector(".app").classList.toggle("app-wide", isWideView(document.querySelector(".view-tab.active")?.dataset.view));
   document.querySelectorAll(".view-tab").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".view-tab").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("view-" + btn.dataset.view).classList.add("active");
-      // Rep Daily Numbers is a wide, many-column table -- the app's
-      // normal centered 1400px column squeezes it into cramped, tiny
-      // cells, so this one view gets to use the full browser width
-      // instead, same as none of the other views need to.
-      document.querySelector(".app").classList.toggle("app-wide", btn.dataset.view === "rep-numbers");
+      // Rep Daily Numbers and Dashboard both get the full browser width
+      // instead of the app's normal centered 1400px column -- Rep Daily
+      // Numbers because its many-column table gets cramped otherwise,
+      // Dashboard because its KPI grid has room to spread out too.
+      document.querySelector(".app").classList.toggle("app-wide", isWideView(btn.dataset.view));
       if (btn.dataset.view === "data") renderDataTable();
       if (btn.dataset.view === "huddles") renderHuddles();
       if (btn.dataset.view === "rep-numbers") renderRepDailyNumbers();

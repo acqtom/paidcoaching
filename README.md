@@ -2145,6 +2145,26 @@ in and you'll land on `/dashboard`.
   Daily Numbers) against the real dev server, screenshotted and
   compared side by side with the three reference images.
 
+  **Dashboard also goes full width**, same mechanism as Rep Daily
+  Numbers' existing `app-wide` toggle (`.app.app-wide { max-width:
+  none; }`) rather than a new one — both now share a small
+  `isWideView(view)` helper instead of the view-switcher's click
+  handler hardcoding just `"rep-numbers"`. The KPI grid needed no
+  width-specific CSS of its own: `.kpi-row.cols-3`'s `grid-template-
+  columns: repeat(3, 1fr)` already uses fractional units, so the tiles
+  simply stretch to fill whatever width `.app` has. The one thing the
+  existing toggle didn't handle: Dashboard is the *default* active view
+  on page load, before any click ever fires, so `app-wide` needed to
+  be applied once up front too, read straight off whichever tab already
+  has the `active` class at that point — without this, the app would
+  stay centered until you switched away and back. Verified live:
+  `app-wide` is `true` on initial load (not just after a click), the
+  `.app` element's rendered width matches the full `1920px` viewport,
+  switching to Data removes it, and switching back to Dashboard
+  re-adds it — plus a full-page screenshot confirming the KPI grid
+  reads cleanly stretched across the full width with no leftover
+  centered-column margins.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
