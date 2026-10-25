@@ -168,7 +168,12 @@
   .legend-grid-2 { display: grid; grid-template-columns: auto auto; gap: 8px 28px; }
 
   /* --- line chart --- */
-  .line-chart svg { width: 100%; height: 220px; display: block; overflow: visible; }
+  /* height comes from aspect-ratio (matching the SVG's own 640x220 viewBox)
+     rather than a fixed 220px -- a fixed height let the CSS-rendered box
+     drift out of sync with the viewBox whenever the card was wider or
+     narrower than 640px, and preserveAspectRatio="none" below then
+     stretched the chart non-uniformly to fill that mismatched box. */
+  .line-chart svg { width: 100%; aspect-ratio: 640 / 220; height: auto; display: block; overflow: visible; }
 
   /* --- filters --- */
   .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; align-items: center; }
@@ -234,7 +239,7 @@
   .kpi-grip svg { width: 14px; height: 14px; display: block; }
 
   /* --- post call form --- */
-  .form-card { max-width: 780px; margin: 0 auto; }
+  .form-card { max-width: 780px; margin: 0 auto 28px; }
 
   .funnel-picker { margin-bottom: 20px; }
   .funnel-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -737,6 +742,11 @@
       <div class="card-header"><h2>DM Setters &amp; Dialers</h2></div>
       <div class="card-body" id="chart-setters"></div>
     </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Full Stack</h2></div>
+      <div class="card-body" id="chart-full-stack"></div>
+    </div>
   </section>
 
   </div>
@@ -798,22 +808,31 @@
           </div>
 
           <div class="form-rest" id="pcf-form-rest" hidden>
+            <div class="funnel-picker">
+              <span class="outcome-picker-label">Call Type</span>
+              <div class="funnel-buttons" id="pcf-calltype-buttons">
+                <button type="button" class="funnel-btn selected" data-calltype="split">Setter + Closer</button>
+                <button type="button" class="funnel-btn" data-calltype="fullstack">Full Stack</button>
+              </div>
+              <input type="hidden" name="callType" id="pcf-calltype-value" value="split">
+            </div>
+
             <div class="form-grid">
-              <label class="form-field">
-                <span>Call</span>
-                <input type="text" name="call" required placeholder="e.g. Call 1">
-              </label>
               <label class="form-field">
                 <span>Date</span>
                 <input type="date" name="closingDate" required>
               </label>
-              <label class="form-field">
+              <label class="form-field" id="pcf-closer-field">
                 <span>Closer</span>
                 <select name="closer" id="pcf-closer" required></select>
               </label>
-              <label class="form-field">
+              <label class="form-field" id="pcf-setter-field">
                 <span>Setter</span>
                 <select name="setter" id="pcf-setter" required></select>
+              </label>
+              <label class="form-field" id="pcf-fullstack-field" hidden>
+                <span>Full Stack Rep</span>
+                <select name="fullStackRep" id="pcf-fullstack"></select>
               </label>
               <label class="form-field">
                 <span>Client Full Name</span>
@@ -855,7 +874,7 @@
     </div>
 
     <!-- ================= DATA ================= -->
-    <div class="card">
+    <div class="card form-card">
       <div class="card-header">
         <h2>Data</h2>
         <p>Every logged call behind the dashboard. Edit or delete a row and every chart and total updates.</p>
@@ -1139,22 +1158,31 @@
           <input type="hidden" name="outcome" id="edit-outcome-value">
         </div>
 
+        <div class="funnel-picker">
+          <span class="outcome-picker-label">Call Type</span>
+          <div class="funnel-buttons" id="edit-calltype-buttons">
+            <button type="button" class="funnel-btn selected" data-calltype="split">Setter + Closer</button>
+            <button type="button" class="funnel-btn" data-calltype="fullstack">Full Stack</button>
+          </div>
+          <input type="hidden" name="callType" id="edit-calltype-value" value="split">
+        </div>
+
         <div class="form-grid">
-          <label class="form-field">
-            <span>Call</span>
-            <input type="text" name="call" required placeholder="e.g. Call 1">
-          </label>
           <label class="form-field">
             <span>Date</span>
             <input type="date" name="closingDate" required>
           </label>
-          <label class="form-field">
+          <label class="form-field" id="edit-closer-field">
             <span>Closer</span>
             <select name="closer" id="edit-closer" required></select>
           </label>
-          <label class="form-field">
+          <label class="form-field" id="edit-setter-field">
             <span>Setter</span>
             <select name="setter" id="edit-setter" required></select>
+          </label>
+          <label class="form-field" id="edit-fullstack-field" hidden>
+            <span>Full Stack Rep</span>
+            <select name="fullStackRep" id="edit-fullstack"></select>
           </label>
           <label class="form-field">
             <span>Client Full Name</span>
@@ -1277,7 +1305,8 @@
 
   const COLOR = {
     closer: "var(--blue)",
-    setter: "var(--aqua)"
+    setter: "var(--aqua)",
+    fullStack: "var(--violet)"
   };
 
   const ICONS = {
@@ -1392,7 +1421,13 @@
   // 3. COMMISSION TRACKING
   // ---------------------------------------------------------------------
   function renderCommissionPage() {
-    const byCloser = groupBy(deals, d => d.closer);
+    // Full Stack deals (one rep both set and closed) get their own blended
+    // rate below instead of being counted here too -- otherwise the same
+    // deal would pay out 10% + 5% = 15% across these two charts instead of
+    // the flat 12% Full Stack is meant to replace that with.
+    const splitDeals = deals.filter(d => !d.fullStack);
+
+    const byCloser = groupBy(splitDeals, d => d.closer);
     const closerItems = Object.keys(byCloser).map(name => ({
       label: name,
       value: sum(byCloser[name], d => d.cashCollected * d.closerCommissionRate),
@@ -1400,13 +1435,21 @@
     }));
     renderHBarChart(document.getElementById("chart-closers"), closerItems);
 
-    const bySetter = groupBy(deals, d => d.setter);
+    const bySetter = groupBy(splitDeals, d => d.setter);
     const setterItems = Object.keys(bySetter).map(name => ({
       label: name,
       value: sum(bySetter[name], d => d.cashCollected * d.setterCommissionRate),
       color: COLOR.setter
     }));
     renderHBarChart(document.getElementById("chart-setters"), setterItems);
+
+    const byFullStack = groupBy(deals.filter(d => d.fullStack), d => d.closer);
+    const fullStackItems = Object.keys(byFullStack).map(name => ({
+      label: name,
+      value: sum(byFullStack[name], d => d.cashCollected * (d.fullStackCommissionRate ?? 0.12)),
+      color: COLOR.fullStack
+    }));
+    renderHBarChart(document.getElementById("chart-full-stack"), fullStackItems);
   }
 
   // ---------------------------------------------------------------------
@@ -1533,7 +1576,7 @@
 
     el.innerHTML = `
       <div class="line-chart">
-        <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <svg viewBox="0 0 ${w} ${h}">
           <defs>
             <linearGradient id="lineFade" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#2a78d6" stop-opacity="0.18"/>
@@ -1620,7 +1663,7 @@
 
   function renderDataTable() {
     const table = document.getElementById("data-table");
-    const cols = 15;
+    const cols = 14;
     const filtered = deals.filter(passesDataFilters);
     if (!filtered.length) {
       table.innerHTML = `<tr><td class="data-table-empty" colspan="${cols}">${deals.length ? "No calls match these filters." : "No calls logged yet."}</td></tr>`;
@@ -1632,7 +1675,6 @@
         <tr>
           <td>${d.closingDate}</td>
           <td>${d.funnelType === "webinar" ? "Webinar" : "VSL"}</td>
-          <td>${d.call || ""}</td>
           <td>${d.closer}</td>
           <td>${d.setter}</td>
           <td>${d.clientName || ""}</td>
@@ -1655,7 +1697,7 @@
     table.innerHTML = `
       <thead>
         <tr>
-          <th>Date</th><th>Funnel</th><th>Call</th><th>Closer</th><th>Setter</th><th>Client</th><th>Email</th><th>Phone</th>
+          <th>Date</th><th>Funnel</th><th>Closer</th><th>Setter</th><th>Client</th><th>Email</th><th>Phone</th>
           <th>Fathom</th><th>Outcome</th><th>Details</th><th>Why / Notes</th><th>Cash</th><th>Cash Type</th><th></th>
         </tr>
       </thead>
@@ -2074,12 +2116,41 @@
 
   const pcfCloserSelect = document.getElementById("pcf-closer");
   const pcfSetterSelect = document.getElementById("pcf-setter");
+  const pcfFullStackSelect = document.getElementById("pcf-fullstack");
   populateNameSelect(pcfCloserSelect, CLOSERS);
   populateNameSelect(pcfSetterSelect, SETTERS);
+  populateNameSelect(pcfFullStackSelect, allReps());
 
   // Closer/Setter names themselves are managed from the Add Team tab (see
   // section 10b below), not from here — this just keeps both selects in
   // sync whenever CLOSERS/SETTERS changes.
+
+  // Call Type toggle -- "Full Stack" means one rep both set and closed,
+  // so instead of filling in Closer and Setter separately, swap to one
+  // select (drawn from the combined closer+setter roster) that fills
+  // both roles for this deal. Shared by the post call form and the edit
+  // modal, same pattern as applyOutcomeFormConfigTo above.
+  function applyCallType(isFullStack, closerFieldEl, setterFieldEl, fullStackFieldEl, closerSelectEl, setterSelectEl, fullStackSelectEl) {
+    closerFieldEl.hidden = isFullStack;
+    setterFieldEl.hidden = isFullStack;
+    fullStackFieldEl.hidden = !isFullStack;
+    closerSelectEl.required = !isFullStack;
+    setterSelectEl.required = !isFullStack;
+    fullStackSelectEl.required = isFullStack;
+  }
+
+  const pcfCloserField = document.getElementById("pcf-closer-field");
+  const pcfSetterField = document.getElementById("pcf-setter-field");
+  const pcfFullStackField = document.getElementById("pcf-fullstack-field");
+  const pcfCallTypeValue = document.getElementById("pcf-calltype-value");
+  document.querySelectorAll("#pcf-calltype-buttons .funnel-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#pcf-calltype-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      pcfCallTypeValue.value = btn.dataset.calltype;
+      applyCallType(btn.dataset.calltype === "fullstack", pcfCloserField, pcfSetterField, pcfFullStackField, pcfCloserSelect, pcfSetterSelect, pcfFullStackSelect);
+    });
+  });
 
   // Generic so the edit modal's outcome picker can reuse the same field config
   // logic against its own dynamic-fields/why-note elements.
@@ -2116,6 +2187,10 @@
     document.querySelectorAll("#pcf-funnel-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
     pcfFunnelValue.value = "";
     pcfFunnelError.hidden = true;
+    document.querySelectorAll("#pcf-calltype-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
+    document.querySelector('#pcf-calltype-buttons [data-calltype="split"]').classList.add("selected");
+    pcfCallTypeValue.value = "split";
+    applyCallType(false, pcfCloserField, pcfSetterField, pcfFullStackField, pcfCloserSelect, pcfSetterSelect, pcfFullStackSelect);
   }
 
   document.querySelectorAll("#outcome-buttons .outcome-btn").forEach(btn => {
@@ -2181,10 +2256,20 @@
       outcome === "No Close" ? fieldValue(form, "offerMade") !== "no" :
       null;
 
+    // Full Stack means one rep both set and closed this call -- they're
+    // picked once from a dedicated select and that same name fills both
+    // the closer and setter roles everywhere else on the board (Team
+    // Performance, Rep Daily Numbers, Daily Huddles all key off
+    // deal.closer/deal.setter directly), while `fullStack: true` is what
+    // tells Commission Tracking to pay them the blended 12% rate instead
+    // of double-counting them under both the 10% and 5% buckets.
+    const isFullStack = fieldValue(form, "callType") === "fullstack";
+    const fullStackRep = fieldValue(form, "fullStackRep");
+
     return {
-      call: form.call.value.trim(),
-      closer: form.closer.value.trim(),
-      setter: form.setter.value.trim(),
+      closer: isFullStack ? fullStackRep : form.closer.value.trim(),
+      setter: isFullStack ? fullStackRep : form.setter.value.trim(),
+      fullStack: isFullStack,
       clientName: form.clientName.value.trim(),
       clientEmail: form.clientEmail.value.trim(),
       clientPhone: form.clientPhone.value.trim(),
@@ -2225,7 +2310,8 @@
       id: Date.now(),
       ...dealFieldsFromForm(form, outcome),
       closerCommissionRate: 0.10,
-      setterCommissionRate: 0.05
+      setterCommissionRate: 0.05,
+      fullStackCommissionRate: 0.12
     });
 
     refreshAll();
@@ -2254,6 +2340,11 @@
   const editWhyLabel = document.getElementById("edit-why-label");
   const editCloserSelect = document.getElementById("edit-closer");
   const editSetterSelect = document.getElementById("edit-setter");
+  const editFullStackSelect = document.getElementById("edit-fullstack");
+  const editCloserField = document.getElementById("edit-closer-field");
+  const editSetterField = document.getElementById("edit-setter-field");
+  const editFullStackField = document.getElementById("edit-fullstack-field");
+  const editCallTypeValue = document.getElementById("edit-calltype-value");
 
   function closeEditModal() {
     editModalOverlay.hidden = true;
@@ -2265,10 +2356,15 @@
     if (!deal) return;
 
     editDealId.value = deal.id;
-    editForm.call.value = deal.call || "";
     editForm.closingDate.value = deal.closingDate || "";
     populateNameSelect(editCloserSelect, CLOSERS, deal.closer);
     populateNameSelect(editSetterSelect, SETTERS, deal.setter);
+    populateNameSelect(editFullStackSelect, allReps(), deal.fullStack ? deal.closer : undefined);
+    document.querySelectorAll("#edit-calltype-buttons .funnel-btn").forEach(b => {
+      b.classList.toggle("selected", b.dataset.calltype === (deal.fullStack ? "fullstack" : "split"));
+    });
+    editCallTypeValue.value = deal.fullStack ? "fullstack" : "split";
+    applyCallType(!!deal.fullStack, editCloserField, editSetterField, editFullStackField, editCloserSelect, editSetterSelect, editFullStackSelect);
     editForm.clientName.value = deal.clientName || "";
     editForm.clientEmail.value = deal.clientEmail || "";
     editForm.clientPhone.value = deal.clientPhone || "";
@@ -2318,6 +2414,15 @@
       document.querySelectorAll("#edit-funnel-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
       editFunnelValue.value = btn.dataset.funnel;
+    });
+  });
+
+  document.querySelectorAll("#edit-calltype-buttons .funnel-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#edit-calltype-buttons .funnel-btn").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      editCallTypeValue.value = btn.dataset.calltype;
+      applyCallType(btn.dataset.calltype === "fullstack", editCloserField, editSetterField, editFullStackField, editCloserSelect, editSetterSelect, editFullStackSelect);
     });
   });
 
@@ -2619,6 +2724,7 @@
   const teamCodeValue = document.getElementById("team-code-value");
 
   function renderTeamTab() {
+    populateNameSelect(pcfFullStackSelect, allReps());
     renderNameList(teamCloserList, CLOSERS, name => {
       CLOSERS = CLOSERS.filter(n => n !== name);
       populateNameSelect(pcfCloserSelect, CLOSERS);

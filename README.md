@@ -2259,6 +2259,75 @@ in and you'll land on `/dashboard`.
   reads cleanly on one line after the selector fix, with no console
   errors throughout.
 
+  **Post Call Form/Data matched in width, Full Stack call type added, Call
+  field dropped.** The Data card now shares the Post Call Form's own
+  `.form-card` class (max-width 780px, centered) instead of stretching to
+  the view's full width, so the two line up instead of one being visibly
+  wider than the other. Caught and fixed in the same pass: `.form-card`'s
+  `margin: 0 auto` was zeroing out the `.card` class's own `margin-bottom:
+  20px` (an explicit `0` always wins over a shorthand's un-set sides), which
+  is why the two cards were butted directly against each other with no
+  visible gap — changed to `margin: 0 auto 28px` so centering and spacing
+  both apply.
+
+  **Full Stack** is a new third way to fill in who worked a call, next to
+  the existing Closer and Setter selects, for the (common) case where one
+  rep both set and closed it themselves. A new "Call Type" toggle (`Setter
+  + Closer` / `Full Stack`, same `.funnel-btn` pattern as the Funnel
+  picker) on both the Post Call Form and Edit Call Modal swaps the Closer
+  +Setter pair for a single "Full Stack Rep" select (drawn from the
+  existing combined closer+setter roster via `allReps()` — no new roster
+  to manage) when toggled on; picking a name there fills `deal.closer` and
+  `deal.setter` with that same name (so Team Performance, Rep Daily
+  Numbers, and Daily Huddles all keep working unchanged, since they
+  already key off those two fields directly) plus a new `deal.fullStack:
+  true` flag. `applyCallType()` is the shared helper (mirroring
+  `applyOutcomeFormConfigTo`'s "generic function, two call sites" pattern)
+  that hides/shows the right fields and toggles their `required` state on
+  both forms. Commission Tracking gained a third chart, **Full Stack**, at
+  a flat **12%** (`deal.fullStackCommissionRate`) — `renderCommissionPage()`
+  now excludes `fullStack` deals from the existing Closers (10%) and
+  Setters (5%) charts first, so a full-stack deal is paid out once at 12%
+  instead of twice at 10%+5%=15%.
+
+  **The "Call" field (the free-text "e.g. Call 1" input) is gone** from
+  both forms, `dealFieldsFromForm()`'s return object, and the Data table
+  (column + cell + `colspan` count all updated) — the user didn't find it
+  useful and nothing else on the board read `deal.call`.
+
+  Caught and fixed before shipping, unrelated to the above but noticed
+  while testing it live: the "Cash collected by day" line chart
+  (`renderLineChart()`) was rendering visibly stretched and distorted —
+  circles squashed into ellipses, uneven stroke widths — on any card
+  width other than exactly 640px. Root cause: the `<svg>`'s `viewBox` was
+  a hardcoded `0 0 640 220`, but its CSS forced a fixed `height: 220px`
+  while leaving `width: 100%` to whatever the actual card happened to be,
+  and `preserveAspectRatio="none"` then stretched the mismatch to fit
+  non-uniformly instead of leaving empty space. A first attempt measured
+  the container's real `clientWidth` in JS and built the viewBox from
+  that instead — looked right when Dashboard was the active tab, but
+  broke again for the realistic case of logging a call from the Post Call
+  Form tab (Dashboard hidden, `display:none`, so `clientWidth` reads `0`
+  and silently falls back to the same hardcoded 640, with no later
+  re-render to fix it once the tab is actually opened). Fixed properly
+  instead with CSS: `.line-chart svg` now sizes its height from `aspect-
+  ratio: 640 / 220` rather than a fixed pixel height, so the rendered box
+  always matches the viewBox's own ratio exactly regardless of the card's
+  actual width or whether the chart was hidden at render time —
+  `preserveAspectRatio="none"` was removed as no longer needed. Verified
+  live with Puppeteer: confirmed Post Call Form and Data render at the
+  same 780px width with a 28px gap between them; confirmed the Call input
+  and Data column are both gone; toggling Full Stack hid Closer/Setter and
+  revealed the Full Stack Rep select populated from the combined roster;
+  logged a $1,000 Full Stack deal and confirmed it showed as $120.00 (12%)
+  on the new Full Stack chart and did **not** appear on the Closers chart;
+  confirmed the form resets back to the Setter+Closer state after submit;
+  and — reproducing the exact scenario that exposed the bug — submitted
+  that call from the Post Call Form tab (Dashboard hidden at render time)
+  then switched to Dashboard and confirmed the line chart's rendered
+  aspect ratio still matched its viewBox exactly, with no console errors
+  throughout.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
