@@ -2328,6 +2328,16 @@ in and you'll land on `/dashboard`.
   aspect ratio still matched its viewBox exactly, with no console errors
   throughout.
 
+  **"Rep Daily Numbers" relabeled to "KPI's"** — the nav tab and the page's
+  own heading, same label-only change as the earlier Objection Overview →
+  Scaling Tracking rename: `data-view="rep-numbers"`, every `rep-numbers-*`
+  id/class, and every `renderRepDailyNumbers()`/`repDailyNumbers` function
+  and variable name are all untouched, so nothing about how the page
+  stores or wires up data changed, only what it's called on screen.
+  Verified live: the nav tab and page heading both read "KPI's", the page
+  still renders full width, and the Setter/Closer scorecards still render
+  correctly.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards
