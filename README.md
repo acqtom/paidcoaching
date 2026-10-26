@@ -2363,6 +2363,24 @@ in and you'll land on `/dashboard`.
   with `sizes="512x512"`, and fetching that route returns the new 512×512
   square "P" mark.
 
+  **Outcome picker split into Closer/Setter groups** on both the Post Call
+  Form and Edit Call Modal — purely a visual regrouping with two new
+  `.outcome-subgroup` labels ("Closer": Closed/Won/Deposit, No Close,
+  Disqualified, Remainder Collection (no call), 2nd CC Call Booked;
+  "Setter": No-Show, Cancelled, Rescheduled), not a behavioral change:
+  `#outcome-buttons`/`#edit-outcome-buttons` kept their ids as the outer
+  wrapper around both subgroups specifically so every existing
+  `document.querySelectorAll("#outcome-buttons .outcome-btn")` selector
+  throughout the file still finds all 8 buttons unchanged, regardless of
+  which subgroup now contains them — no JS changes were needed at all,
+  only the HTML nesting and `.outcome-buttons` flipping from a single
+  `flex-wrap` row to a `flex-direction: column` stack of two labeled
+  rows. Verified live: both forms render the two groups with the right
+  outcomes under each label, picking a button still sets the hidden
+  `outcome` value and reveals the rest of the form, and picking a button
+  in one group still correctly deselects whatever was previously picked
+  in the other, with no console errors.
+
   **Daily Huddles was restructured**: Setter/Closer Bottleneck Spot-Check
   (the old single-instance "rep in focus / weak number / diagnostic /
   action" worksheet, one per role) is gone, replaced by four new cards

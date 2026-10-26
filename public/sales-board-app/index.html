@@ -252,7 +252,12 @@
   .funnel-webinar { background: #ead9fb; color: #7a3fc4; }
 
   .outcome-picker-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
-  .outcome-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .outcome-buttons { display: flex; flex-direction: column; gap: 14px; }
+  .outcome-subgroup-label {
+    display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted); margin-bottom: 8px;
+  }
+  .outcome-subgroup-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
   .outcome-btn {
     border: 2px solid transparent; border-radius: 10px; padding: 11px 16px;
     font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-align: left;
@@ -794,14 +799,24 @@
           <div class="outcome-picker">
             <span class="outcome-picker-label">Outcome</span>
             <div class="outcome-buttons" id="outcome-buttons">
-              <button type="button" class="outcome-btn outcome-closed" data-outcome="Closed/Won/Deposit" data-cash-type="new">Closed/Won/Deposit</button>
-              <button type="button" class="outcome-btn outcome-deposit" data-outcome="No Close" data-cash-type="none">No Close</button>
-              <button type="button" class="outcome-btn outcome-dq" data-outcome="Disqualified">Disqualified</button>
-              <button type="button" class="outcome-btn outcome-noshow" data-outcome="No-Show">No-Show</button>
-              <button type="button" class="outcome-btn outcome-cancelled" data-outcome="Cancelled">Cancelled</button>
-              <button type="button" class="outcome-btn outcome-rescheduled" data-outcome="Rescheduled">Rescheduled</button>
-              <button type="button" class="outcome-btn outcome-remainder" data-outcome="Remainder Collection (no call)" data-cash-type="remainder">Remainder Collection (no call)</button>
-              <button type="button" class="outcome-btn outcome-secondcc" data-outcome="2nd CC Call Booked">2nd CC Call Booked</button>
+              <div class="outcome-subgroup">
+                <span class="outcome-subgroup-label">Closer</span>
+                <div class="outcome-subgroup-buttons">
+                  <button type="button" class="outcome-btn outcome-closed" data-outcome="Closed/Won/Deposit" data-cash-type="new">Closed/Won/Deposit</button>
+                  <button type="button" class="outcome-btn outcome-deposit" data-outcome="No Close" data-cash-type="none">No Close</button>
+                  <button type="button" class="outcome-btn outcome-dq" data-outcome="Disqualified">Disqualified</button>
+                  <button type="button" class="outcome-btn outcome-remainder" data-outcome="Remainder Collection (no call)" data-cash-type="remainder">Remainder Collection (no call)</button>
+                  <button type="button" class="outcome-btn outcome-secondcc" data-outcome="2nd CC Call Booked">2nd CC Call Booked</button>
+                </div>
+              </div>
+              <div class="outcome-subgroup">
+                <span class="outcome-subgroup-label">Setter</span>
+                <div class="outcome-subgroup-buttons">
+                  <button type="button" class="outcome-btn outcome-noshow" data-outcome="No-Show">No-Show</button>
+                  <button type="button" class="outcome-btn outcome-cancelled" data-outcome="Cancelled">Cancelled</button>
+                  <button type="button" class="outcome-btn outcome-rescheduled" data-outcome="Rescheduled">Rescheduled</button>
+                </div>
+              </div>
             </div>
             <input type="hidden" name="outcome" id="pcf-outcome-value">
             <span class="form-error" id="pcf-outcome-error" hidden>Pick an outcome to continue.</span>
@@ -1146,14 +1161,24 @@
         <div class="outcome-picker">
           <span class="outcome-picker-label">Outcome</span>
           <div class="outcome-buttons" id="edit-outcome-buttons">
-            <button type="button" class="outcome-btn outcome-closed" data-outcome="Closed/Won/Deposit">Closed/Won/Deposit</button>
-            <button type="button" class="outcome-btn outcome-deposit" data-outcome="No Close">No Close</button>
-            <button type="button" class="outcome-btn outcome-dq" data-outcome="Disqualified">Disqualified</button>
-            <button type="button" class="outcome-btn outcome-noshow" data-outcome="No-Show">No-Show</button>
-            <button type="button" class="outcome-btn outcome-cancelled" data-outcome="Cancelled">Cancelled</button>
-            <button type="button" class="outcome-btn outcome-rescheduled" data-outcome="Rescheduled">Rescheduled</button>
-            <button type="button" class="outcome-btn outcome-remainder" data-outcome="Remainder Collection (no call)">Remainder Collection (no call)</button>
-            <button type="button" class="outcome-btn outcome-secondcc" data-outcome="2nd CC Call Booked">2nd CC Call Booked</button>
+            <div class="outcome-subgroup">
+              <span class="outcome-subgroup-label">Closer</span>
+              <div class="outcome-subgroup-buttons">
+                <button type="button" class="outcome-btn outcome-closed" data-outcome="Closed/Won/Deposit">Closed/Won/Deposit</button>
+                <button type="button" class="outcome-btn outcome-deposit" data-outcome="No Close">No Close</button>
+                <button type="button" class="outcome-btn outcome-dq" data-outcome="Disqualified">Disqualified</button>
+                <button type="button" class="outcome-btn outcome-remainder" data-outcome="Remainder Collection (no call)">Remainder Collection (no call)</button>
+                <button type="button" class="outcome-btn outcome-secondcc" data-outcome="2nd CC Call Booked">2nd CC Call Booked</button>
+              </div>
+            </div>
+            <div class="outcome-subgroup">
+              <span class="outcome-subgroup-label">Setter</span>
+              <div class="outcome-subgroup-buttons">
+                <button type="button" class="outcome-btn outcome-noshow" data-outcome="No-Show">No-Show</button>
+                <button type="button" class="outcome-btn outcome-cancelled" data-outcome="Cancelled">Cancelled</button>
+                <button type="button" class="outcome-btn outcome-rescheduled" data-outcome="Rescheduled">Rescheduled</button>
+              </div>
+            </div>
           </div>
           <input type="hidden" name="outcome" id="edit-outcome-value">
         </div>
