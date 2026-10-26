@@ -129,8 +129,10 @@ export function mergeSalesBoardMetrics(
   for (const deal of deals) {
     const date = deal.closingDate;
     if (!date) continue;
-    // Deals logged before the funnel picker existed have no funnelType --
-    // default them to VSL, the mode used throughout this board's history.
+    // The post call form no longer sets funnelType (it records Paid /
+    // Organic attribution instead), so new deals and deals logged before
+    // the funnel picker existed land on VSL. Only older deals explicitly
+    // tagged "webinar" still route to the Webinar sheet.
     const isVsl = deal.funnelType !== "webinar";
     const isClosed = deal.callOutcome === "Closed/Won/Deposit";
     const isCallRow = wasCall(deal);
