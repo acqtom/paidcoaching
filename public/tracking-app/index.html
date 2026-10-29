@@ -177,30 +177,42 @@ td.avg-cell .input-cell,td.target-cell .input-cell{min-width:110px;}
 /* ── Data model ── */
 // Metric ids are kept from the old VSL config so existing values (and
 // the Sales Team Board push in src/lib/metrics-tracking-state.ts) carry
-// over -- e.g. Cost Per Call is still stored under `cpbc`.
+// over -- e.g. Click → LPV % is stored under `lp_connect`.
 const STAGES=[
   {id:'marketing',label:'Marketing'},
   {id:'funnel',   label:'Funnel Metrics'},
   {id:'sales',    label:'Sales Metrics'},
 ];
 const METRIC_META=[
-  {id:'ad_spend',       stage:'marketing',label:'Ad Spend (Meta)',     format:'currency',dir:'higher',target:null},
-  {id:'hook',           stage:'marketing',label:'Hook Rate',           format:'percent', dir:'higher',target:40},
-  {id:'cpc',            stage:'marketing',label:'Cost Per Click',      format:'currency',dir:'lower', target:1.00},
-  {id:'ctr',            stage:'marketing',label:'CTR Link',            format:'percent', dir:'higher',target:2.00},
-  {id:'cpl',            stage:'marketing',label:'Cost Per Lead',       format:'currency',dir:'lower', target:100},
-  {id:'cpbc',           stage:'marketing',label:'Cost Per Call',       format:'currency',dir:'lower', target:null},
-  {id:'vsl_play',       stage:'funnel',   label:'VSL Play Rate',       format:'percent', dir:'higher',target:null},
-  {id:'vsl_engage',     stage:'funnel',   label:'VSL Engagement Rate', format:'percent', dir:'higher',target:40},
-  {id:'lp_app',         stage:'funnel',   label:'LP Click → App Rate', format:'percent', dir:'higher',target:4},
-  {id:'connection_rate',stage:'sales',    label:'Connection Rate',     format:'percent', dir:'higher',target:null},
-  {id:'show_rate',      stage:'sales',    label:'Show Rate',           format:'percent', dir:'higher',target:80},
-  {id:'close_rate',     stage:'sales',    label:'Close Rate',          format:'percent', dir:'higher',target:60},
-  {id:'aov',            stage:'sales',    label:'AOV',                 format:'currency',dir:'higher',target:7000},
-  {id:'cac',            stage:'sales',    label:'CAC',                 format:'currency',dir:'lower', target:null},
-  {id:'cash',           stage:'sales',    label:'Cash Collected',      format:'currency',dir:'higher',target:null},
-  {id:'revenue_gen',    stage:'sales',    label:'Revenue Generated',   format:'currency',dir:'higher',target:null},
-  {id:'roas',           stage:'sales',    label:'ROAS',                format:'multiple',dir:'higher',target:7},
+  {id:'ad_spend',       stage:'marketing',label:'Ad Spend',             format:'currency',dir:'higher',target:null},
+  {id:'reach',          stage:'marketing',label:'Reach',                format:'number',  dir:'higher',target:null},
+  {id:'frequency',      stage:'marketing',label:'Frequency',            format:'number',  dir:'lower', target:null},
+  {id:'cpc',            stage:'marketing',label:'CPC (Link)',           format:'currency',dir:'lower', target:1.00},
+  {id:'ctr',            stage:'marketing',label:'CTR (Link)',           format:'percent', dir:'higher',target:2.00},
+  {id:'cpl',            stage:'marketing',label:'Cost Per Lead',        format:'currency',dir:'lower', target:100},
+  {id:'cpbc',           stage:'marketing',label:'Cost Per Booked Call', format:'currency',dir:'lower', target:null},
+  {id:'hook',           stage:'marketing',label:'Hook Rate',            format:'percent', dir:'higher',target:40},
+  {id:'hold',           stage:'marketing',label:'Hold Rate',            format:'percent', dir:'higher',target:null},
+  {id:'lp_connect',     stage:'marketing',label:'Click → LPV %',        format:'percent', dir:'higher',target:80},
+  {id:'vsl_play',       stage:'funnel',   label:'VSL Play Rate',        format:'percent', dir:'higher',target:null},
+  {id:'vsl_engage',     stage:'funnel',   label:'VSL Engagement Rate',  format:'percent', dir:'higher',target:40},
+  {id:'app_start',      stage:'funnel',   label:'App Start Rate',       format:'percent', dir:'higher',target:null},
+  {id:'app_complete',   stage:'funnel',   label:'App Completion Rate',  format:'percent', dir:'higher',target:50},
+  {id:'pct_qualified',  stage:'funnel',   label:'% Qualified',          format:'percent', dir:'higher',target:null},
+  {id:'pct_unqualified',stage:'funnel',   label:'% Unqualified',        format:'percent', dir:'lower', target:null},
+  // calls_cal, calls_show, units, show_rate, close_rate, cash and aov are
+  // filled in by the Sales Team Board push; connection_rate by Rep Daily
+  // Numbers (see src/lib/metrics-tracking-state.ts).
+  {id:'calls_cal',      stage:'sales',    label:'Calls Booked',         format:'number',  dir:'higher',target:null},
+  {id:'connection_rate',stage:'sales',    label:'Contact Rate',         format:'percent', dir:'higher',target:null},
+  {id:'calls_show',     stage:'sales',    label:'Calls Held',           format:'number',  dir:'higher',target:null},
+  {id:'show_rate',      stage:'sales',    label:'Show Rate',            format:'percent', dir:'higher',target:80},
+  {id:'units',          stage:'sales',    label:'Closes',               format:'number',  dir:'higher',target:null},
+  {id:'close_rate',     stage:'sales',    label:'Close Rate',           format:'percent', dir:'higher',target:60},
+  {id:'cash',           stage:'sales',    label:'Cash Collected',       format:'currency',dir:'higher',target:null},
+  {id:'aov',            stage:'sales',    label:'AOV',                  format:'currency',dir:'higher',target:7000},
+  {id:'cac',            stage:'sales',    label:'CAC',                  format:'currency',dir:'lower', target:null},
+  {id:'roas',           stage:'sales',    label:'ROAS',                 format:'multiple',dir:'higher',target:7},
 ];
 
 /* ── Date helpers ── */
@@ -542,7 +554,7 @@ function renderStages(){
 
 
 /* ── Funnel health chart ── */
-const HEALTH_METRICS=['hook','ctr','vsl_play','vsl_engage','lp_app','connection_rate','show_rate','close_rate'];
+const HEALTH_METRICS=['hook','hold','ctr','lp_connect','vsl_play','vsl_engage','app_start','app_complete','pct_qualified','connection_rate','show_rate','close_rate'];
 function healthStatus(pct){
   if(pct>=90)return{label:'On target',color:'var(--accent)'};
   if(pct>=80)return{label:'Watch',color:'#eda100'};
