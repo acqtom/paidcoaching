@@ -2,22 +2,22 @@ import { createClient } from "@/lib/supabase/server";
 
 export type MetricsTrackingData = Record<string, Record<string, number>>;
 
-// Which dates this feature has actually written a value for, per funnel
-// mode -- tracked separately from `data` itself (a dedicated DB column,
+// Which dates this feature has actually written a value for -- tracked separately from `data` itself (a dedicated DB column,
 // not a key inside the jsonb blob) precisely so a recompute can tell "a
 // date I previously pushed to, now with no qualifying deals" (zero it
 // out) apart from "a date the user manually typed a number into under
 // one of these same metric ids, that no deal has ever touched" (never
 // touch it). Without this, both cases look identical from the `data`
 // blob alone.
-export type SalesBoardPushedDates = { vsl: string[]; webinar: string[] };
+// Rows written before the Webinar funnel was removed may still carry a
+// `webinar` list alongside `vsl`; it's ignored and dropped on next write.
+export type SalesBoardPushedDates = { vsl: string[] };
 
 type Deal = {
   closingDate?: string;
   callOutcome?: string;
   cashCollected?: number | string | null;
   revenueGenerated?: number | string | null;
-  funnelType?: string;
   // Added later than the fields above -- a deal logged before these
   // existed has none of them, so every read below falls back to
   // deriving the same value dealFieldsFromForm() in
@@ -51,16 +51,8 @@ function wasDisqualified(deal: Deal): boolean {
 
 // The metric ids this feature owns -- everything else in a tracking row
 // (ad spend, CPC, and every other metric a user types in by hand) is
-// never touched by this code. VSL and Webinar are entirely separate
-// funnel-scoped id sets with zero overlap -- Metrics Tracking stores
-// values flat as { [metricId]: { [isoDate]: number } }, no funnel
-// dimension, so any id shared between VSL_METRIC_META and
-// WEBINAR_METRIC_META (only close_rate/aov, historically) would have one
-// funnel's number silently overwrite the other's on a mixed day. Webinar's
-// close_rate/aov were renamed to close_rate_webinar/aov_webinar in
-// public/tracking-app/index.html specifically to keep this list collision-
-// free -- keep it that way if more metrics are ever added here.
-const VSL_KEYS = [
+// never touched by this code.
+const METRIC_KEYS = [
   "cash",
   "revenue_gen",
   "units",
@@ -72,15 +64,6 @@ const VSL_KEYS = [
   "cash_per_call",
   "aov",
   "depos",
-] as const;
-const WEBINAR_KEYS = [
-  "total_revenue",
-  "deals_closed",
-  "calls_shown",
-  "calls_booked",
-  "show_rate_call",
-  "close_rate_webinar",
-  "aov_webinar",
 ] as const;
 
 function toNumber(v: unknown): number {
@@ -94,7 +77,7 @@ function ratio(numerator: number, denominator: number): number {
   return denominator ? numerator / denominator : 0;
 }
 
-type VslBucket = {
+type Bucket = {
   cash: number;
   revenue_gen: number;
   units: number;
@@ -103,7 +86,6 @@ type VslBucket = {
   dq_calls: number;
   depos: number;
 };
-type WebinarBucket = { total_revenue: number; deals_closed: number; calls_shown: number; calls_booked: number };
 
 // Recomputes the Sales-Board-owned metric cells entirely from the current
 // deals list and merges them into `existingData`. Recomputing from
@@ -111,10 +93,7 @@ type WebinarBucket = { total_revenue: number; deals_closed: number; calls_shown:
 // edited or deleted deal is reflected correctly, not just additive -- per
 // the user's explicit choice, this overwrites whatever a person may have
 // manually typed into these specific cells for these specific dates.
-// VSL and Webinar are tracked as fully separate date sets (a day with
-// only a VSL call never gets a Webinar entry written, and vice versa) --
-// routed purely by each deal's own funnelType, never combined -- and a
-// date is only ever touched here if a *current* deal lands on it or a
+// A date is only ever touched here if a *current* deal lands on it or a
 // *previous push* (`previouslyPushedDates`) did -- a manual entry under
 // one of these same metric ids that no deal has ever touched is never
 // written to.
@@ -123,62 +102,40 @@ export function mergeSalesBoardMetrics(
   previouslyPushedDates: SalesBoardPushedDates,
   deals: Deal[]
 ): { data: MetricsTrackingData; pushedDates: SalesBoardPushedDates } {
-  const byDateVsl: Record<string, VslBucket> = {};
-  const byDateWebinar: Record<string, WebinarBucket> = {};
+  const byDate: Record<string, Bucket> = {};
 
   for (const deal of deals) {
     const date = deal.closingDate;
     if (!date) continue;
-    // The post call form no longer sets funnelType (it records Paid /
-    // Organic attribution instead), so new deals and deals logged before
-    // the funnel picker existed land on VSL. Only older deals explicitly
-    // tagged "webinar" still route to the Webinar sheet.
-    const isVsl = deal.funnelType !== "webinar";
     const isClosed = deal.callOutcome === "Closed/Won/Deposit";
     const isCallRow = wasCall(deal);
     const isShown = isCallRow && calendarStatus(deal) === "showed";
-    const cash = toNumber(deal.cashCollected);
-    const revenue = toNumber(deal.revenueGenerated);
 
-    if (isVsl) {
-      if (!byDateVsl[date]) {
-        byDateVsl[date] = { cash: 0, revenue_gen: 0, units: 0, calls_show: 0, calls_cal: 0, dq_calls: 0, depos: 0 };
-      }
-      const bucket = byDateVsl[date];
-      if (isClosed) {
-        bucket.cash += cash;
-        bucket.revenue_gen += revenue;
-        bucket.units += 1;
-        if (deal.paymentMethod === "Deposit") bucket.depos += 1;
-      }
-      if (isCallRow) bucket.calls_cal += 1;
-      if (isShown) bucket.calls_show += 1;
-      if (wasDisqualified(deal)) bucket.dq_calls += 1;
-    } else {
-      if (!byDateWebinar[date]) {
-        byDateWebinar[date] = { total_revenue: 0, deals_closed: 0, calls_shown: 0, calls_booked: 0 };
-      }
-      const bucket = byDateWebinar[date];
-      if (isClosed) {
-        bucket.total_revenue += cash;
-        bucket.deals_closed += 1;
-      }
-      if (isCallRow) bucket.calls_booked += 1;
-      if (isShown) bucket.calls_shown += 1;
+    if (!byDate[date]) {
+      byDate[date] = { cash: 0, revenue_gen: 0, units: 0, calls_show: 0, calls_cal: 0, dq_calls: 0, depos: 0 };
     }
+    const bucket = byDate[date];
+    if (isClosed) {
+      bucket.cash += toNumber(deal.cashCollected);
+      bucket.revenue_gen += toNumber(deal.revenueGenerated);
+      bucket.units += 1;
+      if (deal.paymentMethod === "Deposit") bucket.depos += 1;
+    }
+    if (isCallRow) bucket.calls_cal += 1;
+    if (isShown) bucket.calls_show += 1;
+    if (wasDisqualified(deal)) bucket.dq_calls += 1;
   }
 
-  const vslDates = new Set<string>([...Object.keys(byDateVsl), ...previouslyPushedDates.vsl]);
-  const webinarDates = new Set<string>([...Object.keys(byDateWebinar), ...previouslyPushedDates.webinar]);
+  const dates = new Set<string>([...Object.keys(byDate), ...(previouslyPushedDates.vsl ?? [])]);
 
   const data: MetricsTrackingData = { ...existingData };
-  for (const key of [...VSL_KEYS, ...WEBINAR_KEYS]) {
+  for (const key of METRIC_KEYS) {
     data[key] = { ...(existingData[key] ?? {}) };
   }
 
-  const emptyVsl: VslBucket = { cash: 0, revenue_gen: 0, units: 0, calls_show: 0, calls_cal: 0, dq_calls: 0, depos: 0 };
-  for (const date of vslDates) {
-    const b = byDateVsl[date] ?? emptyVsl;
+  const empty: Bucket = { cash: 0, revenue_gen: 0, units: 0, calls_show: 0, calls_cal: 0, dq_calls: 0, depos: 0 };
+  for (const date of dates) {
+    const b = byDate[date] ?? empty;
     data.cash[date] = b.cash;
     data.revenue_gen[date] = b.revenue_gen;
     data.units[date] = b.units;
@@ -192,21 +149,8 @@ export function mergeSalesBoardMetrics(
     data.aov[date] = ratio(b.cash, b.units);
   }
 
-  const emptyWebinar: WebinarBucket = { total_revenue: 0, deals_closed: 0, calls_shown: 0, calls_booked: 0 };
-  for (const date of webinarDates) {
-    const b = byDateWebinar[date] ?? emptyWebinar;
-    data.total_revenue[date] = b.total_revenue;
-    data.deals_closed[date] = b.deals_closed;
-    data.calls_shown[date] = b.calls_shown;
-    data.calls_booked[date] = b.calls_booked;
-    data.show_rate_call[date] = pct(b.calls_shown, b.calls_booked);
-    data.close_rate_webinar[date] = pct(b.deals_closed, b.calls_booked);
-    data.aov_webinar[date] = ratio(b.total_revenue, b.deals_closed);
-  }
-
-  return { data, pushedDates: { vsl: [...vslDates], webinar: [...webinarDates] } };
+  return { data, pushedDates: { vsl: [...dates] } };
 }
-
 
 // Rep Daily Numbers feed the same tracker rows the deal-based push
 // writes, and win wherever they have a value: for each date and metric,
@@ -307,7 +251,7 @@ async function pushMetrics(
     if (readError) throw new Error(readError.message);
 
     const existingData = (row?.data as MetricsTrackingData) ?? {};
-    const existingDates = (row?.sales_board_dates as SalesBoardPushedDates) ?? { vsl: [], webinar: [] };
+    const existingDates = (row?.sales_board_dates as SalesBoardPushedDates) ?? { vsl: [] };
     const next = mergeSalesBoardMetrics(existingData, existingDates, deals as Deal[]);
     const withRep = overlayRepDailyMetrics(next.data, repDailyNumbers);
 
