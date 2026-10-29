@@ -58,6 +58,33 @@ body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system
 .reset-btn{background:#fff;border:1.5px solid var(--rule);color:var(--ink-2);border-radius:20px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
 .reset-btn:hover,.reset-btn.confirming{border-color:var(--bad);color:var(--bad);}
 
+/* ── Funnel health chart ── */
+.health{background:#fff;border:2px solid var(--rule);border-radius:16px;margin-bottom:20px;overflow:hidden;}
+.health-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid var(--rule);}
+.health-head h2{font-size:15px;font-weight:700;}
+.health-head p{font-size:12px;color:var(--ink-3);margin-top:2px;}
+.health-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);}
+.health-legend span{display:inline-flex;align-items:center;gap:6px;}
+.health-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.health-body{padding:18px 20px 14px;}
+.health-gap{background:var(--badge-bg);color:var(--ink);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px;}
+.health-gap b{color:var(--accent);}
+.h-row{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:center;padding:5px 0;}
+.h-label{text-align:right;line-height:1.3;}
+.h-label .n{font-weight:600;font-size:13px;}
+.h-label .v{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;}
+.h-track{position:relative;height:26px;}
+.h-grid{position:absolute;top:-5px;bottom:-5px;width:1px;background:var(--rule-2);}
+.h-grid.target{width:0;background:none;border-left:1.5px dashed var(--ink-3);}
+.h-bar{position:absolute;left:0;top:4px;height:18px;border-radius:0 4px 4px 0;}
+.h-val{position:absolute;top:0;height:26px;display:flex;align-items:center;gap:6px;padding-left:8px;font-size:12px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.h-val em{font-style:normal;font-weight:600;color:var(--ink-2);}
+.h-empty{font-size:12px;color:var(--ink-3);}
+.h-axis{display:grid;grid-template-columns:150px 1fr;gap:14px;margin-top:6px;}
+.h-ticks{position:relative;height:16px;font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums;}
+.h-ticks span{position:absolute;transform:translateX(-50%);}
+@media(max-width:600px){.h-row,.h-axis{grid-template-columns:104px 1fr;gap:10px;}}
+
 /* ── Stage tables ── */
 .funnel{display:flex;flex-direction:column;gap:20px;}
 .stage{background:#fff;border:2px solid var(--rule);border-radius:16px;overflow:hidden;}
@@ -128,6 +155,19 @@ td.avg-cell .input-cell,td.target-cell .input-cell{min-width:110px;}
     </div>
     <div class="toolbar-spacer"></div>
     <button class="reset-btn" id="resetBtn">Reset data</button>
+  </div>
+
+  <div class="health">
+    <div class="health-head">
+      <div><h2>Funnel health</h2><p>Each rate's average for this date range ÷ its target, in funnel order</p></div>
+      <div class="health-legend">
+        <span><i style="background:var(--accent)"></i>On target (90%+)</span>
+        <span><i style="background:#eda100"></i>Watch (80–90%)</span>
+        <span><i style="background:var(--bad)"></i>Bottleneck (&lt;80%)</span>
+        <span><i style="border:1.5px dashed var(--ink-3);background:none"></i>100% = target</span>
+      </div>
+    </div>
+    <div class="health-body" id="healthBody"></div>
   </div>
 
   <div class="funnel" id="stages"></div>
@@ -445,6 +485,7 @@ function renderDateLabel(){
 
 /* ── Funnel stage tables ── */
 function renderStages(){
+  renderHealth();
   const c=currentClient();const dates=rangeDates();
   const container=document.getElementById('stages');container.innerHTML='';
   STAGES.forEach(stage=>{
@@ -500,6 +541,45 @@ function renderStages(){
 }
 
 
+/* ── Funnel health chart ── */
+const HEALTH_METRICS=['hook','ctr','vsl_play','vsl_engage','lp_app','connection_rate','show_rate','close_rate'];
+function healthStatus(pct){
+  if(pct>=90)return{label:'On target',color:'var(--accent)'};
+  if(pct>=80)return{label:'Watch',color:'#eda100'};
+  return{label:'Bottleneck',color:'var(--bad)'};
+}
+function renderHealth(){
+  const body=document.getElementById('healthBody');if(!body)return;
+  const c=currentClient();
+  const rows=HEALTH_METRICS.map(id=>{
+    const meta=METRIC_META.find(m=>m.id===id);
+    const a=avg(getVals(c,id));const target=getTarget(c,meta);
+    const pct=(a===null||!target)?null:(meta.dir==='higher'?a/target:(a?target/a:null))*100;
+    return{meta,a,target,pct:pct==null?null:Math.round(pct)};
+  });
+  const scored=rows.filter(r=>r.pct!==null);
+  // Axis runs to 120% unless a bar overshoots, then the next 20% step.
+  const axisMax=Math.max(120,Math.ceil(Math.max(0,...scored.map(r=>r.pct))/20)*20);
+  const x=v=>`${(Math.min(v,axisMax)/axisMax)*100}%`;
+  const ticks=[];for(let t=0;t<=axisMax;t+=20)ticks.push(t);
+  const grid=ticks.map(t=>`<div class="h-grid${t===100?' target':''}" style="left:${x(t)}"></div>`).join('');
+  const worst=scored.length?scored.reduce((w,r)=>r.pct<w.pct?r:w):null;
+  const gap=worst&&worst.pct<90
+    ?`<div class="health-gap">Biggest gap: <b>${worst.meta.label}</b> is at ${worst.pct}% of target (${fmt(worst.a,worst.meta.format)} vs ${fmt(worst.target,worst.meta.format)}).</div>`
+    :scored.length?`<div class="health-gap">Every tracked rate is within 10% of target.</div>`:'';
+  body.innerHTML=gap+rows.map(r=>{
+    const vs=r.a===null?'no data yet':r.target?`${fmt(r.a,r.meta.format)} vs ${fmt(r.target,r.meta.format)}`:fmt(r.a,r.meta.format);
+    let track;
+    if(r.pct===null){
+      track=`<div class="h-track">${grid}<div class="h-val h-empty" style="left:0">${r.a===null?'Enter numbers below to see this bar':'Set a target below to see this bar'}</div></div>`;
+    }else{
+      const st=healthStatus(r.pct);
+      track=`<div class="h-track">${grid}<div class="h-bar" style="width:${x(r.pct)};background:${st.color}"></div><div class="h-val" style="left:${x(r.pct)}">${r.pct}%${st.label==='On target'?'':` <em>${st.label}</em>`}</div></div>`;
+    }
+    return`<div class="h-row" title="${r.meta.label}: ${vs}${r.pct!==null?` (${r.pct}% of target)`:''}"><div class="h-label"><div class="n">${r.meta.label}</div><div class="v">${vs}</div></div>${track}</div>`;
+  }).join('')+`<div class="h-axis"><div></div><div class="h-ticks">${ticks.map(t=>`<span style="left:${x(t)}">${t}%</span>`).join('')}</div></div>`;
+}
+
 /* ── Reset ── */
 let resetArmed=false,resetTimer=null;
 document.getElementById('resetBtn').onclick=e=>{
@@ -510,6 +590,7 @@ document.getElementById('resetBtn').onclick=e=>{
 
 /* ── Main render ── */
 function renderAll(){renderClientTabs();renderDateLabel();renderStages();}
+// Every edit re-renders the stage tables, so the chart refreshes with them.
 
 /* ── Date picker events ── */
 document.getElementById('drbToggle').addEventListener('click',()=>{
