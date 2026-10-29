@@ -78,7 +78,9 @@ table.metrics td{padding:8px;border-bottom:1px solid var(--rule-2);vertical-alig
 table.metrics tr:last-child td{border-bottom:none;}
 .metric-name{font-weight:600;font-size:14px;white-space:nowrap;}
 th.summary-col,td.summary-col{border-left:1px solid var(--rule-2);}
-.avg-cell{font-weight:700;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.avg-box,.avg-box:hover{background:var(--badge-bg);border-color:var(--badge-bg);}
+.avg-val{flex:1;min-width:64px;padding:6px 4px;font-size:14px;line-height:17px;min-height:29px;font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
+td.avg-cell .input-cell,td.target-cell .input-cell{min-width:110px;}
 
 .input-cell{display:flex;align-items:center;justify-content:center;background:var(--page);border:1.5px solid var(--rule-2);border-radius:10px;padding:2px 4px;}
 .input-cell:hover{border-color:var(--ink-3);}
@@ -396,14 +398,25 @@ function inputCell(value,format,attrs){
 // rather than a bare, ambiguous number. The label is just a static
 // span next to the input, not part of its typed value -- you still
 // just type the number (`80`, `7000`), same as every other cell.
-function targetInputCell(value,format,attrs){
-  const val=(value===null||value===undefined)?'':value;
+function unitAffixes(format){
   const prefix=format==='currency'?'<span class="affix">$</span>':'';
   const suffix=format==='percent'?'<span class="affix">%</span>'
     :format==='multiple'?'<span class="affix">x</span>'
     :format==='rating'?'<span class="affix">/5</span>'
     :'';
+  return{prefix,suffix};
+}
+function targetInputCell(value,format,attrs){
+  const val=(value===null||value===undefined)?'':value;
+  const{prefix,suffix}=unitAffixes(format);
   return`<div class="input-cell">${prefix}<input type="text" inputmode="decimal" ${attrs} value="${val}">${suffix}</div>`;
+}
+// Same box as the target cell, but read-only -- the average is computed
+// from the day cells, never typed.
+function avgBoxCell(value,format){
+  const val=(value===null||value===undefined||isNaN(value))?'':Number(value).toLocaleString(undefined,{maximumFractionDigits:2});
+  const{prefix,suffix}=unitAffixes(format);
+  return`<div class="input-cell avg-box">${prefix}<span class="avg-val">${val}</span>${suffix}</div>`;
 }
 
 /* ── Client label ── */
@@ -439,7 +452,7 @@ function renderStages(){
       const vals=getVals(c,meta.id);const target=getTarget(c,meta);
       const a=avg(vals);
       const dayCells=dates.map((date,i)=>`<td>${inputCell(vals[i],meta.format,`data-metric="${meta.id}" data-date="${date}"`)}</td>`).join('');
-      return`<tr data-metric="${meta.id}"><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${fmt(a,meta.format)}</td><td class="target-cell">${targetInputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td></tr>`;
+      return`<tr data-metric="${meta.id}"><td><div class="metric-name">${meta.label}</div></td>${dayCells}<td class="avg-cell summary-col">${avgBoxCell(a,meta.format)}</td><td class="target-cell">${targetInputCell(target,meta.format,`class="stage-target-input" data-metric="${meta.id}"`)}</td><td>${trendSelect(meta.id,getTrend(c,meta.id))}</td></tr>`;
     }).join('');
     const onTarget=metas.filter(m=>statusColor(getVals(c,m.id),getTarget(c,m),m.dir)==='good').length;
     div.innerHTML=`
