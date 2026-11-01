@@ -45,6 +45,9 @@ body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system
 .drb-chev{transition:transform .14s;}
 .drb-btn.open .drb-chev{transform:rotate(180deg);}
 .drb-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:600;background:#fff;border:2px solid var(--rule);border-radius:16px;padding:18px;min-width:300px;}
+.drb-step{background:#fff;border:1.5px solid var(--rule);color:var(--ink);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit;font-size:15px;font-weight:700;flex:none;}
+.drb-step:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+.date-nav{display:flex;align-items:center;gap:6px;}
 .drb-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
 .drb-preset{background:#fff;border:1.5px solid var(--rule);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--ink-2);}
 .drb-preset:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
@@ -134,6 +137,8 @@ td.avg-cell .input-cell,td.target-cell .input-cell{min-width:110px;}
 
   <div class="toolbar">
     <div class="client-rail" id="clientRow"></div>
+    <div class="date-nav">
+    <button class="drb-step" id="drbPrev" title="Previous 3 days" aria-label="Previous 3 days">&larr;</button>
     <div class="date-range-bar" id="dateRangeBar">
       <button class="drb-btn" id="drbToggle">
         <span id="dateRangeLabel">Loading…</span>
@@ -141,17 +146,15 @@ td.avg-cell .input-cell,td.target-cell .input-cell{min-width:110px;}
       </button>
       <div class="drb-panel" id="drbPanel" style="display:none;">
         <div class="drb-presets">
-          <button class="drb-preset" data-preset="7">Last 7 days</button>
-          <button class="drb-preset" data-preset="14">Last 14 days</button>
-          <button class="drb-preset" data-preset="30">Last 30 days</button>
-          <button class="drb-preset" data-preset="90">Last 90 days</button>
+          <button class="drb-preset" id="drbLatest">Latest 3 days</button>
         </div>
         <div class="drb-inputs">
-          <label class="drb-lbl">From<input type="date" id="drbFrom"></label>
-          <label class="drb-lbl">To<input type="date" id="drbTo"></label>
+          <label class="drb-lbl">First day of the 3<input type="date" id="drbFrom"></label>
         </div>
         <button class="drb-apply" id="drbApply">Apply</button>
       </div>
+    </div>
+    <button class="drb-step" id="drbNext" title="Next 3 days" aria-label="Next 3 days">&rarr;</button>
     </div>
     <div class="toolbar-spacer"></div>
     <button class="reset-btn" id="resetBtn">Reset data</button>
@@ -159,7 +162,7 @@ td.avg-cell .input-cell,td.target-cell .input-cell{min-width:110px;}
 
   <div class="health">
     <div class="health-head">
-      <div><h2>Funnel health</h2><p>Each rate's average for this date range ÷ its target, in funnel order</p></div>
+      <div><h2>Funnel health</h2><p>Each rate's average for these 3 days ÷ its target, in funnel order</p></div>
       <div class="health-legend">
         <span><i style="background:var(--accent)"></i>On target (90%+)</span>
         <span><i style="background:#eda100"></i>Watch (80–90%)</span>
@@ -225,7 +228,11 @@ function todayISO(){return toISO(new Date());}
 
 /* ── Date range state ── */
 let rangeStart='', rangeEnd='';
-function initRange(){const t=todayISO();rangeEnd=t;rangeStart=addDays(t,-6);}
+// Metrics are tracked in 3-day blocks: the tables show exactly three
+// days (plus their average), and the date controls move that window.
+const PERIOD_DAYS=3;
+function setPeriodStart(start){rangeStart=start;rangeEnd=addDays(start,PERIOD_DAYS-1);}
+function initRange(){setPeriodStart(addDays(todayISO(),-(PERIOD_DAYS-1)));}
 function rangeDates(){
   if(!rangeStart||!rangeEnd)return[];
   const dates=[];let d=new Date(rangeStart+'T00:00:00Z');
@@ -400,8 +407,7 @@ function loadStored(){
       // hardcoded "EDUCATR" default (before clients were renamed to the
       // person's own @username) get renamed automatically here.
       if(CLIENTS.length===1&&CLIENTS[0].name==='EDUCATR'){CLIENTS[0].name='@'+studentUsername();queueSave();}
-      if(p.rangeStart)rangeStart=p.rangeStart;
-      if(p.rangeEnd)rangeEnd=p.rangeEnd;
+      if(p.rangeStart)setPeriodStart(p.rangeStart);
     }
   }catch(e){}
 }
@@ -489,9 +495,7 @@ function renderDateLabel(){
   const el=document.getElementById('dateRangeLabel');
   if(el)el.textContent=`${dateLabel(rangeStart)} – ${dateLabel(rangeEnd)}`;
   const fromEl=document.getElementById('drbFrom');
-  const toEl=document.getElementById('drbTo');
   if(fromEl)fromEl.value=rangeStart;
-  if(toEl)toEl.value=rangeEnd;
 }
 
 
@@ -620,23 +624,18 @@ document.addEventListener('click',e=>{
   }
 });
 document.getElementById('drbPanel').addEventListener('click',e=>e.stopPropagation());
-document.querySelectorAll('.drb-preset').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const days=parseInt(btn.dataset.preset);
-    const t=todayISO();
-    rangeEnd=t;rangeStart=addDays(t,-(days-1));
-    document.getElementById('drbFrom').value=rangeStart;
-    document.getElementById('drbTo').value=rangeEnd;
-  });
-});
-document.getElementById('drbApply').addEventListener('click',()=>{
-  const f=document.getElementById('drbFrom').value;
-  const t=document.getElementById('drbTo').value;
-  if(f&&t&&f<=t){rangeStart=f;rangeEnd=t;}
+function closeDatePanel(){
   document.getElementById('drbPanel').style.display='none';
   document.getElementById('drbToggle').classList.remove('open');
-  queueSave();renderAll();
+}
+function goToPeriod(start){setPeriodStart(start);closeDatePanel();queueSave();renderAll();}
+document.getElementById('drbLatest').addEventListener('click',()=>goToPeriod(addDays(todayISO(),-(PERIOD_DAYS-1))));
+document.getElementById('drbApply').addEventListener('click',()=>{
+  const f=document.getElementById('drbFrom').value;
+  if(f)goToPeriod(f);else closeDatePanel();
 });
+document.getElementById('drbPrev').addEventListener('click',()=>goToPeriod(addDays(rangeStart,-PERIOD_DAYS)));
+document.getElementById('drbNext').addEventListener('click',()=>goToPeriod(addDays(rangeStart,PERIOD_DAYS)));
 
 
 initRange();loadStored();if(!rangeStart||!rangeEnd)initRange();renderAll();
