@@ -527,6 +527,19 @@
     border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
     padding: 6px 4px;
   }
+  .huddle-numbers-table th.num, .huddle-numbers-table td.num { text-align: right; white-space: nowrap; }
+  .huddle-numbers-table td { vertical-align: middle; }
+  .huddle-numbers-table .huddle-num-label { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+  .huddle-numbers-table .huddle-num-input { width: 90px; text-align: right; border: 1px solid var(--grid); background: var(--page); }
+  .huddle-numbers-table .huddle-num-pair { display: inline-flex; align-items: center; gap: 6px; }
+  .huddle-numbers-table .huddle-num-pct { font-size: 12px; color: var(--muted); min-width: 44px; text-align: right; }
+  .huddle-numbers-table .huddle-num-auto { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; text-align: right; }
+  .huddle-numbers-table tr.starred td { background: var(--badge-bg); }
+  .huddle-star {
+    border: none; background: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 4px;
+    color: var(--baseline); font-family: inherit;
+  }
+  .huddle-star.on { color: var(--accent); }
   .huddle-table-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
   .rep-numbers-table th, .rep-numbers-table td { white-space: nowrap; padding: 13px 10px; }
   .rep-numbers-table .rep-numbers-name-cell { font-weight: 700; color: var(--text-primary); vertical-align: middle; padding-left: 16px; font-size: 14px; }
@@ -998,19 +1011,12 @@
 
     <div class="card">
       <div class="card-header">
-        <h2>Marketing Check</h2>
-        <p>Debrief yesterday's prospects — what's working, what isn't. Add a new day to spot patterns over time.</p>
+        <h2>Yesterday's Numbers</h2>
+        <p id="huddle-yesterday-date">Yesterday's results against goal. Star the lines that are today's main focus.</p>
       </div>
       <div class="card-body">
-        <div class="sop-tabs" id="huddle-marketing-tabs"></div>
-        <div class="directory-list" id="huddle-marketing-check"></div>
-        <div class="huddle-sales-process">
-          <span class="directory-label">Sales Process Check</span>
-          <div class="huddle-sales-process-list" id="huddle-sales-process-list"></div>
-          <form class="name-add-form" id="huddle-sales-process-add-form">
-            <input type="text" id="huddle-sales-process-input" placeholder="Add a step in the sales process…" required>
-            <button type="submit">Add</button>
-          </form>
+        <div class="huddle-table-wrap">
+          <table class="huddle-table huddle-numbers-table" id="huddle-yesterday-table"></table>
         </div>
       </div>
     </div>
@@ -1085,18 +1091,6 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <h2>Students Due to Close Soon</h2>
-        <p>Track prospects who need a specific follow-up before they go cold.</p>
-      </div>
-      <div class="card-body">
-        <div class="huddle-table-wrap">
-          <table class="huddle-table" id="huddle-close-soon-table"></table>
-        </div>
-        <button type="button" class="sop-add-btn" id="huddle-close-soon-add-row">+ Add Row</button>
-      </div>
-    </div>
   </div>
 
   <!-- ================= REP DAILY NUMBERS ================= -->
@@ -3270,17 +3264,52 @@
     };
   }
 
+  // Yesterday's Numbers -- one row per metric. Actuals are filled in
+  // automatically from deals / Rep Daily Numbers where the board has them
+  // (see yesterdayAutoValues), and anything typed in is stored per date
+  // and wins over the automatic value. Goals and starred rows persist
+  // across days.
+  const YESTERDAY_METRICS = [
+    { id: "qualifiedLeads", label: "Qualified leads" },
+    { id: "callsPickedUp", label: "Calls picked up", pctLabel: "of dials" },
+    { id: "callsBooked", label: "Calls booked", pctLabel: "of qualified leads" },
+    { id: "callsOnCalendar", label: "Calls on calendar yesterday" },
+    { id: "callsShowed", label: "Calls showed" },
+    { id: "unitsClosed", label: "Units closed" },
+    { id: "cashCollected", label: "Cash collected", isCurrency: true },
+  ];
+  function stringMap(raw) {
+    const out = {};
+    if (raw && typeof raw === "object") Object.keys(raw).forEach(k => { if (typeof raw[k] === "string") out[k] = raw[k]; });
+    return out;
+  }
+  function normalizeYesterdayNumbers(raw) {
+    const actuals = {};
+    if (raw && raw.actuals && typeof raw.actuals === "object") {
+      Object.keys(raw.actuals).forEach(date => { actuals[date] = stringMap(raw.actuals[date]); });
+    }
+    return {
+      // goals: { [metricId]: "50" } and, for the "+ %" rows, { [metricId + "Pct"]: "40" }
+      goals: stringMap(raw && raw.goals),
+      starred: raw && Array.isArray(raw.starred) ? raw.starred.filter(id => typeof id === "string") : [],
+      actuals,
+    };
+  }
+
   function normalizeHuddles(raw) {
     const pipeline = raw && Array.isArray(raw.pipeline) && raw.pipeline.length
       ? raw.pipeline.map(normalizePipelineRow)
       : Array.from({ length: PIPELINE_DEFAULT_ROWS }, () => normalizePipelineRow(null));
+    // Kept so data typed before Students Due to Close Soon was removed isn't lost.
     const closeSoon = raw && Array.isArray(raw.closeSoon) ? raw.closeSoon.map(normalizeCloseSoonRow) : [];
     return {
       meetingLink: raw && typeof raw.meetingLink === "string" ? raw.meetingLink : "",
       meetingTime: raw && typeof raw.meetingTime === "string" ? raw.meetingTime : "",
       meetingTimezone: raw && typeof raw.meetingTimezone === "string" ? raw.meetingTimezone : "",
       accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
+      // Kept so data typed before Marketing Check was removed isn't lost.
       marketingCheck: normalizeMarketingCheck(raw && raw.marketingCheck),
+      yesterdayNumbers: normalizeYesterdayNumbers(raw && raw.yesterdayNumbers),
       kudos: raw && Array.isArray(raw.kudos) ? raw.kudos.map(normalizeKudosItem) : [],
       shoutouts: raw && Array.isArray(raw.shoutouts) ? raw.shoutouts.map(normalizeShoutoutItem) : [],
       constraintCheck: normalizeConstraintCheck(raw && raw.constraintCheck),
@@ -3730,163 +3759,6 @@
     renderCallFocus();
   }
 
-  function activeMarketingEntry() {
-    const mc = huddles.marketingCheck;
-    return mc.entries.find(e => e.id === mc.activeId) || mc.entries[mc.entries.length - 1];
-  }
-
-  // Tab bar mirrors the SOP tabs in Onboarding (same classes, same
-  // "×" per-tab remove) -- one tab per day, auto-labeled from its date
-  // rather than a typed name, so "Add New Day" needs no name-entry step
-  // at all (the whole class of "typed but not yet submitted" bug fixed
-  // for Add SOP earlier doesn't apply here -- there's nothing to type).
-  function renderMarketingTabs() {
-    const tabsEl = document.getElementById("huddle-marketing-tabs");
-    const mc = huddles.marketingCheck;
-    const rerenderTabs = () => renderMarketingTabs();
-
-    const tabsHtml = mc.entries.map(e => `
-      <span class="sop-tab-wrap${e.id === mc.activeId ? " active" : ""}" data-tab-id="${e.id}">
-        <button type="button" class="sop-tab-btn" data-id="${e.id}">${fmtDayLabel(e.date)}</button>
-        <button type="button" class="sop-tab-remove${mc.entries.length > 1 ? "" : " sop-tab-remove-hidden"}" data-remove="${e.id}" title="Remove this day">&times;</button>
-      </span>
-    `).join("");
-    tabsEl.innerHTML = tabsHtml + `<button type="button" class="sop-add-btn" id="huddle-marketing-add-day">+ Add New Day</button>`;
-
-    tabsEl.querySelectorAll(".sop-tab-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (mc.activeId === btn.dataset.id) return;
-        mc.activeId = btn.dataset.id;
-        rerenderTabs();
-        renderMarketingCheck();
-        queueSaveHuddles();
-      });
-    });
-    tabsEl.querySelectorAll(".sop-tab-remove").forEach(btn => {
-      btn.addEventListener("click", e => {
-        e.stopPropagation();
-        if (mc.entries.length <= 1) return;
-        const id = btn.dataset.remove;
-        mc.entries = mc.entries.filter(en => en.id !== id);
-        if (mc.activeId === id) mc.activeId = mc.entries[mc.entries.length - 1].id;
-        rerenderTabs();
-        renderMarketingCheck();
-        queueSaveHuddles();
-      });
-    });
-    document.getElementById("huddle-marketing-add-day").addEventListener("click", () => {
-      // Always creates a fresh entry, even if one for today already
-      // exists (e.g. the single entry migrated from before "Add New
-      // Day" existed, which has no real original date so it got stamped
-      // with today's) -- a same-day dedupe here previously made the
-      // button silently re-select an already-showing entry instead of
-      // visibly doing anything, which read as "the button is broken."
-      //
-      // The Sales Process Check *steps* carry over from whichever day
-      // was most recently created (a copy, with fresh ids and done
-      // reset to false -- a new day starts unticked) so the list
-      // doesn't need retyping every day; editing today's copy (renaming,
-      // adding, or removing a step) never reaches back and changes an
-      // already-created day's own frozen copy, only what gets copied
-      // into whatever day is created *next*.
-      const previous = mc.entries[mc.entries.length - 1];
-      const carriedSteps = previous
-        ? previous.salesProcessChecks.map(item => ({ id: makeId(), label: item.label, done: false }))
-        : [];
-      const entry = normalizeMarketingEntry({ date: todayLocalISO(), salesProcessChecks: carriedSteps });
-      mc.entries.push(entry);
-      mc.activeId = entry.id;
-      rerenderTabs();
-      renderMarketingCheck();
-      queueSaveHuddles();
-    });
-  }
-
-  function renderMarketingCheck(preserveFocused) {
-    const container = document.getElementById("huddle-marketing-check");
-    const data = activeMarketingEntry();
-    if (!container.dataset.built) {
-      container.innerHTML = MARKETING_FIELDS.map(f => {
-        const field = f.type === "textarea"
-          ? `<textarea class="directory-input" data-key="${f.key}"></textarea>`
-          : f.type === "select"
-            ? `<select class="directory-input" data-key="${f.key}">
-                 <option value="">Not answered</option>
-                 <option value="yes">Yes</option>
-                 <option value="no">No</option>
-               </select>`
-            : `<input type="text" class="directory-input" data-key="${f.key}">`;
-        return `<div class="directory-row"><span class="directory-label">${f.label}</span>${field}</div>`;
-      }).join("");
-      container.querySelectorAll("[data-key]").forEach(el => {
-        el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
-          const entry = activeMarketingEntry();
-          if (entry) entry[el.dataset.key] = el.value;
-          queueSaveHuddles();
-        });
-      });
-      container.dataset.built = "1";
-    }
-    container.querySelectorAll("[data-key]").forEach(el => {
-      if (!preserveFocused || document.activeElement !== el) {
-        el.value = data[el.dataset.key] || "";
-      }
-    });
-    renderSalesProcessCheck();
-  }
-
-  // Free-form, addable checklist for whichever day is active -- unlike
-  // MARKETING_FIELDS above, the set of steps isn't fixed; each is typed
-  // in via the add-form below and lives entirely in that one entry's
-  // own salesProcessChecks array, so different days can track different
-  // steps. Rebuilds the whole list on every call (no live-typed state
-  // lives in these checkbox rows themselves, so unlike a text field
-  // there's nothing here a poll could interrupt mid-edit -- the add
-  // form's own input is a separate, never-rebuilt element, same as
-  // Add Team's closer/setter inputs).
-  function renderSalesProcessCheck() {
-    const listEl = document.getElementById("huddle-sales-process-list");
-    const items = activeMarketingEntry().salesProcessChecks;
-    if (!items.length) {
-      listEl.innerHTML = `<p class="huddle-sales-process-empty">No sales process steps added yet.</p>`;
-      return;
-    }
-    listEl.innerHTML = items.map(item => `
-      <div class="huddle-sales-process-item${item.done ? " done" : ""}">
-        <input type="checkbox" data-id="${item.id}" ${item.done ? "checked" : ""}>
-        <span>${escapeHtml(item.label)}</span>
-        <button type="button" class="row-delete" data-remove="${item.id}" title="Remove">&times;</button>
-      </div>
-    `).join("");
-    listEl.querySelectorAll("input[type=checkbox]").forEach(cb => {
-      cb.addEventListener("change", () => {
-        const item = activeMarketingEntry().salesProcessChecks.find(i => i.id === cb.dataset.id);
-        if (item) item.done = cb.checked;
-        cb.closest(".huddle-sales-process-item").classList.toggle("done", cb.checked);
-        queueSaveHuddles();
-      });
-    });
-    listEl.querySelectorAll("[data-remove]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const entry = activeMarketingEntry();
-        entry.salesProcessChecks = entry.salesProcessChecks.filter(i => i.id !== btn.dataset.remove);
-        renderSalesProcessCheck();
-        queueSaveHuddles();
-      });
-    });
-  }
-
-  document.getElementById("huddle-sales-process-add-form").addEventListener("submit", e => {
-    e.preventDefault();
-    const input = document.getElementById("huddle-sales-process-input");
-    const label = input.value.trim();
-    if (!label) return;
-    activeMarketingEntry().salesProcessChecks.push(normalizeSalesProcessItem({ label }));
-    input.value = "";
-    renderSalesProcessCheck();
-    queueSaveHuddles();
-  });
-
   function buildPipelineRowHtml(row) {
     const cellsHtml = PIPELINE_COLUMNS.map(c => {
       const tdClass = c.wide ? ` class="huddle-col-wide"` : "";
@@ -3976,74 +3848,105 @@
     queueSaveHuddles();
   });
 
-  // Students Due to Close Soon -- a persistent (not per-day) list, same
-  // shape/idempotent-build pattern as the Pipeline Check table just
-  // above, minus the Done checkbox and Total value that table has.
-  function buildCloseSoonRowHtml(row) {
-    const cellsHtml = CLOSE_SOON_COLUMNS.map(c =>
-      `<td><input type="${c.type === "date" ? "date" : "text"}" data-key="${c.key}" placeholder="${c.placeholder || ""}"></td>`
-    ).join("");
-    return `<tr data-row-id="${row.id}">
-      ${cellsHtml}
-      <td class="row-delete-cell"><button type="button" class="row-delete" data-remove-row="${row.id}" title="Remove row">&times;</button></td>
-    </tr>`;
-  }
-
-  function wireCloseSoonRow(tr) {
-    const rowId = tr.dataset.rowId;
-    const row = huddles.closeSoon.find(r => r.id === rowId);
-    tr.querySelectorAll("input[data-key]").forEach(input => {
-      if (row) input.value = row[input.dataset.key] || "";
-      input.addEventListener("input", () => {
-        const r = huddles.closeSoon.find(r => r.id === rowId);
-        if (r) r[input.dataset.key] = input.value;
-        queueSaveHuddles();
+  // Yesterday's Numbers -- see YESTERDAY_METRICS.
+  function repTotalForDate(metricId, date) {
+    const week = repDailyNumbers.weeks.find(w => w.weekStart === mondayOfLocalWeek(date));
+    if (!week) return null;
+    const day = REP_NUMBERS_DAYS.find(d => addDaysISO(week.weekStart, d.offset) === date);
+    let total = null;
+    [repDailyNumbers.setters, repDailyNumbers.closers].forEach(section => {
+      Object.values(section).forEach(rep => {
+        const v = rep[metricId] && rep[metricId].weeks[week.id] && rep[metricId].weeks[week.id][day.key];
+        if (v === undefined || v === "") return;
+        const n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+        if (Number.isFinite(n)) total = (total || 0) + n;
       });
     });
-    tr.querySelector("[data-remove-row]").addEventListener("click", () => {
-      huddles.closeSoon = huddles.closeSoon.filter(r => r.id !== rowId);
-      renderCloseSoon();
+    return total;
+  }
+
+  // Same derivations dealFieldsFromForm() uses, with the same fallbacks
+  // for deals logged before isCall/calendarStatus existed.
+  function yesterdayAutoValues(date) {
+    const dayDeals = deals.filter(d => d.closingDate === date);
+    const isCall = d => d.isCall !== undefined
+      ? d.isCall !== false
+      : !["Remainder Collection (no call)", "Cancelled", "Rescheduled", "No-Show"].includes(d.callOutcome);
+    const showed = d => (d.calendarStatus || (d.callOutcome === "No-Show" ? "no-show" : d.callOutcome === "Cancelled" ? "cancelled" : d.callOutcome === "Rescheduled" ? "rescheduled" : "showed")) === "showed";
+    return {
+      callsPickedUp: repTotalForDate("connections", date),
+      dials: repTotalForDate("dials", date),
+      callsBooked: repTotalForDate("bookings", date),
+      callsOnCalendar: dayDeals.length ? dayDeals.filter(isCall).length : null,
+      callsShowed: dayDeals.length ? dayDeals.filter(d => isCall(d) && showed(d)).length : null,
+      unitsClosed: dayDeals.length ? dayDeals.filter(d => d.callOutcome === "Closed/Won/Deposit").length : null,
+      cashCollected: dayDeals.length ? dayDeals.reduce((sum, d) => sum + (Number(d.cashCollected) || 0), 0) : null,
+    };
+  }
+
+  function fmtYesterdayValue(n, isCurrency) {
+    if (n === null || n === undefined || !Number.isFinite(n)) return "";
+    return isCurrency ? fmtUSD(n) : String(Math.round(n * 100) / 100);
+  }
+
+  function renderYesterdayNumbers(preserveFocused) {
+    const table = document.getElementById("huddle-yesterday-table");
+    if (preserveFocused && table.contains(document.activeElement)) return;
+    const yn = huddles.yesterdayNumbers;
+    const date = addDaysISO(todayLocalISO(), -1);
+    const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    document.getElementById("huddle-yesterday-date").textContent =
+      `${dateLabel}. Numbers fill in from logged calls and KPI's where available. Type to override. Star the lines that are today's main focus.`;
+    const typed = yn.actuals[date] || {};
+    const auto = yesterdayAutoValues(date);
+    const num = v => { const n = parseFloat(String(v).replace(/[^0-9.-]/g, "")); return Number.isFinite(n) ? n : null; };
+    const actualOf = id => (typed[id] !== undefined && typed[id] !== "") ? num(typed[id]) : (auto[id] ?? null);
+    const pctOf = id => {
+      const top = actualOf(id);
+      const bottom = id === "callsPickedUp" ? auto.dials : id === "callsBooked" ? actualOf("qualifiedLeads") : null;
+      return top === null || !bottom ? null : (top / bottom) * 100;
+    };
+    const rowsHtml = YESTERDAY_METRICS.map(m => {
+      const starred = yn.starred.includes(m.id);
+      const typedVal = typed[m.id] !== undefined ? typed[m.id] : "";
+      const autoVal = fmtYesterdayValue(auto[m.id], m.isCurrency);
+      const pct = m.pctLabel ? pctOf(m.id) : null;
+      const actualCell = `<span class="huddle-num-pair">
+          <input type="text" inputmode="decimal" class="huddle-num-input" data-actual="${m.id}" value="${escapeHtml(typedVal)}" placeholder="${autoVal || "—"}">
+          ${m.pctLabel ? `<span class="huddle-num-pct" title="${m.pctLabel}">${pct === null ? "—" : pct.toFixed(0) + "%"}</span>` : ""}
+        </span>`;
+      const goalCell = `<span class="huddle-num-pair">
+          <input type="text" inputmode="decimal" class="huddle-num-input" data-goal="${m.id}" value="${escapeHtml(yn.goals[m.id] || "")}" placeholder="${m.isCurrency ? "$ goal" : "Goal"}">
+          ${m.pctLabel ? `<input type="text" inputmode="decimal" class="huddle-num-input" style="width:64px" data-goal="${m.id}Pct" value="${escapeHtml(yn.goals[m.id + "Pct"] || "")}" placeholder="%">` : ""}
+        </span>`;
+      return `<tr data-metric="${m.id}"${starred ? ' class="starred"' : ""}>
+        <td style="width:1%"><button type="button" class="huddle-star${starred ? " on" : ""}" data-star="${m.id}" title="${starred ? "Remove from today's focus" : "Make this today's focus"}" aria-pressed="${starred}">${starred ? "★" : "☆"}</button></td>
+        <td class="huddle-num-label">${m.label}${m.pctLabel ? ` <span class="huddle-num-pct">+ % ${m.pctLabel}</span>` : ""}</td>
+        <td class="num">${actualCell}</td>
+        <td class="num">${goalCell}</td>
+      </tr>`;
+    }).join("");
+    table.innerHTML = `<thead><tr><th></th><th>Metric</th><th class="num">Yesterday</th><th class="num">Goal</th></tr></thead><tbody>${rowsHtml}</tbody>`;
+
+    table.querySelectorAll("[data-star]").forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.dataset.star;
+      yn.starred = yn.starred.includes(id) ? yn.starred.filter(x => x !== id) : [...yn.starred, id];
       queueSaveHuddles();
-    });
+      renderYesterdayNumbers();
+    }));
+    table.querySelectorAll("[data-actual]").forEach(input => input.addEventListener("input", () => {
+      if (!yn.actuals[date]) yn.actuals[date] = {};
+      if (input.value.trim() === "") delete yn.actuals[date][input.dataset.actual];
+      else yn.actuals[date][input.dataset.actual] = input.value;
+      queueSaveHuddles();
+    }));
+    // Percentages depend on other rows, so refresh once an edit is done.
+    table.querySelectorAll("[data-actual]").forEach(input => input.addEventListener("change", () => renderYesterdayNumbers()));
+    table.querySelectorAll("[data-goal]").forEach(input => input.addEventListener("input", () => {
+      yn.goals[input.dataset.goal] = input.value;
+      queueSaveHuddles();
+    }));
   }
-
-  function renderCloseSoon(preserveFocused) {
-    const table = document.getElementById("huddle-close-soon-table");
-    if (!table.dataset.built) {
-      table.innerHTML = `<thead><tr>${CLOSE_SOON_COLUMNS.map(c => `<th>${c.label}</th>`).join("")}<th></th></tr></thead><tbody></tbody>`;
-      table.dataset.built = "1";
-    }
-    const tbody = table.querySelector("tbody");
-    if (!huddles.closeSoon.length) {
-      tbody.innerHTML = `<tr><td class="huddle-table-empty" colspan="${CLOSE_SOON_COLUMNS.length + 1}">No prospects added yet.</td></tr>`;
-      return;
-    }
-    const currentIds = Array.from(tbody.children).map(tr => tr.dataset.rowId);
-    const targetIds = huddles.closeSoon.map(r => r.id);
-    const sameShape = currentIds.length === targetIds.length && currentIds.every((id, i) => id === targetIds[i]);
-
-    if (!sameShape) {
-      tbody.innerHTML = huddles.closeSoon.map(buildCloseSoonRowHtml).join("");
-      tbody.querySelectorAll("tr").forEach(wireCloseSoonRow);
-    } else {
-      huddles.closeSoon.forEach(row => {
-        const tr = tbody.querySelector(`tr[data-row-id="${row.id}"]`);
-        if (!tr) return;
-        CLOSE_SOON_COLUMNS.forEach(c => {
-          const el = tr.querySelector(`[data-key="${c.key}"]`);
-          if (el && (!preserveFocused || document.activeElement !== el)) {
-            el.value = row[c.key] || "";
-          }
-        });
-      });
-    }
-  }
-
-  document.getElementById("huddle-close-soon-add-row").addEventListener("click", () => {
-    huddles.closeSoon.push(normalizeCloseSoonRow(null));
-    renderCloseSoon();
-    queueSaveHuddles();
-  });
 
   // n/a formats as "0" (or "$0" for currency rows) rather than blank, so
   // an untouched metric row still reads as a real zero, not a rendering
@@ -4603,13 +4506,11 @@
   function renderHuddles(preserveFocused) {
     renderMeetingLink(preserveFocused);
     renderAccountability(preserveFocused);
-    renderMarketingTabs();
-    renderMarketingCheck(preserveFocused);
+    renderYesterdayNumbers(preserveFocused);
     renderKudos(preserveFocused);
     renderShoutouts(preserveFocused);
     renderConstraintCheck(preserveFocused);
     renderPipeline(preserveFocused);
-    renderCloseSoon(preserveFocused);
   }
 
   function renderSopSection(key, tabsId, contentId, typeToggleId, videoId, preserveFocused) {
