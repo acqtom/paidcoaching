@@ -3270,7 +3270,7 @@
   // across days.
   const YESTERDAY_METRICS = [
     { id: "qualifiedLeads", label: "Qualified leads" },
-    { id: "callsPickedUp", label: "Calls picked up", pctLabel: "of dials" },
+    { id: "callsPickedUp", label: "Calls picked up", pctLabel: "of qualified leads" },
     { id: "callsBooked", label: "Calls booked", pctLabel: "of qualified leads" },
     { id: "callsOnCalendar", label: "Calls on calendar yesterday" },
     { id: "callsShowed", label: "Calls showed" },
@@ -3874,7 +3874,6 @@
     const showed = d => (d.calendarStatus || (d.callOutcome === "No-Show" ? "no-show" : d.callOutcome === "Cancelled" ? "cancelled" : d.callOutcome === "Rescheduled" ? "rescheduled" : "showed")) === "showed";
     return {
       callsPickedUp: repTotalForDate("connections", date),
-      dials: repTotalForDate("dials", date),
       callsBooked: repTotalForDate("bookings", date),
       callsOnCalendar: dayDeals.length ? dayDeals.filter(isCall).length : null,
       callsShowed: dayDeals.length ? dayDeals.filter(d => isCall(d) && showed(d)).length : null,
@@ -3901,11 +3900,8 @@
     const num = v => { const n = parseFloat(String(v).replace(/[^0-9.-]/g, "")); return Number.isFinite(n) ? n : null; };
     const actualOf = id => (typed[id] !== undefined && typed[id] !== "") ? num(typed[id]) : (auto[id] ?? null);
     const rateOf = id => {
+      // Both rates are measured against qualified leads.
       const top = actualOf(id);
-      if (id === "callsPickedUp") {
-        if (!auto.dials) return { pct: null, note: "Add dials in KPI's" };
-        return { pct: top === null ? null : (top / auto.dials) * 100, note: `of ${fmtYesterdayValue(auto.dials)} dials` };
-      }
       const qualified = actualOf("qualifiedLeads");
       if (!qualified) return { pct: null, note: "Add qualified leads" };
       return { pct: top === null ? null : (top / qualified) * 100, note: `of ${fmtYesterdayValue(qualified)} qualified` };
