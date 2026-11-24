@@ -57,7 +57,7 @@
   .app.app-wide { max-width: none; padding-left: 20px; padding-right: 20px; }
 
   /* --- view switcher --- */
-  .view-switcher { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+  .view-switcher { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 24px; }
   .view-tab {
     border: 1.5px solid var(--pill-border); background: #fff; color: var(--text-secondary);
     border-radius: 20px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -527,6 +527,22 @@
     border: none; background: none; color: var(--red); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit;
     padding: 6px 4px;
   }
+  /* --- daily checklist --- */
+  .checklist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 20px; align-items: start; margin-bottom: 20px; }
+  .checklist-grid .card { margin-bottom: 0; }
+  .checklist-head { display: flex; justify-content: space-between; gap: 12px; }
+  .checklist-head span { flex: none; font-size: 13px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .checklist-bar { height: 10px; margin-top: 10px; background: var(--grid); border-radius: 999px; overflow: hidden; }
+  .checklist-bar div { height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
+  .checklist-bar.complete div { background: var(--good); }
+  .checklist-item { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0; font-size: 14px; cursor: pointer; overflow-wrap: anywhere; }
+  .checklist-item input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--accent); cursor: pointer; }
+  .checklist-item.done span { color: var(--muted); text-decoration: line-through; }
+  .checklist-editor { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .checklist-edit-row { display: flex; align-items: center; gap: 12px; }
+  .checklist-edit-row .directory-input { flex: 1; min-width: 0; }
+  .checklist-edit-row button { border: none; background: none; color: var(--red); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
+  .checklist-empty { margin: 0; font-size: 13px; color: var(--muted); }
   .huddle-numbers-table th.num, .huddle-numbers-table td.num { text-align: right; white-space: nowrap; }
   .huddle-numbers-table td { vertical-align: middle; }
   .huddle-numbers-table .huddle-num-label { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
@@ -679,6 +695,7 @@
     <button class="view-tab" data-view="onboarding">Onboarding</button>
     <button class="view-tab" data-view="huddles">Daily Huddles</button>
     <button class="view-tab" data-view="rep-numbers">KPI's</button>
+    <button class="view-tab" data-view="checklist">Daily Checklist</button>
   </nav>
 
   <div id="sync-banner" class="sync-banner" hidden></div>
@@ -1090,6 +1107,26 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ================= DAILY CHECKLIST ================= -->
+  <div class="view" id="view-checklist">
+    <h2 class="section-title">Daily Checklist</h2>
+    <p class="page-desc" id="checklist-date"></p>
+    <div class="checklist-grid" id="checklist-setters"></div>
+    <div class="card">
+      <div class="card-header">
+        <h2>Edit Checklist</h2>
+        <p>Changes apply to every setter.</p>
+      </div>
+      <div class="card-body">
+        <div class="checklist-editor" id="checklist-editor"></div>
+        <form class="name-add-form" id="checklist-add-form">
+          <input type="text" id="checklist-add-input" placeholder="Add a checklist item…" aria-label="New checklist item" required>
+          <button type="submit">Add</button>
+        </form>
+      </div>
+    </div>
   </div>
 
   <!-- ================= REP DAILY NUMBERS ================= -->
@@ -2028,6 +2065,7 @@
       document.querySelector(".app").classList.toggle("app-wide", isWideView(btn.dataset.view));
       if (btn.dataset.view === "huddles") renderHuddles();
       if (btn.dataset.view === "rep-numbers") renderRepDailyNumbers();
+      if (btn.dataset.view === "checklist") renderChecklist();
     });
   });
 
@@ -2548,14 +2586,18 @@
     return data;
   }
 
-  async function loadUserData() {
-    const data = urlCode
+  async function fetchUserData() {
+    return urlCode
       ? await apiGet(`/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}`)
       : urlBoardCode
         ? await apiGet(`/api/sales-boards/by-code?code=${encodeURIComponent(urlBoardCode)}`)
         : urlBoard
           ? await apiPost(`/api/sales-boards/session?board=${encodeURIComponent(urlBoard)}`)
           : await apiPost("/api/sales-board/session");
+  }
+
+  async function loadUserData() {
+    const data = await fetchUserData();
     deals = data.deals || [];
     CLOSERS = data.closers || [];
     SETTERS = data.setters || [];
@@ -2576,7 +2618,7 @@
       onboarding = normalizeOnboarding(data.onboarding);
     }
     // Same guard, same reason, for the Daily Huddles worksheet.
-    if (!huddlesSavePending) {
+    if (!huddlesSavePending && !checklistOps.length) {
       huddles = normalizeHuddles(data.huddles);
     }
     // Same guard, same reason, for Rep Daily Numbers.
@@ -3295,6 +3337,35 @@
     };
   }
 
+  // Daily Checklist -- one shared item list; ticks are stored per local
+  // date and setter, so every day starts unticked. Default ids are fixed
+  // because the defaults are rebuilt on each load until first saved.
+  const DEFAULT_CHECKLIST_ITEMS = [
+    { id: "check-calendar", label: "Check calendar for the day" },
+    { id: "confirm-calls", label: "Call and confirm calls (update team in discord)" },
+    { id: "pre-call-material", label: "Send last pre-call material to those leads" },
+    { id: "fill-spots", label: "If any spots are on the calendar - fill them" },
+    { id: "fill-tomorrow", label: "Make sure tomorrow’s calendar is fully filled" },
+    { id: "track-kpis", label: "All KPI’s tracked for today" },
+  ];
+  function normalizeChecklist(raw) {
+    const items = raw && Array.isArray(raw.items) ? raw.items : DEFAULT_CHECKLIST_ITEMS;
+    const done = {};
+    const oldest = addDaysISO(todayLocalISO(), -30);
+    if (raw && raw.done && typeof raw.done === "object") {
+      Object.keys(raw.done).filter(date => date >= oldest).forEach(date => {
+        done[date] = {};
+        Object.keys(raw.done[date] || {}).forEach(name => {
+          if (Array.isArray(raw.done[date][name])) done[date][name] = raw.done[date][name].slice();
+        });
+      });
+    }
+    return {
+      items: items.filter(i => i && typeof i.id === "string" && typeof i.label === "string").map(i => ({ id: i.id, label: i.label })),
+      done,
+    };
+  }
+
   function normalizeHuddles(raw) {
     const pipeline = raw && Array.isArray(raw.pipeline) && raw.pipeline.length
       ? raw.pipeline.map(normalizePipelineRow)
@@ -3308,6 +3379,7 @@
       accountability: raw && raw.accountability && typeof raw.accountability === "object" ? { ...raw.accountability } : {},
       // Kept so data typed before Marketing Check was removed isn't lost.
       marketingCheck: normalizeMarketingCheck(raw && raw.marketingCheck),
+      dailyChecklist: normalizeChecklist(raw && raw.dailyChecklist),
       yesterdayNumbers: normalizeYesterdayNumbers(raw && raw.yesterdayNumbers),
       kudos: raw && Array.isArray(raw.kudos) ? raw.kudos.map(normalizeKudosItem) : [],
       shoutouts: raw && Array.isArray(raw.shoutouts) ? raw.shoutouts.map(normalizeShoutoutItem) : [],
@@ -3333,6 +3405,12 @@
       return false;
     }
     try {
+      // Someone may have ticked since this device last polled, so send the
+      // server's checklist (plus any unsaved edits here), not our copy.
+      const raw = (await fetchUserData()).huddles;
+      const latest = normalizeChecklist(raw && raw.dailyChecklist);
+      checklistOps.forEach(op => op(latest));
+      huddles.dailyChecklist = latest;
       await apiPost(savePath(), { huddles });
       clearSyncError();
       return true;
@@ -3342,6 +3420,53 @@
       return false;
     } finally {
       huddlesSavePending = false;
+    }
+  }
+
+  // Several setters tick at once, so checklist edits are small operations
+  // replayed onto the latest server copy rather than a save of this
+  // device's whole (possibly stale) huddles document.
+  let checklistOps = [];
+  let checklistSaveTimer = null;
+  let checklistSaving = false;
+  function changeChecklist(op) {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      renderChecklist();
+      return;
+    }
+    op(huddles.dailyChecklist);
+    checklistOps.push(op);
+    renderChecklist();
+    clearTimeout(checklistSaveTimer);
+    checklistSaveTimer = setTimeout(saveChecklist, 300);
+  }
+  async function saveChecklist() {
+    if (checklistSaving || !checklistOps.length) return;
+    checklistSaving = true;
+    let retryMs = 0;
+    try {
+      const raw = (await fetchUserData()).huddles;
+      const latest = normalizeChecklist(raw && raw.dailyChecklist);
+      const ops = checklistOps.slice();
+      ops.forEach(op => op(latest));
+      await apiPost(savePath(), { huddles: { ...(raw || {}), dailyChecklist: latest } });
+      checklistOps.splice(0, ops.length);
+      const merged = normalizeChecklist(latest);
+      checklistOps.forEach(op => op(merged));
+      huddles.dailyChecklist = merged;
+      clearSyncError();
+      renderChecklist(true);
+    } catch (e) {
+      console.error("Failed to save checklist to server:", e);
+      showSyncError("Couldn't save your last checklist change. Keep this page open, it will retry automatically.");
+      retryMs = 5000;
+    } finally {
+      checklistSaving = false;
+      if (checklistOps.length) {
+        clearTimeout(checklistSaveTimer);
+        checklistSaveTimer = setTimeout(saveChecklist, retryMs || 300);
+      }
     }
   }
 
@@ -3845,6 +3970,116 @@
     huddles.pipeline.push(normalizePipelineRow(null));
     renderPipeline();
     queueSaveHuddles();
+  });
+
+  // Daily Checklist -- setter cards come straight from SETTERS. Text goes
+  // in through textContent/value since names and labels are user-typed.
+  function checklistEl(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+  function renderChecklist(preserveFocused) {
+    const { items, done } = huddles.dailyChecklist;
+    const date = todayLocalISO();
+    const today = done[date] || {};
+    document.getElementById("checklist-date").textContent =
+      `${new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}. Resets every day.`;
+
+    const grid = document.getElementById("checklist-setters");
+    const signature = JSON.stringify([date, SETTERS, items, SETTERS.map(n => today[n] || [])]);
+    if (grid.dataset.signature !== signature) {
+      const focused = grid.contains(document.activeElement) ? document.activeElement.dataset : null;
+      grid.dataset.signature = signature;
+      grid.replaceChildren();
+      if (!SETTERS.length) grid.append(checklistEl("p", "checklist-empty", "No setters yet. Add them under Add Team and they'll show up here."));
+      SETTERS.forEach(name => {
+        const ticked = today[name] || [];
+        const count = items.filter(i => ticked.includes(i.id)).length;
+        const pct = items.length ? Math.round((count / items.length) * 100) : 0;
+        const card = checklistEl("div", "card");
+        const header = checklistEl("div", "card-header");
+        const head = checklistEl("div", "checklist-head");
+        head.append(checklistEl("h2", "", name), checklistEl("span", "", `${count}/${items.length} · ${pct}%`));
+        const bar = checklistEl("div", "checklist-bar" + (pct === 100 ? " complete" : ""));
+        bar.setAttribute("role", "progressbar");
+        bar.setAttribute("aria-label", `${name} checklist progress`);
+        bar.setAttribute("aria-valuemin", 0);
+        bar.setAttribute("aria-valuemax", 100);
+        bar.setAttribute("aria-valuenow", pct);
+        const fill = checklistEl("div");
+        fill.style.width = pct + "%";
+        bar.append(fill);
+        header.append(head, bar);
+        const body = checklistEl("div", "card-body");
+        if (!items.length) body.append(checklistEl("p", "checklist-empty", "No checklist items yet. Add one below."));
+        items.forEach(item => {
+          const isDone = ticked.includes(item.id);
+          const label = checklistEl("label", "checklist-item" + (isDone ? " done" : ""));
+          const box = checklistEl("input");
+          box.type = "checkbox";
+          box.checked = isDone;
+          box.dataset.setter = name;
+          box.dataset.item = item.id;
+          box.addEventListener("change", () => {
+            const checked = box.checked;
+            // Keyed to the day shown on screen, even if midnight just passed.
+            changeChecklist(list => {
+              const day = list.done[date] || (list.done[date] = {});
+              const rest = (day[name] || []).filter(id => id !== item.id);
+              day[name] = checked ? [...rest, item.id] : rest;
+            });
+          });
+          label.append(box, checklistEl("span", "", item.label));
+          body.append(label);
+        });
+        card.append(header, body);
+        grid.append(card);
+      });
+      if (focused) {
+        const box = [...grid.querySelectorAll("input")].find(b => b.dataset.setter === focused.setter && b.dataset.item === focused.item);
+        if (box) box.focus();
+      }
+    }
+
+    const editor = document.getElementById("checklist-editor");
+    if (preserveFocused && editor.contains(document.activeElement)) return;
+    editor.replaceChildren();
+    items.forEach(item => {
+      const row = checklistEl("div", "checklist-edit-row");
+      const input = checklistEl("input", "directory-input");
+      input.type = "text";
+      input.value = item.label;
+      input.setAttribute("aria-label", "Checklist item");
+      input.addEventListener("keydown", e => { if (e.key === "Enter") input.blur(); });
+      input.addEventListener("change", () => {
+        const label = input.value.trim();
+        if (!label) { input.value = item.label; return; }
+        changeChecklist(list => {
+          const target = list.items.find(i => i.id === item.id);
+          if (target) target.label = label;
+        });
+      });
+      const del = checklistEl("button", "", "Delete");
+      del.type = "button";
+      del.setAttribute("aria-label", `Delete ${item.label}`);
+      // Keeps the text field from blurring first, which would rebuild this
+      // row (via its change event) before the click lands.
+      del.addEventListener("mousedown", e => e.preventDefault());
+      del.addEventListener("click", () => changeChecklist(list => { list.items = list.items.filter(i => i.id !== item.id); }));
+      row.append(input, del);
+      editor.append(row);
+    });
+  }
+  document.getElementById("checklist-add-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("checklist-add-input");
+    const label = input.value.trim();
+    if (!label || !dataReady) return;
+    const id = makeId();
+    input.value = "";
+    changeChecklist(list => { list.items.push({ id, label }); });
   });
 
   // Yesterday's Numbers -- see YESTERDAY_METRICS.
@@ -4507,6 +4742,7 @@
     renderMeetingLink(preserveFocused);
     renderAccountability(preserveFocused);
     renderYesterdayNumbers(preserveFocused);
+    renderChecklist(preserveFocused);
     renderKudos(preserveFocused);
     renderShoutouts(preserveFocused);
     renderConstraintCheck(preserveFocused);
