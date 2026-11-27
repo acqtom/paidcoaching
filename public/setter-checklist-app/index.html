@@ -231,15 +231,11 @@
   ];
   const CLOSER_CHECKLIST = [
     { id: "check-calendar", label: "Check calendar for today" },
-    { id: "check-setters", label: "Check setters" },
-    { id: "check-call-status", label: "Check call status" },
-    { id: "confirm-calls", label: "Call and confirm calls" },
-    { id: "pre-call-value", label: "Send any last pre-call value needed (if setters didn't)" },
-    { id: "collect-cash", label: "Collect old cash" },
+    { id: "check-call-status", label: "Check call status above" },
+    { id: "confirm-calls", label: "Call and confirm calls if necessary" },
     { id: "collect-cc", label: "Collect old CC due" },
     { id: "book-follow-ups", label: "Book follow-ups for no closes / second calls" },
-    { id: "review-calls", label: "Review calls and identify bottlenecks" },
-    { id: "training", label: "Do training" },
+    { id: "review-calls", label: "Review calls / identify bottlenecks / do training" },
   ];
   // Daily Calendar: one row per hour, 4 AM to 5 PM Eastern.
   const CAL_HOURS = Array.from({ length: 14 }, (_, i) => 4 + i);
@@ -247,6 +243,7 @@
     { id: "assets", label: "Assets sent on call" },
     { id: "groupChat", label: "Group chat made" },
     { id: "introLandon", label: "Introduced to Landon" },
+    { id: "handoff", label: "Handoff completed" },
     { id: "landonResponded", label: "Landon responded" },
     { id: "value1", label: "Value 1" },
     { id: "value2", label: "Value 2" },
@@ -261,12 +258,12 @@
     { id: "close", label: "Close" },
   ];
   const DEFAULT_CHECKLIST = [
-    { id: "check-calendar", label: "Check calendar for the day" },
-    { id: "confirm-calls", label: "Call and confirm calls (update team in discord)" },
-    { id: "pre-call-material", label: "Send last pre-call material to those leads" },
-    { id: "fill-spots", label: "If any spots are on the calendar - fill them" },
-    { id: "fill-tomorrow", label: "Make sure tomorrow’s calendar is fully filled" },
-    { id: "track-kpis", label: "All KPI’s tracked for today" },
+    { id: "check-calendar", label: "Check current calendar for the day" },
+    { id: "confirm-calls", label: "Confirm calls and update status above" },
+    { id: "pre-call-material", label: "Send last pre-call material to those leads (update above)" },
+    { id: "fill-spots", label: "If any spots are on the calendar, fill them" },
+    { id: "fill-tomorrow", label: "Make sure tomorrow’s calendar is filled and updated" },
+    { id: "track-kpis", label: "All KPIs tracked for today ↑" },
   ];
 
   const params = new URLSearchParams(location.search);
@@ -275,11 +272,8 @@
   const urlBoardCode = params.get("board_code");
 
   let SETTERS = [], CLOSERS = [];
-  // The Sales Board's Daily Checklist list (if it was ever edited) seeds
-  // anyone who doesn't have their own list yet.
-  let sharedChecklist = DEFAULT_CHECKLIST;
   const ROLES = {
-    setter: { label: "Setter", kpis: SETTER_KPIS, key: name => name, defaultChecklist: () => sharedChecklist },
+    setter: { label: "Setter", kpis: SETTER_KPIS, key: name => name, defaultChecklist: () => DEFAULT_CHECKLIST },
     closer: { label: "Closer", kpis: CLOSER_KPIS, key: name => "closer:" + name, defaultChecklist: () => CLOSER_CHECKLIST },
   };
   let state = normalizeState(null);
@@ -399,8 +393,6 @@
   function absorb(data) {
     SETTERS = Array.isArray(data.setters) ? data.setters : [];
     CLOSERS = Array.isArray(data.closers) ? data.closers : [];
-    const shared = itemList(data.huddles && data.huddles.dailyChecklist && data.huddles.dailyChecklist.items);
-    sharedChecklist = shared || DEFAULT_CHECKLIST;
   }
 
   // Several reps edit at once, so changes are small operations replayed
