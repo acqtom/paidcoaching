@@ -24,6 +24,10 @@ export type SalesBoardData = {
   // Objection Overview (objection types + logged objection calls) -- same
   // opaque treatment as the other worksheets above.
   objections?: unknown;
+  // Setter Checklist page (public/setter-checklist-app/index.html) --
+  // per-rep daily KPIs, goals and checklists. Its own field, so a save
+  // from the Sales Board app never overwrites it.
+  setterChecklist?: unknown;
 };
 
 export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
@@ -35,6 +39,7 @@ export const DEFAULT_SALES_BOARD_DATA: SalesBoardData = {
   huddles: null,
   repDailyNumbers: null,
   objections: null,
+  setterChecklist: null,
 };
 
 const UNIQUE_VIOLATION = "23505";

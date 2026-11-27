@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setter Checklist</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='black'/%3E%3Ctext x='16' y='22' font-family='system-ui,-apple-system,Segoe UI,sans-serif' font-size='19' font-weight='800' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<style>
+  /* Same cream + indigo + bold black border theme as
+     public/sales-board-app/index.html. */
+  :root {
+    color-scheme: light;
+    --page: #fbfaf3;
+    --surface-1: #f2efe2;
+    --text-primary: #111111;
+    --text-secondary: #575a66;
+    --muted: #8a8d99;
+    --grid: #e3e0d4;
+    --card-border: #111111;
+    --badge-bg: #e8ecfc;
+    --accent: #3c3ee3;
+    --red: #e34948;
+    --good: #2f7a3b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page); color: var(--text-primary); -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 1400px; margin: 0 auto; padding: 28px 28px 72px; }
+  @media (max-width: 600px) { .app { padding: 20px 16px 56px; } }
+
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .brand-mark-img { height: 40px; width: auto; object-fit: contain; display: block; }
+  .brand-context { text-align: right; }
+  .context-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .context-title { font-size: 20px; font-weight: 700; margin-top: 2px; }
+
+  .sync-banner {
+    background: #fdecea; border: 1px solid var(--red); color: var(--red); border-radius: 10px;
+    padding: 10px 16px; font-size: 13px; font-weight: 600; text-align: center; margin-bottom: 16px;
+  }
+
+  /* --- controls --- */
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; margin-bottom: 20px; }
+  .control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .control-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .pill-btn, .pill-select, .pill-date {
+    background: #fff; border: 1.5px solid var(--card-border); color: var(--text-primary); border-radius: 20px;
+    padding: 8px 14px; font-size: 13px; font-weight: 600; font-family: inherit;
+  }
+  .pill-btn { cursor: pointer; }
+  .pill-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .step-btn { width: 36px; height: 36px; padding: 0; border-radius: 50%; }
+  .day-label { min-width: 150px; text-align: center; }
+
+  /* --- cards & sections --- */
+  .card { background: #fff; border: 2px solid var(--card-border); border-radius: 16px; overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--card-border); }
+  .card-header h2 { font-size: 15px; margin: 0; font-weight: 700; }
+  .card-header p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .card-body { padding: 18px 20px; }
+  .section-title { font-size: 18px; font-weight: 700; margin: 28px 0 12px; }
+  .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); gap: 20px; align-items: start; }
+  .empty { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* --- metric tiles --- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .tile { border: 1.5px solid var(--grid); border-radius: 12px; padding: 12px 14px; background: var(--page); }
+  .tile-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
+  .tile-value { font-size: 24px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .tiles.small { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tiles.small .tile { padding: 8px 10px; }
+  .tiles.small .tile-value { font-size: 17px; margin-top: 2px; }
+
+  /* --- person card --- */
+  .person-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .role-pill { flex: none; background: var(--badge-bg); color: var(--accent); border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  .block-label { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 18px 0 8px; }
+  .block-label:first-child { margin-top: 0; }
+  .block-label span { text-transform: none; letter-spacing: 0; font-weight: 600; }
+  .kpi-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .kpi-table th { text-align: right; font-size: 11px; font-weight: 600; color: var(--muted); padding: 0 0 6px 8px; }
+  .kpi-table th:first-child { text-align: left; padding-left: 0; }
+  .kpi-table td { padding: 4px 0 4px 8px; border-top: 1px solid var(--grid); }
+  .kpi-table td:first-child { padding-left: 0; font-weight: 600; }
+  .kpi-table td.num { width: 1%; }
+  .num-input {
+    width: 84px; font-family: inherit; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums;
+    border: 1px solid var(--grid); border-radius: 8px; padding: 7px 9px; background: var(--page); color: var(--text-primary);
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .num-input.goal { background: #fff; }
+  .kpi-hit { color: var(--good); }
+
+  .progress { height: 8px; background: var(--grid); border-radius: 999px; overflow: hidden; margin-bottom: 6px; }
+  .progress div { height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
+  .progress.complete div { background: var(--good); }
+  .check-item { display: flex; align-items: flex-start; gap: 12px; padding: 7px 0; font-size: 14px; cursor: pointer; overflow-wrap: anywhere; }
+  .check-item input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--accent); cursor: pointer; }
+  .check-item.done span { color: var(--muted); text-decoration: line-through; }
+  .link-btn { border: none; background: none; padding: 0; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .edit-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .edit-row input, .add-row input {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 13px; border: 1px solid var(--card-border);
+    border-radius: 8px; padding: 8px 10px; background: #fff;
+  }
+  .edit-row .delete-btn { border: none; background: none; color: var(--red); cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
+  .add-row { display: flex; gap: 8px; margin-top: 4px; }
+  .add-row button { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <img class="brand-mark-img" src="/logo.png" alt="Paidcoaching.com">
+    <div class="brand-context">
+      <div class="context-label">Sales Team</div>
+      <div class="context-title">Setter Checklist</div>
+    </div>
+  </header>
+
+  <div id="sync-banner" class="sync-banner" hidden></div>
+
+  <div class="controls">
+    <div class="control">
+      <span class="control-label">Day</span>
+      <button type="button" class="pill-btn step-btn" id="day-prev" aria-label="Previous day">&larr;</button>
+      <span class="pill-btn day-label" id="day-label"></span>
+      <button type="button" class="pill-btn step-btn" id="day-next" aria-label="Next day">&rarr;</button>
+      <button type="button" class="pill-btn" id="day-today">Today</button>
+    </div>
+    <div class="control">
+      <span class="control-label">Metrics</span>
+      <select class="pill-select" id="range-select" aria-label="Metrics date range">
+        <option value="day">Selected day</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="month">This month</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <span id="custom-range" hidden>
+        <input type="date" class="pill-date" id="range-from" aria-label="From"> –
+        <input type="date" class="pill-date" id="range-to" aria-label="To">
+      </span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>Team Metrics</h2>
+      <p id="team-range-label"></p>
+    </div>
+    <div class="card-body"><div class="tiles" id="team-tiles"></div></div>
+  </div>
+
+  <h2 class="section-title">Setters</h2>
+  <div class="people-grid" id="setters-grid"></div>
+  <h2 class="section-title">Closers</h2>
+  <div class="people-grid" id="closers-grid"></div>
+</div>
+
+<script>
+(() => {
+  // -------------------------------------------------------------------
+  // Data lives in the Sales Team Board's own row, under `setterChecklist`
+  // (see src/lib/sales-board-state.ts). Setters and closers come from the
+  // board's Add Team list. Shape:
+  //   goals:      { [name]: { [kpiId]: "40" } }       -- per person, persistent
+  //   checklists: { [name]: [{ id, label }] }          -- per person, persistent
+  //   days:       { [date]: { [name]: { kpis: { [kpiId]: "12" }, done: [itemId] } } }
+  // -------------------------------------------------------------------
+  const KPIS = [
+    { id: "dials", label: "Dials" },
+    { id: "pickups", label: "Connections (calls answered)" },
+    { id: "bookings", label: "Bookings & triages" },
+    { id: "units", label: "Units closed" },
+  ];
+  const DEFAULT_CHECKLIST = [
+    { id: "check-calendar", label: "Check calendar for the day" },
+    { id: "confirm-calls", label: "Call and confirm calls (update team in discord)" },
+    { id: "pre-call-material", label: "Send last pre-call material to those leads" },
+    { id: "fill-spots", label: "If any spots are on the calendar - fill them" },
+    { id: "fill-tomorrow", label: "Make sure tomorrow’s calendar is fully filled" },
+    { id: "track-kpis", label: "All KPI’s tracked for today" },
+  ];
+
+  const params = new URLSearchParams(location.search);
+  const urlCode = params.get("code");
+  const urlBoard = params.get("board");
+  const urlBoardCode = params.get("board_code");
+
+  let SETTERS = [], CLOSERS = [];
+  // The Sales Board's Daily Checklist list (if it was ever edited) seeds
+  // anyone who doesn't have their own list yet.
+  let sharedChecklist = DEFAULT_CHECKLIST;
+  let state = normalizeState(null);
+  let dataReady = false;
+  let selectedDay = todayISO();
+  const editing = new Set();
+
+  // ---------- helpers ----------
+  function todayISO() {
+    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  }
+  function addDays(iso, n) {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  }
+  function fmtDay(iso, opts) {
+    return new Date(iso + "T00:00:00").toLocaleDateString("en-US", opts || { weekday: "short", month: "short", day: "numeric" });
+  }
+  function esc(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function num(v) {
+    const n = parseFloat(String(v ?? "").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+  function makeId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+  function strMap(raw) {
+    const out = {};
+    if (raw && typeof raw === "object") Object.keys(raw).forEach(k => { if (typeof raw[k] === "string") out[k] = raw[k]; });
+    return out;
+  }
+  function itemList(raw) {
+    return Array.isArray(raw)
+      ? raw.filter(i => i && typeof i.id === "string" && typeof i.label === "string").map(i => ({ id: i.id, label: i.label }))
+      : null;
+  }
+
+  function normalizeState(raw) {
+    const out = { goals: {}, checklists: {}, days: {} };
+    if (!raw || typeof raw !== "object") return out;
+    Object.keys(raw.goals || {}).forEach(name => { out.goals[name] = strMap(raw.goals[name]); });
+    Object.keys(raw.checklists || {}).forEach(name => {
+      const list = itemList(raw.checklists[name]);
+      if (list) out.checklists[name] = list;
+    });
+    Object.keys(raw.days || {}).forEach(date => {
+      out.days[date] = {};
+      Object.keys(raw.days[date] || {}).forEach(name => {
+        const entry = raw.days[date][name] || {};
+        out.days[date][name] = {
+          kpis: strMap(entry.kpis),
+          done: Array.isArray(entry.done) ? entry.done.filter(id => typeof id === "string") : [],
+        };
+      });
+    });
+    return out;
+  }
+
+  function checklistFor(s, name) { return s.checklists[name] || sharedChecklist; }
+  function dayEntry(s, date, name) {
+    const day = s.days[date] || (s.days[date] = {});
+    return day[name] || (day[name] = { kpis: {}, done: [] });
+  }
+  // Editing someone's list for the first time copies the shared default
+  // into their own, so the change only affects them.
+  function ownChecklist(s, name) {
+    if (!s.checklists[name]) s.checklists[name] = sharedChecklist.map(i => ({ ...i }));
+    return s.checklists[name];
+  }
+
+  // ---------- server ----------
+  const syncBanner = document.getElementById("sync-banner");
+  function showSyncError(msg) { syncBanner.textContent = msg; syncBanner.hidden = false; }
+  function clearSyncError() { syncBanner.hidden = true; }
+
+  async function request(path, body) {
+    const res = body === undefined
+      ? await fetch(path)
+      : await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data;
+  }
+  // Same four access modes as the Sales Board app (see section 10 there).
+  function fetchBoard() {
+    if (urlCode) return request(`/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}`);
+    if (urlBoardCode) return request(`/api/sales-boards/by-code?code=${encodeURIComponent(urlBoardCode)}`);
+    if (urlBoard) return request(`/api/sales-boards/session?board=${encodeURIComponent(urlBoard)}`, {});
+    return request("/api/sales-board/session", {});
+  }
+  function savePath() {
+    if (urlCode) return `/api/sales-board/by-code?code=${encodeURIComponent(urlCode)}`;
+    if (urlBoardCode) return `/api/sales-boards/by-code?code=${encodeURIComponent(urlBoardCode)}`;
+    if (urlBoard) return `/api/sales-boards/save?board=${encodeURIComponent(urlBoard)}`;
+    return "/api/sales-board/save";
+  }
+  function absorb(data) {
+    SETTERS = Array.isArray(data.setters) ? data.setters : [];
+    CLOSERS = Array.isArray(data.closers) ? data.closers : [];
+    const shared = itemList(data.huddles && data.huddles.dailyChecklist && data.huddles.dailyChecklist.items);
+    sharedChecklist = shared || DEFAULT_CHECKLIST;
+  }
+
+  // Several reps edit at once, so changes are small operations replayed
+  // onto the latest server copy instead of saving this device's whole
+  // (possibly stale) state over everyone else's.
+  let ops = [];
+  let saveTimer = null;
+  let saving = false;
+  function change(op, { rerender = true } = {}) {
+    if (!dataReady) {
+      showSyncError("Your data hasn't finished loading — refresh the page before making changes, or this change won't be saved.");
+      return;
+    }
+    op(state);
+    ops.push(op);
+    if (rerender) renderAll();
+    else renderMetrics();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 600);
+  }
+  async function save() {
+    if (saving || !ops.length) return;
+    saving = true;
+    let retryMs = 0;
+    try {
+      const data = await fetchBoard();
+      absorb(data);
+      const latest = normalizeState(data.setterChecklist);
+      const sent = ops.slice();
+      sent.forEach(op => op(latest));
+      await request(savePath(), { setterChecklist: latest });
+      ops.splice(0, sent.length);
+      const merged = normalizeState(latest);
+      ops.forEach(op => op(merged));
+      state = merged;
+      clearSyncError();
+      if (!pageHasFocus()) renderAll();
+    } catch (e) {
+      console.error("Failed to save setter checklist:", e);
+      showSyncError("Couldn't save your last change. Keep this page open, it will retry automatically.");
+      retryMs = 5000;
+    } finally {
+      saving = false;
+      if (ops.length) { clearTimeout(saveTimer); saveTimer = setTimeout(save, retryMs || 600); }
+    }
+  }
+
+  function pageHasFocus() {
+    const el = document.activeElement;
+    return !!el && el.closest && !!el.closest(".people-grid") && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+  }
+
+  async function poll() {
+    if (saving || ops.length) return;
+    try {
+      const data = await fetchBoard();
+      if (ops.length) return;
+      absorb(data);
+      state = normalizeState(data.setterChecklist);
+      dataReady = true;
+      clearSyncError();
+      if (pageHasFocus()) renderMetrics();
+      else renderAll();
+    } catch (e) {
+      console.error("Failed to load setter checklist:", e);
+      if (!dataReady) showSyncError("Could not load your team's data. Refresh the page to try again.");
+    }
+  }
+
+  // ---------- metrics ----------
+  function rangeDates() {
+    const mode = document.getElementById("range-select").value;
+    const today = todayISO();
+    let from, to;
+    if (mode === "day") { from = to = selectedDay; }
+    else if (mode === "month") { from = today.slice(0, 8) + "01"; to = today; }
+    else if (mode === "custom") {
+      from = document.getElementById("range-from").value || selectedDay;
+      to = document.getElementById("range-to").value || from;
+      if (from > to) [from, to] = [to, from];
+    } else { to = today; from = addDays(today, -(Number(mode) - 1)); }
+    const dates = [];
+    for (let d = from; d <= to && dates.length < 400; d = addDays(d, 1)) dates.push(d);
+    return { from, to, dates };
+  }
+  function totalsFor(names, dates) {
+    const t = { dials: 0, pickups: 0, bookings: 0, units: 0 };
+    dates.forEach(date => names.forEach(name => {
+      const kpis = (state.days[date] && state.days[date][name] && state.days[date][name].kpis) || {};
+      KPIS.forEach(k => { t[k.id] += num(kpis[k.id]) || 0; });
+    }));
+    return t;
+  }
+  function pct(a, b) { return b ? Math.round((a / b) * 100) + "%" : "—"; }
+  function tilesHtml(t) {
+    return [
+      { label: "Dials", value: t.dials },
+      { label: "Pickups", value: t.pickups, sub: `${pct(t.pickups, t.dials)} of dials` },
+      { label: "Bookings & triages", value: t.bookings, sub: `${pct(t.bookings, t.pickups)} of pickups` },
+      { label: "Units closed", value: t.units, sub: `${pct(t.units, t.bookings)} of bookings` },
+    ].map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${x.value.toLocaleString()}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
+  }
+  function rangeLabel(r) {
+    return r.from === r.to ? fmtDay(r.from, { weekday: "long", month: "short", day: "numeric" }) : `${fmtDay(r.from)} – ${fmtDay(r.to)}`;
+  }
+  function allPeople() { return [...new Set([...SETTERS, ...CLOSERS])]; }
+
+  function renderMetrics() {
+    const r = rangeDates();
+    document.getElementById("team-range-label").textContent = `Everyone combined · ${rangeLabel(r)}`;
+    document.getElementById("team-tiles").innerHTML = tilesHtml(totalsFor(allPeople(), r.dates));
+    document.querySelectorAll("[data-person-tiles]").forEach(el => {
+      el.innerHTML = tilesHtml(totalsFor([el.dataset.personTiles], r.dates));
+    });
+    document.querySelectorAll("[data-person-range]").forEach(el => { el.textContent = rangeLabel(r); });
+  }
+
+  // ---------- cards ----------
+  function cardHtml(name, role) {
+    const entry = (state.days[selectedDay] && state.days[selectedDay][name]) || { kpis: {}, done: [] };
+    const goals = state.goals[name] || {};
+    const items = checklistFor(state, name);
+    const doneCount = items.filter(i => entry.done.includes(i.id)).length;
+    const progress = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+    const isEditing = editing.has(name);
+    const kpiRows = KPIS.map(k => {
+      const hit = num(entry.kpis[k.id]) !== null && num(goals[k.id]) !== null && num(entry.kpis[k.id]) >= num(goals[k.id]);
+      return `<tr>
+        <td class="${hit ? "kpi-hit" : ""}">${k.label}</td>
+        <td class="num"><input class="num-input" inputmode="decimal" data-kpi="${k.id}" value="${esc(entry.kpis[k.id] || "")}" aria-label="${esc(name)} ${k.label} executed"></td>
+        <td class="num"><input class="num-input goal" inputmode="decimal" data-goal="${k.id}" value="${esc(goals[k.id] || "")}" aria-label="${esc(name)} ${k.label} goal"></td>
+      </tr>`;
+    }).join("");
+    const checklist = isEditing
+      ? items.map(i => `<div class="edit-row"><input data-edit-item="${esc(i.id)}" value="${esc(i.label)}" aria-label="Checklist item"><button type="button" class="delete-btn" data-delete-item="${esc(i.id)}">Delete</button></div>`).join("")
+        + `<form class="add-row" data-add-form><input placeholder="Add a checklist item…" aria-label="New checklist item" required><button type="submit">Add</button></form>`
+      : (items.length ? items.map(i => {
+          const isDone = entry.done.includes(i.id);
+          return `<label class="check-item${isDone ? " done" : ""}"><input type="checkbox" data-item="${esc(i.id)}"${isDone ? " checked" : ""}><span>${esc(i.label)}</span></label>`;
+        }).join("") : `<p class="empty">No checklist items. Click Edit to add some.</p>`);
+    return `<div class="card" data-person="${esc(name)}">
+      <div class="card-header person-head"><h2>${esc(name)}</h2><span class="role-pill">${role}</span></div>
+      <div class="card-body">
+        <div class="block-label">Metrics <span data-person-range></span></div>
+        <div class="tiles small" data-person-tiles="${esc(name)}"></div>
+        <div class="block-label">KPIs · ${fmtDay(selectedDay)}</div>
+        <table class="kpi-table">
+          <thead><tr><th>KPI</th><th>Executed</th><th>Goal</th></tr></thead>
+          <tbody>${kpiRows}</tbody>
+        </table>
+        <div class="block-label">Checklist <span>${isEditing ? "" : `${doneCount}/${items.length} · ${progress}%`} <button type="button" class="link-btn" data-toggle-edit>${isEditing ? "Done" : "Edit"}</button></span></div>
+        ${isEditing ? "" : `<div class="progress${progress === 100 ? " complete" : ""}" role="progressbar" aria-label="${esc(name)} checklist progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><div style="width:${progress}%"></div></div>`}
+        ${checklist}
+      </div>
+    </div>`;
+  }
+
+  function wireCard(card) {
+    const name = card.dataset.person;
+    const date = selectedDay;
+    card.querySelectorAll("[data-kpi]").forEach(input => input.addEventListener("input", () => {
+      const id = input.dataset.kpi, value = input.value;
+      change(s => { dayEntry(s, date, name).kpis[id] = value; }, { rerender: false });
+    }));
+    card.querySelectorAll("[data-goal]").forEach(input => input.addEventListener("input", () => {
+      const id = input.dataset.goal, value = input.value;
+      change(s => { (s.goals[name] || (s.goals[name] = {}))[id] = value; }, { rerender: false });
+    }));
+    // Goal-hit highlight only refreshes once the field is left, so the
+    // card isn't rebuilt under the cursor.
+    card.querySelectorAll("[data-kpi], [data-goal]").forEach(input => input.addEventListener("change", () => renderAll()));
+    card.querySelectorAll("[data-item]").forEach(box => box.addEventListener("change", () => {
+      const id = box.dataset.item, checked = box.checked;
+      change(s => {
+        const e = dayEntry(s, date, name);
+        e.done = e.done.filter(x => x !== id);
+        if (checked) e.done.push(id);
+      });
+    }));
+    card.querySelector("[data-toggle-edit]").addEventListener("click", () => {
+      if (editing.has(name)) editing.delete(name); else editing.add(name);
+      renderAll();
+    });
+    card.querySelectorAll("[data-edit-item]").forEach(input => input.addEventListener("change", () => {
+      const id = input.dataset.editItem, label = input.value.trim();
+      if (!label) return renderAll();
+      change(s => { const item = ownChecklist(s, name).find(i => i.id === id); if (item) item.label = label; });
+    }));
+    card.querySelectorAll("[data-delete-item]").forEach(btn => {
+      btn.addEventListener("mousedown", e => e.preventDefault());
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.deleteItem;
+        change(s => { s.checklists[name] = ownChecklist(s, name).filter(i => i.id !== id); });
+      });
+    });
+    const form = card.querySelector("[data-add-form]");
+    if (form) form.addEventListener("submit", e => {
+      e.preventDefault();
+      const input = form.querySelector("input");
+      const label = input.value.trim();
+      if (!label) return;
+      const id = makeId();
+      change(s => { ownChecklist(s, name).push({ id, label }); });
+      const again = document.querySelector(`.card[data-person="${CSS.escape(name)}"] [data-add-form] input`);
+      if (again) again.focus();
+    });
+  }
+
+  function renderGrid(id, names, role) {
+    const grid = document.getElementById(id);
+    grid.innerHTML = names.length
+      ? names.map(n => cardHtml(n, role)).join("")
+      : `<p class="empty">No ${role.toLowerCase()}s yet. Add them in the Sales Team Board's Add Team tab.</p>`;
+    grid.querySelectorAll(".card[data-person]").forEach(wireCard);
+  }
+
+  function renderAll() {
+    const today = todayISO();
+    document.getElementById("day-label").textContent = selectedDay === today ? `Today · ${fmtDay(selectedDay)}` : fmtDay(selectedDay);
+    document.getElementById("day-next").disabled = selectedDay >= today;
+    renderGrid("setters-grid", SETTERS, "Setter");
+    renderGrid("closers-grid", CLOSERS, "Closer");
+    renderMetrics();
+  }
+
+  // ---------- controls ----------
+  function setDay(day) { selectedDay = day > todayISO() ? todayISO() : day; renderAll(); }
+  document.getElementById("day-prev").addEventListener("click", () => setDay(addDays(selectedDay, -1)));
+  document.getElementById("day-next").addEventListener("click", () => setDay(addDays(selectedDay, 1)));
+  document.getElementById("day-today").addEventListener("click", () => setDay(todayISO()));
+  document.getElementById("range-select").addEventListener("change", e => {
+    const custom = e.target.value === "custom";
+    document.getElementById("custom-range").hidden = !custom;
+    if (custom && !document.getElementById("range-from").value) {
+      document.getElementById("range-from").value = addDays(todayISO(), -6);
+      document.getElementById("range-to").value = todayISO();
+    }
+    renderMetrics();
+  });
+  ["range-from", "range-to"].forEach(id => document.getElementById(id).addEventListener("change", renderMetrics));
+
+  renderAll();
+  poll().then(() => setInterval(poll, 8000));
+  window.addEventListener("focus", poll);
+})();
+</script>
+</body>
+</html>

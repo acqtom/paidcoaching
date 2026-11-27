@@ -18,9 +18,10 @@ const LAST_BOARD_KEY = "student-hub:last-sales-board-id";
 // since this component is rendered from a Server Component page and
 // functions can't cross that server/client boundary (passing one
 // crashes the page with a server error rather than a helpful message).
-type Mode = "sales-board" | "tracking";
+type Mode = "sales-board" | "tracking" | "setter-checklist";
 
 function buildIframeSrc(mode: Mode, board: Board): string {
+  if (mode === "setter-checklist") return `/setter-checklist-app/index.html?board=${encodeURIComponent(board.id)}`;
   return mode === "sales-board"
     ? `/sales-board-app/index.html?board=${encodeURIComponent(board.id)}`
     : `/tracking-app/index.html?board=${encodeURIComponent(board.id)}&board_name=${encodeURIComponent(board.name)}`;

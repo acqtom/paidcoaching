@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/tracking-app",
   "/daily-kill-list-app",
   "/sales-board-app",
+  "/setter-checklist-app",
   "/team-access",
   "/api/content-hub/by-code",
   "/sales-access",

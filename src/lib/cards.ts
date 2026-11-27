@@ -84,6 +84,13 @@ export const CARDS: Card[] = [
     href: "/dashboard/sales-board",
   },
   {
+    slug: "setter-checklist",
+    title: "Setter Checklist",
+    description: "Daily KPIs, goals and checklists for every setter and closer.",
+    icon: ListChecks,
+    href: "/dashboard/setter-checklist",
+  },
+  {
     slug: "headline-generator",
     title: "Winning Headline Generator",
     description: "Generate scroll-stopping headlines for your content and offers.",

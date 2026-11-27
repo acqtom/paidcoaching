@@ -32,6 +32,7 @@ export async function POST() {
       huddles: data.huddles ?? null,
       repDailyNumbers: data.repDailyNumbers ?? null,
       objections: data.objections ?? null,
+      setterChecklist: data.setterChecklist ?? null,
       accessCode: row.access_code,
     });
   } catch (e) {
