@@ -70,7 +70,7 @@
   .tile-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
   .tile-value { font-size: 24px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .tile-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .tiles.small { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tiles.small { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
   .tiles.small .tile { padding: 8px 10px; }
   .tiles.small .tile-value { font-size: 17px; margin-top: 2px; }
 
@@ -152,7 +152,12 @@
       <h2>Team Metrics</h2>
       <p id="team-range-label"></p>
     </div>
-    <div class="card-body"><div class="tiles" id="team-tiles"></div></div>
+    <div class="card-body">
+      <div class="block-label">Setters</div>
+      <div class="tiles" id="team-setter-tiles"></div>
+      <div class="block-label">Closers</div>
+      <div class="tiles" id="team-closer-tiles"></div>
+    </div>
   </div>
 
   <h2 class="section-title">Setters</h2>
@@ -167,15 +172,35 @@
   // Data lives in the Sales Team Board's own row, under `setterChecklist`
   // (see src/lib/sales-board-state.ts). Setters and closers come from the
   // board's Add Team list. Shape:
-  //   goals:      { [name]: { [kpiId]: "40" } }       -- per person, persistent
-  //   checklists: { [name]: [{ id, label }] }          -- per person, persistent
-  //   days:       { [date]: { [name]: { kpis: { [kpiId]: "12" }, done: [itemId] } } }
+  //   goals:      { [key]: { [kpiId]: "40" } }       -- per person, persistent
+  //   checklists: { [key]: [{ id, label }] }          -- per person, persistent
+  //   days:       { [date]: { [key]: { kpis: { [kpiId]: "12" }, done: [itemId] } } }
+  // where key is the setter's name, or "closer:" + name for a closer, so
+  // someone on both lists keeps separate setter and closer cards.
   // -------------------------------------------------------------------
-  const KPIS = [
+  const SETTER_KPIS = [
     { id: "dials", label: "Dials" },
     { id: "pickups", label: "Connections (calls answered)" },
     { id: "bookings", label: "Bookings & triages" },
-    { id: "units", label: "Units closed" },
+  ];
+  const CLOSER_KPIS = [
+    { id: "callsTaken", label: "Calls taken" },
+    { id: "callsClosed", label: "Calls closed" },
+    { id: "ccCalls", label: "CC calls" },
+    { id: "followUps", label: "Follow-up calls booked" },
+    { id: "cash", label: "Cash collected today", currency: true },
+  ];
+  const CLOSER_CHECKLIST = [
+    { id: "check-calendar", label: "Check calendar for today" },
+    { id: "check-setters", label: "Check setters" },
+    { id: "check-call-status", label: "Check call status" },
+    { id: "confirm-calls", label: "Call and confirm calls" },
+    { id: "pre-call-value", label: "Send any last pre-call value needed (if setters didn't)" },
+    { id: "collect-cash", label: "Collect old cash" },
+    { id: "collect-cc", label: "Collect old CC due" },
+    { id: "book-follow-ups", label: "Book follow-ups for no closes / second calls" },
+    { id: "review-calls", label: "Review calls and identify bottlenecks" },
+    { id: "training", label: "Do training" },
   ];
   const DEFAULT_CHECKLIST = [
     { id: "check-calendar", label: "Check calendar for the day" },
@@ -195,6 +220,10 @@
   // The Sales Board's Daily Checklist list (if it was ever edited) seeds
   // anyone who doesn't have their own list yet.
   let sharedChecklist = DEFAULT_CHECKLIST;
+  const ROLES = {
+    setter: { label: "Setter", kpis: SETTER_KPIS, key: name => name, defaultChecklist: () => sharedChecklist },
+    closer: { label: "Closer", kpis: CLOSER_KPIS, key: name => "closer:" + name, defaultChecklist: () => CLOSER_CHECKLIST },
+  };
   let state = normalizeState(null);
   let dataReady = false;
   let selectedDay = todayISO();
@@ -254,16 +283,16 @@
     return out;
   }
 
-  function checklistFor(s, name) { return s.checklists[name] || sharedChecklist; }
-  function dayEntry(s, date, name) {
+  function checklistFor(s, key, role) { return s.checklists[key] || ROLES[role].defaultChecklist(); }
+  function dayEntry(s, date, key) {
     const day = s.days[date] || (s.days[date] = {});
-    return day[name] || (day[name] = { kpis: {}, done: [] });
+    return day[key] || (day[key] = { kpis: {}, done: [] });
   }
-  // Editing someone's list for the first time copies the shared default
+  // Editing someone's list for the first time copies their role's default
   // into their own, so the change only affects them.
-  function ownChecklist(s, name) {
-    if (!s.checklists[name]) s.checklists[name] = sharedChecklist.map(i => ({ ...i }));
-    return s.checklists[name];
+  function ownChecklist(s, key, role) {
+    if (!s.checklists[key]) s.checklists[key] = ROLES[role].defaultChecklist().map(i => ({ ...i }));
+    return s.checklists[key];
   }
 
   // ---------- server ----------
@@ -382,52 +411,64 @@
     for (let d = from; d <= to && dates.length < 400; d = addDays(d, 1)) dates.push(d);
     return { from, to, dates };
   }
-  function totalsFor(names, dates) {
-    const t = { dials: 0, pickups: 0, bookings: 0, units: 0 };
-    dates.forEach(date => names.forEach(name => {
-      const kpis = (state.days[date] && state.days[date][name] && state.days[date][name].kpis) || {};
-      KPIS.forEach(k => { t[k.id] += num(kpis[k.id]) || 0; });
+  function totalsFor(keys, role, dates) {
+    const t = {};
+    ROLES[role].kpis.forEach(k => { t[k.id] = 0; });
+    dates.forEach(date => keys.forEach(key => {
+      const kpis = (state.days[date] && state.days[date][key] && state.days[date][key].kpis) || {};
+      ROLES[role].kpis.forEach(k => { t[k.id] += num(kpis[k.id]) || 0; });
     }));
     return t;
   }
   function pct(a, b) { return b ? Math.round((a / b) * 100) + "%" : "—"; }
-  function tilesHtml(t) {
-    return [
-      { label: "Dials", value: t.dials },
-      { label: "Pickups", value: t.pickups, sub: `${pct(t.pickups, t.dials)} of dials` },
-      { label: "Bookings & triages", value: t.bookings, sub: `${pct(t.bookings, t.pickups)} of pickups` },
-      { label: "Units closed", value: t.units, sub: `${pct(t.units, t.bookings)} of bookings` },
-    ].map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${x.value.toLocaleString()}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
+  function fmtValue(v, currency) {
+    return currency ? "$" + v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v.toLocaleString();
+  }
+  function tilesHtml(t, role) {
+    const tiles = role === "setter"
+      ? [
+          { label: "Dials", value: t.dials },
+          { label: "Pickups", value: t.pickups, sub: `${pct(t.pickups, t.dials)} of dials` },
+          { label: "Bookings & triages", value: t.bookings, sub: `${pct(t.bookings, t.pickups)} of pickups` },
+        ]
+      : [
+          { label: "Calls taken", value: t.callsTaken },
+          { label: "Calls closed", value: t.callsClosed, sub: `${pct(t.callsClosed, t.callsTaken)} close rate` },
+          { label: "CC calls", value: t.ccCalls },
+          { label: "Follow-ups booked", value: t.followUps },
+          { label: "Cash collected", value: t.cash, currency: true },
+        ];
+    return tiles.map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${fmtValue(x.value, x.currency)}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
   }
   function rangeLabel(r) {
     return r.from === r.to ? fmtDay(r.from, { weekday: "long", month: "short", day: "numeric" }) : `${fmtDay(r.from)} – ${fmtDay(r.to)}`;
   }
-  function allPeople() { return [...new Set([...SETTERS, ...CLOSERS])]; }
-
   function renderMetrics() {
     const r = rangeDates();
     document.getElementById("team-range-label").textContent = `Everyone combined · ${rangeLabel(r)}`;
-    document.getElementById("team-tiles").innerHTML = tilesHtml(totalsFor(allPeople(), r.dates));
-    document.querySelectorAll("[data-person-tiles]").forEach(el => {
-      el.innerHTML = tilesHtml(totalsFor([el.dataset.personTiles], r.dates));
+    document.getElementById("team-setter-tiles").innerHTML = tilesHtml(totalsFor(SETTERS.map(ROLES.setter.key), "setter", r.dates), "setter");
+    document.getElementById("team-closer-tiles").innerHTML = tilesHtml(totalsFor(CLOSERS.map(ROLES.closer.key), "closer", r.dates), "closer");
+    document.querySelectorAll(".card[data-key]").forEach(card => {
+      card.querySelector("[data-person-tiles]").innerHTML = tilesHtml(totalsFor([card.dataset.key], card.dataset.role, r.dates), card.dataset.role);
     });
     document.querySelectorAll("[data-person-range]").forEach(el => { el.textContent = rangeLabel(r); });
   }
 
   // ---------- cards ----------
   function cardHtml(name, role) {
-    const entry = (state.days[selectedDay] && state.days[selectedDay][name]) || { kpis: {}, done: [] };
-    const goals = state.goals[name] || {};
-    const items = checklistFor(state, name);
+    const key = ROLES[role].key(name);
+    const entry = (state.days[selectedDay] && state.days[selectedDay][key]) || { kpis: {}, done: [] };
+    const goals = state.goals[key] || {};
+    const items = checklistFor(state, key, role);
     const doneCount = items.filter(i => entry.done.includes(i.id)).length;
     const progress = items.length ? Math.round((doneCount / items.length) * 100) : 0;
-    const isEditing = editing.has(name);
-    const kpiRows = KPIS.map(k => {
+    const isEditing = editing.has(key);
+    const kpiRows = ROLES[role].kpis.map(k => {
       const hit = num(entry.kpis[k.id]) !== null && num(goals[k.id]) !== null && num(entry.kpis[k.id]) >= num(goals[k.id]);
       return `<tr>
         <td class="${hit ? "kpi-hit" : ""}">${k.label}</td>
-        <td class="num"><input class="num-input" inputmode="decimal" data-kpi="${k.id}" value="${esc(entry.kpis[k.id] || "")}" aria-label="${esc(name)} ${k.label} executed"></td>
-        <td class="num"><input class="num-input goal" inputmode="decimal" data-goal="${k.id}" value="${esc(goals[k.id] || "")}" aria-label="${esc(name)} ${k.label} goal"></td>
+        <td class="num"><input class="num-input" inputmode="decimal" data-kpi="${k.id}" value="${esc(entry.kpis[k.id] || "")}" placeholder="${k.currency ? "$" : ""}" aria-label="${esc(name)} ${k.label} executed"></td>
+        <td class="num"><input class="num-input goal" inputmode="decimal" data-goal="${k.id}" value="${esc(goals[k.id] || "")}" placeholder="${k.currency ? "$" : ""}" aria-label="${esc(name)} ${k.label} goal"></td>
       </tr>`;
     }).join("");
     const checklist = isEditing
@@ -437,11 +478,11 @@
           const isDone = entry.done.includes(i.id);
           return `<label class="check-item${isDone ? " done" : ""}"><input type="checkbox" data-item="${esc(i.id)}"${isDone ? " checked" : ""}><span>${esc(i.label)}</span></label>`;
         }).join("") : `<p class="empty">No checklist items. Click Edit to add some.</p>`);
-    return `<div class="card" data-person="${esc(name)}">
-      <div class="card-header person-head"><h2>${esc(name)}</h2><span class="role-pill">${role}</span></div>
+    return `<div class="card" data-key="${esc(key)}" data-role="${role}">
+      <div class="card-header person-head"><h2>${esc(name)}</h2><span class="role-pill">${ROLES[role].label}</span></div>
       <div class="card-body">
         <div class="block-label">Metrics <span data-person-range></span></div>
-        <div class="tiles small" data-person-tiles="${esc(name)}"></div>
+        <div class="tiles small" data-person-tiles></div>
         <div class="block-label">KPIs · ${fmtDay(selectedDay)}</div>
         <table class="kpi-table">
           <thead><tr><th>KPI</th><th>Executed</th><th>Goal</th></tr></thead>
@@ -455,15 +496,15 @@
   }
 
   function wireCard(card) {
-    const name = card.dataset.person;
+    const key = card.dataset.key, role = card.dataset.role;
     const date = selectedDay;
     card.querySelectorAll("[data-kpi]").forEach(input => input.addEventListener("input", () => {
       const id = input.dataset.kpi, value = input.value;
-      change(s => { dayEntry(s, date, name).kpis[id] = value; }, { rerender: false });
+      change(s => { dayEntry(s, date, key).kpis[id] = value; }, { rerender: false });
     }));
     card.querySelectorAll("[data-goal]").forEach(input => input.addEventListener("input", () => {
       const id = input.dataset.goal, value = input.value;
-      change(s => { (s.goals[name] || (s.goals[name] = {}))[id] = value; }, { rerender: false });
+      change(s => { (s.goals[key] || (s.goals[key] = {}))[id] = value; }, { rerender: false });
     }));
     // Goal-hit highlight only refreshes once the field is left, so the
     // card isn't rebuilt under the cursor.
@@ -471,25 +512,25 @@
     card.querySelectorAll("[data-item]").forEach(box => box.addEventListener("change", () => {
       const id = box.dataset.item, checked = box.checked;
       change(s => {
-        const e = dayEntry(s, date, name);
+        const e = dayEntry(s, date, key);
         e.done = e.done.filter(x => x !== id);
         if (checked) e.done.push(id);
       });
     }));
     card.querySelector("[data-toggle-edit]").addEventListener("click", () => {
-      if (editing.has(name)) editing.delete(name); else editing.add(name);
+      if (editing.has(key)) editing.delete(key); else editing.add(key);
       renderAll();
     });
     card.querySelectorAll("[data-edit-item]").forEach(input => input.addEventListener("change", () => {
       const id = input.dataset.editItem, label = input.value.trim();
       if (!label) return renderAll();
-      change(s => { const item = ownChecklist(s, name).find(i => i.id === id); if (item) item.label = label; });
+      change(s => { const item = ownChecklist(s, key, role).find(i => i.id === id); if (item) item.label = label; });
     }));
     card.querySelectorAll("[data-delete-item]").forEach(btn => {
       btn.addEventListener("mousedown", e => e.preventDefault());
       btn.addEventListener("click", () => {
         const id = btn.dataset.deleteItem;
-        change(s => { s.checklists[name] = ownChecklist(s, name).filter(i => i.id !== id); });
+        change(s => { s.checklists[key] = ownChecklist(s, key, role).filter(i => i.id !== id); });
       });
     });
     const form = card.querySelector("[data-add-form]");
@@ -499,8 +540,8 @@
       const label = input.value.trim();
       if (!label) return;
       const id = makeId();
-      change(s => { ownChecklist(s, name).push({ id, label }); });
-      const again = document.querySelector(`.card[data-person="${CSS.escape(name)}"] [data-add-form] input`);
+      change(s => { ownChecklist(s, key, role).push({ id, label }); });
+      const again = document.querySelector(`.card[data-key="${CSS.escape(key)}"] [data-add-form] input`);
       if (again) again.focus();
     });
   }
@@ -509,16 +550,16 @@
     const grid = document.getElementById(id);
     grid.innerHTML = names.length
       ? names.map(n => cardHtml(n, role)).join("")
-      : `<p class="empty">No ${role.toLowerCase()}s yet. Add them in the Sales Team Board's Add Team tab.</p>`;
-    grid.querySelectorAll(".card[data-person]").forEach(wireCard);
+      : `<p class="empty">No ${role}s yet. Add them in the Sales Team Board's Add Team tab.</p>`;
+    grid.querySelectorAll(".card[data-key]").forEach(wireCard);
   }
 
   function renderAll() {
     const today = todayISO();
     document.getElementById("day-label").textContent = selectedDay === today ? `Today · ${fmtDay(selectedDay)}` : fmtDay(selectedDay);
     document.getElementById("day-next").disabled = selectedDay >= today;
-    renderGrid("setters-grid", SETTERS, "Setter");
-    renderGrid("closers-grid", CLOSERS, "Closer");
+    renderGrid("setters-grid", SETTERS, "setter");
+    renderGrid("closers-grid", CLOSERS, "closer");
     renderMetrics();
   }
 
