@@ -74,6 +74,22 @@
   .tiles.small .tile { padding: 8px 10px; }
   .tiles.small .tile-value { font-size: 17px; margin-top: 2px; }
 
+  /* --- leaderboard --- */
+  .lb-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lb-table th { font-size: 11px; font-weight: 600; color: var(--muted); text-align: right; padding: 0 10px 8px; white-space: nowrap; border-bottom: 1px solid var(--card-border); }
+  .lb-table th.left, .lb-table td.left { text-align: left; }
+  .lb-table th button { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+  .lb-table th button:hover, .lb-table th.sorted button { color: var(--accent); }
+  .lb-table th.sorted button::after { content: " ↓"; }
+  .lb-table td { padding: 10px; border-bottom: 1px solid var(--grid); text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-table tr:last-child td { border-bottom: none; }
+  .lb-table td.rank { width: 1%; font-weight: 700; color: var(--muted); padding-left: 0; }
+  .lb-table tr.first td { background: var(--badge-bg); }
+  .lb-table tr.first td.rank { color: var(--accent); }
+  .lb-table td.name { font-weight: 700; }
+  .lb-table td.lead { color: var(--accent); font-weight: 700; }
+  .lb-table td.lead::before { content: "★ "; }
+
   /* --- daily calendar --- */
   .cal-wrap { overflow-x: auto; }
   .cal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -172,6 +188,14 @@
         <input type="date" class="pill-date" id="range-to" aria-label="To">
       </span>
     </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+      <h2>Setter Leaderboard</h2>
+      <p id="lb-date"></p>
+    </div>
+    <div class="card-body cal-wrap"><table class="lb-table" id="lb-table"></table></div>
   </div>
 
   <div class="card">
@@ -514,7 +538,62 @@
   function rangeLabel(r) {
     return r.from === r.to ? fmtDay(r.from, { weekday: "long", month: "short", day: "numeric" }) : `${fmtDay(r.from)} – ${fmtDay(r.to)}`;
   }
+  // Setter Leaderboard, for the selected day. Dials, bookings and
+  // commission come from each setter's card; calls shown/closed from the
+  // Daily Calendar rows they're "Booked by" (any outcome but No-show
+  // counts as shown, Close as closed).
+  const LB_COLUMNS = [
+    { id: "dials", label: "Dials" },
+    { id: "bookings", label: "Bookings & triages" },
+    { id: "shown", label: "Calls shown" },
+    { id: "closed", label: "Calls closed" },
+    { id: "commission", label: "Commission", currency: true },
+  ];
+  let lbSort = "closed";
+  function leaderboardRows(date) {
+    const rows = SETTERS.map(name => {
+      const kpis = (state.days[date] && state.days[date][ROLES.setter.key(name)] && state.days[date][ROLES.setter.key(name)].kpis) || {};
+      return { name, dials: num(kpis.dials) || 0, bookings: num(kpis.bookings) || 0, commission: num(kpis.commission) || 0, shown: 0, closed: 0 };
+    });
+    Object.values(state.calendar[date] || {}).forEach(slot => {
+      const row = rows.find(r => r.name === slot.setter);
+      if (!row || !slot.outcome) return;
+      if (slot.outcome !== "no-show") row.shown += 1;
+      if (slot.outcome === "close") row.closed += 1;
+    });
+    // Ties fall back to closes, then commission, then the rest in column order.
+    const order = [lbSort, "closed", "commission", "shown", "bookings", "dials"];
+    return rows.sort((a, b) => {
+      for (const k of order) if (b[k] !== a[k]) return b[k] - a[k];
+      return a.name.localeCompare(b.name);
+    });
+  }
+  function renderLeaderboard() {
+    const date = selectedDay;
+    document.getElementById("lb-date").textContent = `${fmtDay(date, { weekday: "long", month: "short", day: "numeric" })} · ★ marks the leader in each column. Click a column to rank by it.`;
+    const table = document.getElementById("lb-table");
+    const rows = leaderboardRows(date);
+    if (!rows.length) {
+      table.innerHTML = `<tbody><tr><td class="left"><p class="empty">No setters yet. Add them in the Sales Team Board's Add Team tab.</p></td></tr></tbody>`;
+      return;
+    }
+    const best = {};
+    LB_COLUMNS.forEach(c => { best[c.id] = Math.max(...rows.map(r => r[c.id])); });
+    const leaderHasScore = LB_COLUMNS.some(c => rows[0][c.id] > 0);
+    table.innerHTML = `<thead><tr><th class="left">#</th><th class="left">Setter</th>${LB_COLUMNS.map(c =>
+      `<th class="${c.id === lbSort ? "sorted" : ""}" aria-sort="${c.id === lbSort ? "descending" : "none"}"><button type="button" data-sort="${c.id}">${c.label}</button></th>`).join("")}</tr></thead>
+      <tbody>${rows.map((r, i) => `<tr class="${i === 0 && leaderHasScore ? "first" : ""}">
+        <td class="rank">${i + 1}</td><td class="left name">${esc(r.name)}</td>
+        ${LB_COLUMNS.map(c => `<td class="${r[c.id] > 0 && r[c.id] === best[c.id] ? "lead" : ""}">${fmtValue(r[c.id], c.currency)}</td>`).join("")}
+      </tr>`).join("")}</tbody>`;
+    table.querySelectorAll("[data-sort]").forEach(btn => btn.addEventListener("click", () => {
+      lbSort = btn.dataset.sort;
+      renderLeaderboard();
+    }));
+  }
+
   function renderMetrics() {
+    renderLeaderboard();
     const r = rangeDates();
     document.getElementById("team-range-label").textContent = `Everyone combined · ${rangeLabel(r)}`;
     document.getElementById("team-setter-tiles").innerHTML = tilesHtml(totalsFor(SETTERS.map(ROLES.setter.key), "setter", r.dates), "setter");
