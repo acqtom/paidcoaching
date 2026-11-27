@@ -74,6 +74,33 @@
   .tiles.small .tile { padding: 8px 10px; }
   .tiles.small .tile-value { font-size: 17px; margin-top: 2px; }
 
+  /* --- daily calendar --- */
+  .cal-wrap { overflow-x: auto; }
+  .cal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cal-table th {
+    font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; vertical-align: bottom;
+    padding: 0 6px 8px; line-height: 1.25; min-width: 64px; border-bottom: 1px solid var(--card-border);
+  }
+  .cal-table th.left, .cal-table td.left { text-align: left; }
+  .cal-table td { padding: 6px; border-bottom: 1px solid var(--grid); text-align: center; vertical-align: middle; }
+  .cal-table tr:last-child td { border-bottom: none; }
+  .cal-table td.time { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; padding-left: 0; }
+  .cal-table .confirm { background: var(--badge-bg); }
+  .cal-table th.confirm { color: var(--accent); border-radius: 8px 8px 0 0; }
+  .cal-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .cal-table .confirm input[type="checkbox"] { width: 20px; height: 20px; }
+  .cal-field {
+    font-family: inherit; font-size: 13px; border: 1px solid var(--grid); border-radius: 8px;
+    padding: 7px 8px; background: var(--page); color: var(--text-primary); width: 100%;
+  }
+  .cal-field:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .cal-setter { min-width: 130px; }
+  .cal-prospect { min-width: 160px; }
+  .cal-outcome { min-width: 110px; font-weight: 600; }
+  .cal-outcome.close { background: #e6f3e8; color: var(--good); border-color: var(--good); }
+  .cal-outcome.no-show, .cal-outcome.dq { background: #fdecea; color: var(--red); border-color: var(--red); }
+  .cal-outcome.no-close { background: #fff4e0; color: #9a6400; border-color: #eda100; }
+
   /* --- person card --- */
   .person-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .role-pill { flex: none; background: var(--badge-bg); color: var(--accent); border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
@@ -160,6 +187,14 @@
     </div>
   </div>
 
+  <div class="card" style="margin-top:20px">
+    <div class="card-header">
+      <h2>Daily Calendar</h2>
+      <p id="cal-date"></p>
+    </div>
+    <div class="card-body cal-wrap"><table class="cal-table" id="cal-table"></table></div>
+  </div>
+
   <h2 class="section-title">Setters</h2>
   <div class="people-grid" id="setters-grid"></div>
   <h2 class="section-title">Closers</h2>
@@ -175,6 +210,7 @@
   //   goals:      { [key]: { [kpiId]: "40" } }       -- per person, persistent
   //   checklists: { [key]: [{ id, label }] }          -- per person, persistent
   //   days:       { [date]: { [key]: { kpis: { [kpiId]: "12" }, done: [itemId] } } }
+  //   calendar:   { [date]: { [hour]: { setter, prospect, checks: [checkId], outcome } } }
   // where key is the setter's name, or "closer:" + name for a closer, so
   // someone on both lists keeps separate setter and closer cards.
   // -------------------------------------------------------------------
@@ -204,6 +240,25 @@
     { id: "book-follow-ups", label: "Book follow-ups for no closes / second calls" },
     { id: "review-calls", label: "Review calls and identify bottlenecks" },
     { id: "training", label: "Do training" },
+  ];
+  // Daily Calendar: one row per hour, 4 AM to 5 PM Eastern.
+  const CAL_HOURS = Array.from({ length: 14 }, (_, i) => 4 + i);
+  const CAL_CHECKS = [
+    { id: "assets", label: "Assets sent on call" },
+    { id: "groupChat", label: "Group chat made" },
+    { id: "introLandon", label: "Introduced to Landon" },
+    { id: "landonResponded", label: "Landon responded" },
+    { id: "value1", label: "Value 1" },
+    { id: "value2", label: "Value 2" },
+    { id: "value3", label: "Value 3" },
+    { id: "landonConfirm", label: "Landon last confirmation" },
+    { id: "confirmed", label: "Prospect confirmed appointment", highlight: true },
+  ];
+  const CAL_OUTCOMES = [
+    { id: "no-show", label: "No-show" },
+    { id: "no-close", label: "No-close" },
+    { id: "dq", label: "DQ" },
+    { id: "close", label: "Close" },
   ];
   const DEFAULT_CHECKLIST = [
     { id: "check-calendar", label: "Check calendar for the day" },
@@ -266,7 +321,7 @@
   }
 
   function normalizeState(raw) {
-    const out = { goals: {}, checklists: {}, days: {} };
+    const out = { goals: {}, checklists: {}, days: {}, calendar: {} };
     if (!raw || typeof raw !== "object") return out;
     Object.keys(raw.goals || {}).forEach(name => { out.goals[name] = strMap(raw.goals[name]); });
     Object.keys(raw.checklists || {}).forEach(name => {
@@ -283,7 +338,24 @@
         };
       });
     });
+    Object.keys(raw.calendar || {}).forEach(date => {
+      out.calendar[date] = {};
+      Object.keys(raw.calendar[date] || {}).forEach(hour => {
+        const slot = raw.calendar[date][hour] || {};
+        out.calendar[date][hour] = {
+          setter: typeof slot.setter === "string" ? slot.setter : "",
+          prospect: typeof slot.prospect === "string" ? slot.prospect : "",
+          checks: Array.isArray(slot.checks) ? slot.checks.filter(id => typeof id === "string") : [],
+          outcome: typeof slot.outcome === "string" ? slot.outcome : "",
+        };
+      });
+    });
     return out;
+  }
+
+  function calSlot(s, date, hour) {
+    const day = s.calendar[date] || (s.calendar[date] = {});
+    return day[hour] || (day[hour] = { setter: "", prospect: "", checks: [], outcome: "" });
   }
 
   function checklistFor(s, key, role) { return s.checklists[key] || ROLES[role].defaultChecklist(); }
@@ -378,7 +450,7 @@
 
   function pageHasFocus() {
     const el = document.activeElement;
-    return !!el && el.closest && !!el.closest(".people-grid") && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+    return !!el && el.closest && !!el.closest(".people-grid, #cal-table") && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
   }
 
   async function poll() {
@@ -558,10 +630,65 @@
     grid.querySelectorAll(".card[data-key]").forEach(wireCard);
   }
 
+  function hourLabel(h) {
+    return `${h % 12 || 12}:00 ${h < 12 ? "AM" : "PM"}`;
+  }
+  function renderCalendar() {
+    const date = selectedDay;
+    document.getElementById("cal-date").textContent = `${fmtDay(date, { weekday: "long", month: "short", day: "numeric" })} · Eastern Time`;
+    const day = state.calendar[date] || {};
+    const head = `<thead><tr>
+      <th class="left">Time (ET)</th><th class="left">Booked by</th><th class="left">Prospect name</th>
+      ${CAL_CHECKS.map(c => `<th class="${c.highlight ? "confirm" : ""}">${c.label}</th>`).join("")}
+      <th class="left">Outcome</th>
+    </tr></thead>`;
+    const rows = CAL_HOURS.map(h => {
+      const slot = day[h] || { setter: "", prospect: "", checks: [], outcome: "" };
+      // Keep a setter who's since been removed from the team selectable.
+      const setters = slot.setter && !SETTERS.includes(slot.setter) ? [...SETTERS, slot.setter] : SETTERS;
+      return `<tr data-hour="${h}">
+        <td class="time left">${hourLabel(h)}</td>
+        <td class="left"><select class="cal-field cal-setter" data-cal="setter" aria-label="${hourLabel(h)} booked by">
+          <option value="">Select setter</option>
+          ${setters.map(n => `<option value="${esc(n)}"${n === slot.setter ? " selected" : ""}>${esc(n)}</option>`).join("")}
+        </select></td>
+        <td class="left"><input class="cal-field cal-prospect" data-cal="prospect" value="${esc(slot.prospect)}" placeholder="Prospect name" aria-label="${hourLabel(h)} prospect name"></td>
+        ${CAL_CHECKS.map(c => `<td class="${c.highlight ? "confirm" : ""}"><input type="checkbox" data-cal-check="${c.id}"${slot.checks.includes(c.id) ? " checked" : ""} aria-label="${hourLabel(h)} ${c.label}"></td>`).join("")}
+        <td class="left"><select class="cal-field cal-outcome ${esc(slot.outcome)}" data-cal="outcome" aria-label="${hourLabel(h)} outcome">
+          <option value="">—</option>
+          ${CAL_OUTCOMES.map(o => `<option value="${o.id}"${o.id === slot.outcome ? " selected" : ""}>${o.label}</option>`).join("")}
+        </select></td>
+      </tr>`;
+    }).join("");
+    const table = document.getElementById("cal-table");
+    table.innerHTML = head + `<tbody>${rows}</tbody>`;
+    table.querySelectorAll("tr[data-hour]").forEach(tr => {
+      const hour = tr.dataset.hour;
+      tr.querySelectorAll("[data-cal]").forEach(field => {
+        const key = field.dataset.cal;
+        const isText = field.tagName === "INPUT";
+        field.addEventListener(isText ? "input" : "change", () => {
+          const value = field.value;
+          change(s => { calSlot(s, date, hour)[key] = value; }, { rerender: false });
+          if (key === "outcome") field.className = `cal-field cal-outcome ${value}`;
+        });
+      });
+      tr.querySelectorAll("[data-cal-check]").forEach(box => box.addEventListener("change", () => {
+        const id = box.dataset.calCheck, checked = box.checked;
+        change(s => {
+          const slot = calSlot(s, date, hour);
+          slot.checks = slot.checks.filter(x => x !== id);
+          if (checked) slot.checks.push(id);
+        }, { rerender: false });
+      }));
+    });
+  }
+
   function renderAll() {
     const today = todayISO();
     document.getElementById("day-label").textContent = selectedDay === today ? `Today · ${fmtDay(selectedDay)}` : fmtDay(selectedDay);
     document.getElementById("day-next").disabled = selectedDay >= today;
+    renderCalendar();
     renderGrid("setters-grid", SETTERS, "setter");
     renderGrid("closers-grid", CLOSERS, "closer");
     renderMetrics();
