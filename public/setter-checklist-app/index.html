@@ -184,9 +184,10 @@
     { id: "bookings", label: "Bookings & triages" },
   ];
   const CLOSER_KPIS = [
-    { id: "callsTaken", label: "Calls taken" },
+    { id: "callsBooked", label: "Calls booked today" },
+    { id: "callsShown", label: "Calls shown" },
     { id: "callsClosed", label: "Calls closed" },
-    { id: "ccCalls", label: "CC calls" },
+    { id: "ccCalls", label: "CC calls booked" },
     { id: "followUps", label: "Follow-up calls booked" },
     { id: "cash", label: "Cash collected today", currency: true },
   ];
@@ -428,17 +429,18 @@
     const tiles = role === "setter"
       ? [
           { label: "Dials", value: t.dials },
-          { label: "Pickups", value: t.pickups, sub: `${pct(t.pickups, t.dials)} of dials` },
-          { label: "Bookings & triages", value: t.bookings, sub: `${pct(t.bookings, t.pickups)} of pickups` },
+          { label: "Pickup rate", text: pct(t.pickups, t.dials), sub: `${t.pickups.toLocaleString()} pickups` },
+          { label: "Booking rate", text: pct(t.bookings, t.pickups), sub: `${t.bookings.toLocaleString()} bookings & triages, of pickups` },
         ]
       : [
-          { label: "Calls taken", value: t.callsTaken },
-          { label: "Calls closed", value: t.callsClosed, sub: `${pct(t.callsClosed, t.callsTaken)} close rate` },
-          { label: "CC calls", value: t.ccCalls },
+          { label: "Calls booked", value: t.callsBooked },
+          { label: "Calls shown", value: t.callsShown, sub: `${pct(t.callsShown, t.callsBooked)} show rate` },
+          { label: "Calls closed", value: t.callsClosed, sub: `${pct(t.callsClosed, t.callsShown)} close rate (of shown)` },
+          { label: "CC calls booked", value: t.ccCalls },
           { label: "Follow-ups booked", value: t.followUps },
           { label: "Cash collected", value: t.cash, currency: true },
         ];
-    return tiles.map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${fmtValue(x.value, x.currency)}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
+    return tiles.map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${x.text !== undefined ? x.text : fmtValue(x.value, x.currency)}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
   }
   function rangeLabel(r) {
     return r.from === r.to ? fmtDay(r.from, { weekday: "long", month: "short", day: "numeric" }) : `${fmtDay(r.from)} – ${fmtDay(r.to)}`;
