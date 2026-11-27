@@ -75,25 +75,40 @@
   .tiles.small .tile-value { font-size: 17px; margin-top: 2px; }
 
   /* --- leaderboard --- */
+  .lb-card .card-header { background: linear-gradient(100deg, #3c3ee3, #7a3fc4); color: #fff; border-bottom-color: var(--card-border); }
+  .lb-card .card-header h2 { font-size: 18px; }
+  .lb-card .card-header p { color: rgba(255,255,255,.8); }
+  .lb-champ {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 12px 16px;
+    border-radius: 12px; background: #fff6d6; border: 1.5px solid #e8b923; font-size: 14px;
+  }
+  .lb-champ .crown { font-size: 26px; line-height: 1; }
+  .lb-champ b { font-size: 16px; }
+  .lb-champ span.sub { color: #8a6a00; font-size: 12px; }
   .lb { display: flex; flex-direction: column; }
-  .lb-row { display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grid); }
+  .lb-row { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--grid); }
   .lb-row:last-child { border-bottom: none; }
-  .lb-metric { font-weight: 700; font-size: 14px; }
+  .lb-metric { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
+  .lb-emoji {
+    flex: none; width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 19px; background: var(--metric-bg);
+  }
   .lb-ranks { display: flex; flex-wrap: wrap; gap: 8px; }
   .lb-chip {
-    display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--grid); background: var(--page);
-    border-radius: 999px; padding: 5px 12px 5px 5px; font-size: 13px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 7px; border: 2px solid var(--grid); background: var(--page);
+    border-radius: 999px; padding: 4px 13px 4px 6px; font-size: 13px; white-space: nowrap;
   }
+  .lb-medal { font-size: 20px; line-height: 1; }
   .lb-place {
     flex: none; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 700; background: #fff; border: 1.5px solid var(--grid); color: var(--text-secondary);
   }
-  .lb-chip .lb-name { font-weight: 600; }
-  .lb-chip .lb-val { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .lb-chip.p1 { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .lb-chip.p1 .lb-place { background: #fff; border-color: #fff; color: var(--accent); }
-  .lb-chip.p2 .lb-place, .lb-chip.p3 .lb-place { border-color: var(--accent); color: var(--accent); }
-  .lb-chip.zero { opacity: .55; }
+  .lb-chip .lb-name { font-weight: 700; }
+  .lb-chip .lb-val { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .lb-chip.gold { background: linear-gradient(135deg, #fff3c4, #ffd95a); border-color: #e8b923; box-shadow: 0 2px 0 #c99a0e; }
+  .lb-chip.silver { background: linear-gradient(135deg, #f4f5f8, #d9dde5); border-color: #aeb4c0; box-shadow: 0 2px 0 #959cab; }
+  .lb-chip.bronze { background: linear-gradient(135deg, #fde6d3, #f0b98a); border-color: #c98a55; box-shadow: 0 2px 0 #a86d3c; }
+  .lb-chip.zero { opacity: .5; box-shadow: none; }
   @media (max-width: 600px) { .lb-row { grid-template-columns: 1fr; gap: 8px; } }
 
   /* --- daily calendar --- */
@@ -196,12 +211,12 @@
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:20px">
+  <div class="card lb-card" style="margin-bottom:20px">
     <div class="card-header">
-      <h2>Setter Leaderboard</h2>
+      <h2>🏆 Setter Leaderboard</h2>
       <p id="lb-date"></p>
     </div>
-    <div class="card-body"><div class="lb" id="lb"></div></div>
+    <div class="card-body"><div id="lb-champ"></div><div class="lb" id="lb"></div></div>
   </div>
 
   <div class="card">
@@ -549,12 +564,13 @@
   // Daily Calendar rows they're "Booked by" (any outcome but No-show
   // counts as shown, Close as closed).
   const LB_COLUMNS = [
-    { id: "dials", label: "Dials" },
-    { id: "bookings", label: "Bookings & triages" },
-    { id: "shown", label: "Calls shown" },
-    { id: "closed", label: "Calls closed" },
-    { id: "commission", label: "Commission", currency: true },
+    { id: "dials", label: "Dials", emoji: "📞", bg: "#e3edfb" },
+    { id: "bookings", label: "Bookings & triages", emoji: "📅", bg: "#efe3fb" },
+    { id: "shown", label: "Calls shown", emoji: "👀", bg: "#e0f5ef" },
+    { id: "closed", label: "Calls closed", emoji: "🤝", bg: "#fde8e3" },
+    { id: "commission", label: "Commission", emoji: "💰", bg: "#fff3c4", currency: true },
   ];
+  const MEDALS = { 1: ["🥇", "gold", "1st"], 2: ["🥈", "silver", "2nd"], 3: ["🥉", "bronze", "3rd"] };
   function leaderboardTotals(date) {
     const rows = SETTERS.map(name => {
       const kpis = (state.days[date] && state.days[date][ROLES.setter.key(name)] && state.days[date][ROLES.setter.key(name)].kpis) || {};
@@ -576,21 +592,34 @@
     const el = document.getElementById("lb");
     const before = {};
     el.querySelectorAll(".lb-chip").forEach(chip => { before[chip.dataset.flip] = chip.getBoundingClientRect(); });
+    const champEl = document.getElementById("lb-champ");
     if (!SETTERS.length) {
+      champEl.innerHTML = "";
       el.innerHTML = `<p class="empty">No setters yet. Add them in the Sales Team Board's Add Team tab.</p>`;
       return;
     }
     const totals = leaderboardTotals(date);
+    const wins = {};
     el.innerHTML = LB_COLUMNS.map(c => {
       const ranked = [...totals].sort((a, b) => b[c.id] - a[c.id] || a.name.localeCompare(b.name));
       let place = 0;
       const chips = ranked.map((r, i) => {
         if (i === 0 || r[c.id] !== ranked[i - 1][c.id]) place = i + 1;
-        const cls = r[c.id] === 0 ? "zero" : place <= 3 ? `p${place}` : "";
-        return `<span class="lb-chip ${cls}" data-flip="${esc(c.id + "|" + r.name)}"><span class="lb-place">${place}</span><span class="lb-name">${esc(r.name)}</span><span class="lb-val">${fmtValue(r[c.id], c.currency)}</span></span>`;
+        // Nobody medals on a 0.
+        const medal = r[c.id] > 0 ? MEDALS[place] : null;
+        if (medal && place === 1) wins[r.name] = (wins[r.name] || 0) + 1;
+        const badge = medal
+          ? `<span class="lb-medal" role="img" aria-label="${medal[2]} place">${medal[0]}</span>`
+          : `<span class="lb-place" aria-label="Place ${place}">${place}</span>`;
+        return `<span class="lb-chip ${medal ? medal[1] : r[c.id] === 0 ? "zero" : ""}" data-flip="${esc(c.id + "|" + r.name)}">${badge}<span class="lb-name">${esc(r.name)}</span><span class="lb-val">${fmtValue(r[c.id], c.currency)}</span></span>`;
       }).join("");
-      return `<div class="lb-row"><div class="lb-metric">${c.label}</div><div class="lb-ranks" role="list" aria-label="${c.label} ranking">${chips}</div></div>`;
+      return `<div class="lb-row"><div class="lb-metric"><span class="lb-emoji" style="--metric-bg:${c.bg}" aria-hidden="true">${c.emoji}</span>${c.label}</div><div class="lb-ranks" role="list" aria-label="${c.label} ranking">${chips}</div></div>`;
     }).join("");
+    const top = Math.max(0, ...Object.values(wins));
+    const champs = Object.keys(wins).filter(n => wins[n] === top);
+    champEl.innerHTML = top
+      ? `<div class="lb-champ"><span class="crown" aria-hidden="true">👑</span><div><b>${champs.map(esc).join(" & ")}</b> ${champs.length > 1 ? "are" : "is"} today's champion<br><span class="sub">Leading ${top} of ${LB_COLUMNS.length} metrics</span></div></div>`
+      : `<div class="lb-champ"><span class="crown" aria-hidden="true">🎮</span><div><b>Game on.</b> No scores yet today. First to log numbers takes the lead.</div></div>`;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     el.querySelectorAll(".lb-chip").forEach(chip => {
       chip.setAttribute("role", "listitem");
