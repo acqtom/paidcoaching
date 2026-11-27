@@ -180,9 +180,9 @@
       <p id="team-range-label"></p>
     </div>
     <div class="card-body">
-      <div class="block-label">Setters</div>
+      <div class="block-label">Setters <span>From the setter cards below</span></div>
       <div class="tiles" id="team-setter-tiles"></div>
-      <div class="block-label">Closers</div>
+      <div class="block-label">Closers <span>From the closer cards below</span></div>
       <div class="tiles" id="team-closer-tiles"></div>
     </div>
   </div>
@@ -499,7 +499,10 @@
   function fmtValue(v, currency) {
     return currency ? "$" + v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v.toLocaleString();
   }
-  function tilesHtml(t, role) {
+  // Team Metrics leaves out the closers' CC calls and follow-ups boxes;
+  // each closer's own card still shows them.
+  const TEAM_HIDDEN_TILES = ["ccCalls", "followUps"];
+  function tilesHtml(t, role, team) {
     const tiles = role === "setter"
       ? [
           { label: "Dials", value: t.dials },
@@ -510,11 +513,11 @@
           { label: "Calls booked", value: t.callsBooked },
           { label: "Calls shown", value: t.callsShown, sub: `${pct(t.callsShown, t.callsBooked)} show rate` },
           { label: "Calls closed", value: t.callsClosed, sub: `${pct(t.callsClosed, t.callsShown)} close rate (of shown)` },
-          { label: "CC calls booked", value: t.ccCalls },
-          { label: "Follow-ups booked", value: t.followUps },
+          { id: "ccCalls", label: "CC calls booked", value: t.ccCalls },
+          { id: "followUps", label: "Follow-ups booked", value: t.followUps },
           { label: "Cash collected", value: t.cash, currency: true },
         ];
-    return tiles.map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${x.text !== undefined ? x.text : fmtValue(x.value, x.currency)}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
+    return tiles.filter(x => !(team && TEAM_HIDDEN_TILES.includes(x.id))).map(x => `<div class="tile"><div class="tile-label">${x.label}</div><div class="tile-value">${x.text !== undefined ? x.text : fmtValue(x.value, x.currency)}</div>${x.sub ? `<div class="tile-sub">${x.sub}</div>` : ""}</div>`).join("");
   }
   function rangeLabel(r) {
     return r.from === r.to ? fmtDay(r.from, { weekday: "long", month: "short", day: "numeric" }) : `${fmtDay(r.from)} – ${fmtDay(r.to)}`;
@@ -523,7 +526,7 @@
     const r = rangeDates();
     document.getElementById("team-range-label").textContent = `Everyone combined · ${rangeLabel(r)}`;
     document.getElementById("team-setter-tiles").innerHTML = tilesHtml(totalsFor(SETTERS.map(ROLES.setter.key), "setter", r.dates), "setter");
-    document.getElementById("team-closer-tiles").innerHTML = tilesHtml(totalsFor(CLOSERS.map(ROLES.closer.key), "closer", r.dates), "closer");
+    document.getElementById("team-closer-tiles").innerHTML = tilesHtml(totalsFor(CLOSERS.map(ROLES.closer.key), "closer", r.dates), "closer", true);
     document.querySelectorAll(".card[data-key]").forEach(card => {
       card.querySelector("[data-person-tiles]").innerHTML = tilesHtml(totalsFor([card.dataset.key], card.dataset.role, r.dates), card.dataset.role);
     });
